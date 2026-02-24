@@ -1,7 +1,6 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "Body/VTC_BodySegmentComponent.h"
-#include "Tracker/VTC_TrackerManager.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Materials/MaterialInstanceDynamic.h"
 

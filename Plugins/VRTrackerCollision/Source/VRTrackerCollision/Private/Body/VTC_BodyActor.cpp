@@ -1,7 +1,6 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "Body/VTC_BodyActor.h"
-#include "Tracker/VTC_TrackerManager.h"
 #include "Kismet/GameplayStatics.h"
 
 AVTC_BodyActor::AVTC_BodyActor()
@@ -177,15 +176,16 @@ void AVTC_BodyActor::UpdateSphereRadii()
 
 void AVTC_BodyActor::FindTrackerManager()
 {
+	// IVTC_TrackerInterface 구현체 탐색 (TrackerPawn 또는 TrackerManager 둘 다 포함)
 	TArray<AActor*> Found;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AVTC_TrackerManager::StaticClass(), Found);
+	UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UVTC_TrackerInterface::StaticClass(), Found);
 	if (Found.Num() > 0)
 	{
-		TrackerManager = Cast<AVTC_TrackerManager>(Found[0]);
-		UE_LOG(LogTemp, Log, TEXT("[VTC] BodyActor found TrackerManager automatically."));
+		TrackerManager = TScriptInterface<IVTC_TrackerInterface>(Found[0]);
+		UE_LOG(LogTemp, Log, TEXT("[VTC] BodyActor found tracker source: %s"), *Found[0]->GetName());
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[VTC] BodyActor: TrackerManager not found in level!"));
+		UE_LOG(LogTemp, Warning, TEXT("[VTC] BodyActor: No tracker source (TrackerPawn or TrackerManager) found in level!"));
 	}
 }

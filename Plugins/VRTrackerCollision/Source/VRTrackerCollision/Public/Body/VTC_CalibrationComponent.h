@@ -6,9 +6,8 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Tracker/VTC_TrackerTypes.h"
+#include "Tracker/VTC_TrackerInterface.h"
 #include "VTC_CalibrationComponent.generated.h"
-
-class AVTC_TrackerManager;
 
 // 캘리브레이션 완료 시 브로드캐스트
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnVKCCalibrationComplete, const FVTCBodyMeasurements&, Measurements);
@@ -28,8 +27,9 @@ public:
 
 	// ─── 설정 ────────────────────────────────────────────────────────────────
 
+	// Tracker 공급자 — TrackerPawn 또는 TrackerManager 모두 할당 가능
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Calibration")
-	TObjectPtr<AVTC_TrackerManager> TrackerManager;
+	TScriptInterface<IVTC_TrackerInterface> TrackerManager;
 
 	// T-Pose를 유지해야 하는 시간 (초)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Calibration",
@@ -51,23 +51,18 @@ public:
 
 	// ─── 함수 ────────────────────────────────────────────────────────────────
 
-	// 캘리브레이션 시작 (T-Pose 유지 요청)
 	UFUNCTION(BlueprintCallable, Category = "VKC|Calibration")
 	void StartCalibration();
 
-	// 캘리브레이션 취소
 	UFUNCTION(BlueprintCallable, Category = "VKC|Calibration")
 	void CancelCalibration();
 
-	// 즉시 스냅샷 캘리브레이션 (카운트다운 없이)
 	UFUNCTION(BlueprintCallable, Category = "VKC|Calibration")
 	bool SnapCalibrate();
 
-	// 마지막 측정값 반환
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Calibration")
 	FVTCBodyMeasurements GetBodyMeasurements() const { return LastMeasurements; }
 
-	// 수동으로 측정값 설정 (UI 입력용)
 	UFUNCTION(BlueprintCallable, Category = "VKC|Calibration")
 	void SetManualMeasurements(float HipToLKnee, float HipToRKnee,
 		float LKneeToLFoot, float RKneeToRFoot, float SubjectHeight);
@@ -87,9 +82,6 @@ private:
 	float CalibrationTimer = 0.0f;
 	int32 LastBroadcastedSecond = -1;
 
-	// Tracker 위치에서 신체 측정값 계산
 	FVTCBodyMeasurements CalculateMeasurements() const;
-
-	// 측정값 유효성 검사
 	bool ValidateMeasurements(const FVTCBodyMeasurements& Measurements, FString& OutReason) const;
 };

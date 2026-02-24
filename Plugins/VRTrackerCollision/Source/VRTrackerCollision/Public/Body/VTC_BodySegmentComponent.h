@@ -7,9 +7,8 @@
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Tracker/VTC_TrackerTypes.h"
+#include "Tracker/VTC_TrackerInterface.h"
 #include "VTC_BodySegmentComponent.generated.h"
-
-class AVTC_TrackerManager;
 
 UCLASS(BlueprintType, Blueprintable, meta=(BlueprintSpawnableComponent, DisplayName="VKC Body Segment"))
 class VRTRACKERCOLLISION_API UVTC_BodySegmentComponent : public USceneComponent
@@ -37,9 +36,9 @@ public:
 		meta=(ClampMin=1.0f, ClampMax=30.0f, UIMin=1.0f, UIMax=30.0f))
 	float SegmentRadius = 8.0f;
 
-	// TrackerManager 참조 (레벨에 배치된 TrackerManager Actor 연결)
+	// Tracker 공급자 — TrackerPawn 또는 TrackerManager 모두 할당 가능
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Body Segment")
-	TObjectPtr<AVTC_TrackerManager> TrackerManager;
+	TScriptInterface<IVTC_TrackerInterface> TrackerManager;
 
 	// ─── 읽기 전용 정보 ───────────────────────────────────────────────────────
 
@@ -53,28 +52,22 @@ public:
 
 	// ─── 함수 ────────────────────────────────────────────────────────────────
 
-	// 현재 세그먼트가 유효하게 추적 중인지
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Body Segment")
 	bool IsSegmentActive() const;
 
-	// 시작/끝 Tracker 위치 반환
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Body Segment")
 	FVector GetStartLocation() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Body Segment")
 	FVector GetEndLocation() const;
 
-	// 세그먼트 색상 변경 (경고 단계에 따라)
 	UFUNCTION(BlueprintCallable, Category = "VKC|Body Segment")
 	void SetSegmentColor(FLinearColor Color);
 
 private:
-	// 기본 Cylinder 높이 (UE5 기본 Cylinder Mesh 높이 = 100cm)
 	static constexpr float BaseCylinderHeight = 100.0f;
 
-	// 매 Tick: Tracker 위치 기반으로 Cylinder 위치/방향/스케일 갱신
 	void UpdateSegmentTransform();
 
-	// Dynamic Material Instance (색상 변경용)
 	TObjectPtr<UMaterialInstanceDynamic> DynamicMaterial;
 };

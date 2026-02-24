@@ -6,9 +6,9 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Tracker/VTC_TrackerTypes.h"
+#include "Tracker/VTC_TrackerInterface.h"
 #include "VTC_SessionManager.generated.h"
 
-class AVTC_TrackerManager;
 class AVTC_BodyActor;
 class UVTC_CollisionDetector;
 class UVTC_WarningFeedback;
@@ -35,8 +35,10 @@ protected:
 public:
 	// ─── 시스템 컴포넌트 참조 ─────────────────────────────────────────────────
 
+	// Tracker 공급자 — TrackerPawn 또는 TrackerManager 모두 할당 가능
+	// 비워두면 BeginPlay에서 자동 탐색 (TrackerPawn 우선, 없으면 TrackerManager)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Session|Systems")
-	TObjectPtr<AVTC_TrackerManager> TrackerManager;
+	TScriptInterface<IVTC_TrackerInterface> TrackerManager;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Session|Systems")
 	TObjectPtr<AVTC_BodyActor> BodyActor;
@@ -63,23 +65,18 @@ public:
 
 	// ─── 세션 제어 함수 ──────────────────────────────────────────────────────
 
-	// 세션 시작 → 자동 캘리브레이션 → 테스트
 	UFUNCTION(BlueprintCallable, Category = "VKC|Session")
 	void StartSession(const FString& SubjectID);
 
-	// 즉시 테스트 시작 (캘리브레이션 건너뜀)
 	UFUNCTION(BlueprintCallable, Category = "VKC|Session")
 	void StartTestingDirectly();
 
-	// 세션 중단
 	UFUNCTION(BlueprintCallable, Category = "VKC|Session")
 	void StopSession();
 
-	// 재캘리브레이션 (테스트 중 호출 가능)
 	UFUNCTION(BlueprintCallable, Category = "VKC|Session")
 	void RequestReCalibration();
 
-	// CSV 내보내기 + Idle 복귀
 	UFUNCTION(BlueprintCallable, Category = "VKC|Session")
 	FString ExportAndEnd();
 
@@ -111,14 +108,12 @@ private:
 
 	float LogTimer = 0.0f;
 
-	// 캘리브레이션 완료 시 자동으로 Testing으로 전환
 	UFUNCTION()
 	void OnCalibrationComplete(const FVTCBodyMeasurements& Measurements);
 
 	UFUNCTION()
 	void OnCalibrationFailed(const FString& Reason);
 
-	// 경고 레벨 변경 → WarningFeedback으로 전달
 	UFUNCTION()
 	void OnWarningLevelChanged(EVTCTrackerRole BodyPart, FString PartName, EVTCWarningLevel Level);
 };

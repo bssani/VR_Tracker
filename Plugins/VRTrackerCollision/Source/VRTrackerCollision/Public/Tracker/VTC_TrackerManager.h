@@ -7,6 +7,7 @@
 #include "GameFramework/Actor.h"
 #include "MotionControllerComponent.h"
 #include "Tracker/VTC_TrackerTypes.h"
+#include "Tracker/VTC_TrackerInterface.h"
 #include "VTC_TrackerManager.generated.h"
 
 // Tracker 데이터 갱신 시 브로드캐스트
@@ -16,7 +17,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnVKCTrackerUpdated, const FVTCTrac
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnVKCAllTrackersUpdated);
 
 UCLASS(BlueprintType, Blueprintable, meta=(DisplayName="VKC Tracker Manager"))
-class VRTRACKERCOLLISION_API AVTC_TrackerManager : public AActor
+class VRTRACKERCOLLISION_API AVTC_TrackerManager : public AActor, public IVTC_TrackerInterface
 {
 	GENERATED_BODY()
 
@@ -70,25 +71,29 @@ public:
 
 	// ─── Tracker 데이터 조회 ─────────────────────────────────────────────────
 
-	// 특정 역할의 Tracker 데이터 반환
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	FVTCTrackerData GetTrackerData(EVTCTrackerRole TrackerRole) const;
+	// ─── IVTC_TrackerInterface 구현 ─────────────────────────────────────────
 
-	// 특정 역할의 Tracker가 현재 추적 중인지
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	bool IsTrackerActive(EVTCTrackerRole TrackerRole) const;
+	virtual FVTCTrackerData GetTrackerData(EVTCTrackerRole TrackerRole) const override;
+	virtual FVector         GetTrackerLocation(EVTCTrackerRole TrackerRole) const override;
+	virtual bool            IsTrackerActive(EVTCTrackerRole TrackerRole) const override;
+	virtual bool            AreAllTrackersActive() const override;
+	virtual int32           GetActiveTrackerCount() const override;
 
-	// 특정 역할의 Tracker 월드 위치 반환 (빠른 접근용)
+	// Blueprint 접근용 (UFUNCTION은 virtual override에 직접 못 씀)
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	FVector GetTrackerLocation(EVTCTrackerRole TrackerRole) const;
+	FVTCTrackerData BP_GetTrackerData(EVTCTrackerRole TrackerRole) const { return GetTrackerData(TrackerRole); }
 
-	// 모든 Tracker가 활성 상태인지 확인
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	bool AreAllTrackersActive() const;
+	bool BP_IsTrackerActive(EVTCTrackerRole TrackerRole) const { return IsTrackerActive(TrackerRole); }
 
-	// 활성 Tracker 수 반환
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	int32 GetActiveTrackerCount() const;
+	FVector BP_GetTrackerLocation(EVTCTrackerRole TrackerRole) const { return GetTrackerLocation(TrackerRole); }
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
+	bool BP_AreAllTrackersActive() const { return AreAllTrackersActive(); }
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
+	int32 BP_GetActiveTrackerCount() const { return GetActiveTrackerCount(); }
 
 	// ─── Delegates ──────────────────────────────────────────────────────────
 

@@ -1,7 +1,6 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "Body/VTC_CalibrationComponent.h"
-#include "Tracker/VTC_TrackerManager.h"
 #include "Camera/CameraComponent.h"
 #include "Kismet/GameplayStatics.h"
 
