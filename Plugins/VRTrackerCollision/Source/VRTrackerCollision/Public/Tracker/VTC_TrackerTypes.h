@@ -109,6 +109,15 @@ struct VRTRACKERCOLLISION_API FVTCBodyMeasurements
 };
 
 // ─────────────────────────────────────────────
+//  Tracker 업데이트 델리게이트
+// ─────────────────────────────────────────────
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVKCTrackerUpdated,
+	EVTCTrackerRole, Role,
+	const FVTCTrackerData&, TrackerData);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnVKCAllTrackersUpdated);
+
+// ─────────────────────────────────────────────
 //  거리 측정 결과 (단일 Knee ↔ Reference Point)
 // ─────────────────────────────────────────────
 USTRUCT(BlueprintType)
