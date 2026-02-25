@@ -122,9 +122,9 @@ int32 AVTC_TrackerPawn::GetActiveTrackerCount() const
 
 // ─── Blueprint 래퍼 ──────────────────────────────────────────────────────────
 
-FVTCTrackerData AVTC_TrackerPawn::BP_GetTrackerData(EVTCTrackerRole Role) const     { return GetTrackerData(Role); }
-FVector         AVTC_TrackerPawn::BP_GetTrackerLocation(EVTCTrackerRole Role) const { return GetTrackerLocation(Role); }
-bool            AVTC_TrackerPawn::BP_IsTrackerActive(EVTCTrackerRole Role) const    { return IsTrackerActive(Role); }
+FVTCTrackerData AVTC_TrackerPawn::BP_GetTrackerData(EVTCTrackerRole TrackerRole) const     { return GetTrackerData(TrackerRole); }
+FVector         AVTC_TrackerPawn::BP_GetTrackerLocation(EVTCTrackerRole TrackerRole) const { return GetTrackerLocation(TrackerRole); }
+bool            AVTC_TrackerPawn::BP_IsTrackerActive(EVTCTrackerRole TrackerRole) const    { return IsTrackerActive(TrackerRole); }
 bool            AVTC_TrackerPawn::BP_AreAllTrackersActive() const                   { return AreAllTrackersActive(); }
 int32           AVTC_TrackerPawn::BP_GetActiveTrackerCount() const                  { return GetActiveTrackerCount(); }
 

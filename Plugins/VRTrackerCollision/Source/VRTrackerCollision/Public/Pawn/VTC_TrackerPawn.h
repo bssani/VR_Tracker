@@ -103,13 +103,13 @@ public:
 
 	// Blueprint에서도 호출 가능하도록 래핑 (인터페이스 메서드는 BP에서 직접 호출 불가)
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	FVTCTrackerData BP_GetTrackerData(EVTCTrackerRole Role) const;
+	FVTCTrackerData BP_GetTrackerData(EVTCTrackerRole TrackerRole) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	FVector BP_GetTrackerLocation(EVTCTrackerRole Role) const;
+	FVector BP_GetTrackerLocation(EVTCTrackerRole TrackerRole) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	bool BP_IsTrackerActive(EVTCTrackerRole Role) const;
+	bool BP_IsTrackerActive(EVTCTrackerRole TrackerRole) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
 	bool BP_AreAllTrackersActive() const;
