@@ -14,14 +14,14 @@
 
 
 // Sphere가 차량 메시와 Overlap 시작 시 브로드캐스트
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVKCBodyOverlapBegin,
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVTCBodyOverlapBegin,
                                              EVTCTrackerRole, BodyPart,
                                              AActor *, VehicleMesh);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVKCBodyOverlapEnd,
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVTCBodyOverlapEnd,
                                              EVTCTrackerRole, BodyPart,
                                              AActor *, VehicleMesh);
 
-UCLASS(BlueprintType, Blueprintable, meta = (DisplayName = "VKC Body Actor"))
+UCLASS(BlueprintType, Blueprintable, meta = (DisplayName = "VTC Body Actor"))
 class VRTRACKERCOLLISION_API AVTC_BodyActor : public AActor {
   GENERATED_BODY()
 
@@ -35,87 +35,87 @@ protected:
 public:
   // ─── 세그먼트 (시각화 + 길이 측정) ──────────────────────────────────────
 
-  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VKC|Body|Segments")
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Segments")
   TObjectPtr<UVTC_BodySegmentComponent> Seg_Hip_LeftKnee;
 
-  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VKC|Body|Segments")
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Segments")
   TObjectPtr<UVTC_BodySegmentComponent> Seg_Hip_RightKnee;
 
-  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VKC|Body|Segments")
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Segments")
   TObjectPtr<UVTC_BodySegmentComponent> Seg_LeftKnee_LeftFoot;
 
-  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VKC|Body|Segments")
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Segments")
   TObjectPtr<UVTC_BodySegmentComponent> Seg_RightKnee_RightFoot;
 
   // ─── 충돌 감지용 Sphere (5개) ─────────────────────────────────────────────
 
-  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VKC|Body|Collision")
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Collision")
   TObjectPtr<USphereComponent> Sphere_Hip;
 
-  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VKC|Body|Collision")
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Collision")
   TObjectPtr<USphereComponent> Sphere_LeftKnee;
 
-  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VKC|Body|Collision")
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Collision")
   TObjectPtr<USphereComponent> Sphere_RightKnee;
 
-  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VKC|Body|Collision")
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Collision")
   TObjectPtr<USphereComponent> Sphere_LeftFoot;
 
-  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VKC|Body|Collision")
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Collision")
   TObjectPtr<USphereComponent> Sphere_RightFoot;
 
   // ─── 캘리브레이션 ─────────────────────────────────────────────────────────
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly,
-            Category = "VKC|Body|Calibration")
+            Category = "VTC|Body|Calibration")
   TObjectPtr<UVTC_CalibrationComponent> CalibrationComp;
 
   // ─── 설정 ────────────────────────────────────────────────────────────────
 
   // Tracker 공급자 — 비워두면 BeginPlay에서 TrackerPawn을 자동 탐색
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Body")
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Body")
   TScriptInterface<IVTC_TrackerInterface> TrackerSource;
 
   // 신체 부위별 Sphere 반경 (cm)
   UPROPERTY(EditAnywhere, BlueprintReadWrite,
-            Category = "VKC|Body|Collision Radius",
+            Category = "VTC|Body|Collision Radius",
             meta = (ClampMin = 3.0f, ClampMax = 20.0f))
   float HipSphereRadius = 12.0f;
 
   UPROPERTY(EditAnywhere, BlueprintReadWrite,
-            Category = "VKC|Body|Collision Radius",
+            Category = "VTC|Body|Collision Radius",
             meta = (ClampMin = 3.0f, ClampMax = 20.0f))
   float KneeSphereRadius = 8.0f;
 
   UPROPERTY(EditAnywhere, BlueprintReadWrite,
-            Category = "VKC|Body|Collision Radius",
+            Category = "VTC|Body|Collision Radius",
             meta = (ClampMin = 3.0f, ClampMax = 20.0f))
   float FootSphereRadius = 10.0f;
 
   // ─── 함수 ────────────────────────────────────────────────────────────────
 
-  UFUNCTION(BlueprintCallable, Category = "VKC|Body")
+  UFUNCTION(BlueprintCallable, Category = "VTC|Body")
   void StartCalibration();
 
-  UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Body")
+  UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Body")
   FVTCBodyMeasurements GetBodyMeasurements() const;
 
-  UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Body")
+  UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Body")
   FVector GetBodyPartLocation(EVTCTrackerRole TrackerRole) const;
 
-  UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Body")
+  UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Body")
   float GetSphereRadiusForRole(EVTCTrackerRole TrackerRole) const;
 
-  UFUNCTION(BlueprintCallable, Category = "VKC|Body")
+  UFUNCTION(BlueprintCallable, Category = "VTC|Body")
   void UpdateSphereRadii();
 
   // ─── Delegates ──────────────────────────────────────────────────────────
 
-  UPROPERTY(BlueprintAssignable, Category = "VKC|Body|Events")
-  FOnVKCBodyOverlapBegin OnBodyOverlapBegin;
+  UPROPERTY(BlueprintAssignable, Category = "VTC|Body|Events")
+  FOnVTCBodyOverlapBegin OnBodyOverlapBegin;
 
-  UPROPERTY(BlueprintAssignable, Category = "VKC|Body|Events")
-  FOnVKCBodyOverlapEnd OnBodyOverlapEnd;
+  UPROPERTY(BlueprintAssignable, Category = "VTC|Body|Events")
+  FOnVTCBodyOverlapEnd OnBodyOverlapEnd;
 
 private:
   void SyncSpherePositions();

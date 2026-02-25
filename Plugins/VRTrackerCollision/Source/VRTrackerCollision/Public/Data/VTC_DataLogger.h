@@ -6,6 +6,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Tracker/VTC_TrackerTypes.h"
+#include "Tracker/VTC_TrackerInterface.h"
 #include "VTC_DataLogger.generated.h"
 
 // CSV 행 구조 (메모리 내 버퍼)
@@ -37,9 +38,9 @@ struct FVTCLogRow
 	UPROPERTY(BlueprintReadOnly) FString CollisionPartName;
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnVKCLogExported, const FString&, FilePath);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnVTCLogExported, const FString&, FilePath);
 
-UCLASS(BlueprintType, Blueprintable, meta=(BlueprintSpawnableComponent, DisplayName="VKC Data Logger"))
+UCLASS(BlueprintType, Blueprintable, meta=(BlueprintSpawnableComponent, DisplayName="VTC Data Logger"))
 class VRTRACKERCOLLISION_API UVTC_DataLogger : public UActorComponent
 {
 	GENERATED_BODY()
@@ -49,53 +50,57 @@ public:
 
 	// ─── 설정 ────────────────────────────────────────────────────────────────
 
-	// 로그 저장 폴더 (기본: 프로젝트 Saved/VKCLogs/)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Logger")
+	// 로그 저장 폴더 (기본: 프로젝트 Saved/VTCLogs/)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Logger")
 	FString LogDirectory = TEXT("");
 
+	// Tracker 위치 공급자 (SessionManager가 BeginPlay에서 연결)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Logger")
+	TScriptInterface<IVTC_TrackerInterface> TrackerSource;
+
 	// 로그 샘플링 레이트 (Hz)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Logger",
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Logger",
 		meta=(ClampMin=1.0f, ClampMax=30.0f))
 	float LogHz = 10.0f;
 
 	// ─── 상태 ────────────────────────────────────────────────────────────────
 
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VKC|Logger")
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VTC|Logger")
 	bool bIsLogging = false;
 
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VKC|Logger")
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VTC|Logger")
 	FString CurrentSubjectID;
 
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VKC|Logger")
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VTC|Logger")
 	int32 LoggedRowCount = 0;
 
 	// ─── 함수 ────────────────────────────────────────────────────────────────
 
-	UFUNCTION(BlueprintCallable, Category = "VKC|Logger")
+	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
 	void StartLogging(const FString& SubjectID);
 
-	UFUNCTION(BlueprintCallable, Category = "VKC|Logger")
+	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
 	void StopLogging();
 
 	// CSV 파일로 내보내기 → 파일 경로 반환
-	UFUNCTION(BlueprintCallable, Category = "VKC|Logger")
+	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
 	FString ExportToCSV();
 
 	// 충돌 이벤트 즉시 기록
-	UFUNCTION(BlueprintCallable, Category = "VKC|Logger")
+	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
 	void LogCollisionEvent(const FVTCCollisionEvent& Event);
 
 	// 거리 결과 + 신체 데이터를 한 행으로 기록 (매 LogHz마다 SessionManager가 호출)
-	UFUNCTION(BlueprintCallable, Category = "VKC|Logger")
+	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
 	void LogFrame(const FVTCBodyMeasurements& Measurements,
 		const TArray<FVTCDistanceResult>& DistanceResults);
 
 	// 로그 버퍼 초기화
-	UFUNCTION(BlueprintCallable, Category = "VKC|Logger")
+	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
 	void ClearLog();
 
-	UPROPERTY(BlueprintAssignable, Category = "VKC|Logger|Events")
-	FOnVKCLogExported OnLogExported;
+	UPROPERTY(BlueprintAssignable, Category = "VTC|Logger|Events")
+	FOnVTCLogExported OnLogExported;
 
 private:
 	TArray<FVTCLogRow> LogBuffer;

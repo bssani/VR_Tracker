@@ -214,4 +214,10 @@ void AVTC_SessionManager::AutoFindSystems()
 	if (!TrackerSource) { UE_LOG(LogTemp, Warning, TEXT("[VTC] No TrackerPawn found in level!")); }
 	if (BodyActor) { UE_LOG(LogTemp, Log, TEXT("[VTC] Found BodyActor.")); }
 	else { UE_LOG(LogTemp, Warning, TEXT("[VTC] BodyActor NOT found in level!")); }
+
+	// DataLogger에 TrackerSource 연결 (신체 위치 로깅에 필요)
+	if (DataLogger && TrackerSource)
+	{
+		DataLogger->TrackerSource = TrackerSource;
+	}
 }

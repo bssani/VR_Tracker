@@ -88,15 +88,31 @@ void UVTC_WarningFeedback::SpawnCollisionFX(FVector Location)
 
 void UVTC_WarningFeedback::SetPostProcessVignetteColor(FLinearColor Color, float Intensity)
 {
-	// PostProcessVolume이 설정된 경우 Material Parameter를 통해 Vignette 색상 제어
-	// 실제 구현은 PostProcessVolume의 Material에 따라 다름
-	// 여기서는 UE5 PostProcessVolume의 기본 VignetteIntensity를 활용
 	if (!PostProcessVolume) return;
 
-	if (APostProcessVolume* PPV = Cast<APostProcessVolume>(PostProcessVolume))
+	APostProcessVolume* PPV = Cast<APostProcessVolume>(PostProcessVolume);
+	if (!PPV) return;
+
+	// ── Vignette 강도 ─────────────────────────────────────────────────────
+	PPV->Settings.bOverride_VignetteIntensity = true;
+	PPV->Settings.VignetteIntensity = Intensity;
+
+	// ── 씬 색상 틴트 (Color 파라미터를 실제로 화면에 반영) ────────────────
+	// Intensity 0이면 화이트(원래 색), 1에 가까울수록 경고 색상으로 블렌드.
+	// 강도를 0.3 계수로 낮춰 너무 강한 색상 왜곡을 방지한다.
+	PPV->Settings.bOverride_SceneColorTint = true;
+	if (Intensity > 0.f)
 	{
-		PPV->Settings.bOverride_VignetteIntensity = true;
-		PPV->Settings.VignetteIntensity = Intensity;
+		const float TintStrength = Intensity * 0.3f;
+		PPV->Settings.SceneColorTint = FLinearColor(
+			1.f + (Color.R - 1.f) * TintStrength,   // R: 1 → Color.R 방향으로 이동
+			1.f + (Color.G - 1.f) * TintStrength,   // G
+			1.f + (Color.B - 1.f) * TintStrength,   // B
+			1.f);
+	}
+	else
+	{
+		PPV->Settings.SceneColorTint = FLinearColor::White;  // 원래 색으로 복원
 	}
 }
 

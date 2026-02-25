@@ -50,17 +50,17 @@ struct VRTRACKERCOLLISION_API FVTCTrackerData
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Tracker")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Tracker")
 	EVTCTrackerRole Role = EVTCTrackerRole::Waist;
 
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Tracker")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Tracker")
 	FVector WorldLocation = FVector::ZeroVector;
 
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Tracker")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Tracker")
 	FRotator WorldRotation = FRotator::ZeroRotator;
 
 	// Tracker가 SteamVR에 연결되어 추적 중인지 여부
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Tracker")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Tracker")
 	bool bIsTracked = false;
 };
 
@@ -73,31 +73,31 @@ struct VRTRACKERCOLLISION_API FVTCBodyMeasurements
 	GENERATED_BODY()
 
 	// 세그먼트 길이 (cm)
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Body")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
 	float Hip_LeftKnee = 0.0f;
 
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Body")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
 	float Hip_RightKnee = 0.0f;
 
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Body")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
 	float LeftKnee_LeftFoot = 0.0f;
 
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Body")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
 	float RightKnee_RightFoot = 0.0f;
 
 	// 다리 전체 길이 (cm)
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Body")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
 	float TotalLeftLeg = 0.0f;
 
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Body")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
 	float TotalRightLeg = 0.0f;
 
 	// HMD 높이 기반 키 추정 (cm) — 바닥 기준
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Body")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
 	float EstimatedHeight = 0.0f;
 
 	// 캘리브레이션 완료 여부
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Body")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
 	bool bIsCalibrated = false;
 
 	// 유효성 검사 (모든 세그먼트가 최소 10cm 이상인지)
@@ -111,11 +111,11 @@ struct VRTRACKERCOLLISION_API FVTCBodyMeasurements
 // ─────────────────────────────────────────────
 //  Tracker 업데이트 델리게이트
 // ─────────────────────────────────────────────
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVKCTrackerUpdated,
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVTCTrackerUpdated,
 	EVTCTrackerRole, InTrackerRole,
 	const FVTCTrackerData&, InTrackerData);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnVKCAllTrackersUpdated);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnVTCAllTrackersUpdated);
 
 // ─────────────────────────────────────────────
 //  거리 측정 결과 (단일 Knee ↔ Reference Point)
@@ -126,27 +126,27 @@ struct VRTRACKERCOLLISION_API FVTCDistanceResult
 	GENERATED_BODY()
 
 	// 측정한 신체 부위
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Measurement")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Measurement")
 	EVTCTrackerRole BodyPart = EVTCTrackerRole::LeftKnee;
 
 	// 기준이 된 차량 부품 이름
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Measurement")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Measurement")
 	FString VehiclePartName = TEXT("");
 
 	// 직선 거리 (cm)
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Measurement")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Measurement")
 	float Distance = 0.0f;
 
 	// 현재 경고 단계
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Measurement")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Measurement")
 	EVTCWarningLevel WarningLevel = EVTCWarningLevel::Safe;
 
 	// 신체 부위 위치
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Measurement")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Measurement")
 	FVector BodyPartLocation = FVector::ZeroVector;
 
 	// 차량 기준점 위치
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Measurement")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Measurement")
 	FVector ReferencePointLocation = FVector::ZeroVector;
 };
 
@@ -158,21 +158,21 @@ struct VRTRACKERCOLLISION_API FVTCCollisionEvent
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Collision")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Collision")
 	FString Timestamp = TEXT("");
 
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Collision")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Collision")
 	EVTCTrackerRole BodyPart = EVTCTrackerRole::LeftKnee;
 
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Collision")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Collision")
 	FString VehiclePartName = TEXT("");
 
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Collision")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Collision")
 	FVector CollisionLocation = FVector::ZeroVector;
 
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Collision")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Collision")
 	float Distance = 0.0f;
 
-	UPROPERTY(BlueprintReadOnly, Category = "VKC|Collision")
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Collision")
 	EVTCWarningLevel Level = EVTCWarningLevel::Collision;
 };

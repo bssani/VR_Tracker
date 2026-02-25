@@ -2,6 +2,7 @@
 
 #include "Data/VTC_DataLogger.h"
 #include "Misc/FileHelper.h"
+#include "Tracker/VTC_TrackerInterface.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformFileManager.h"
 
@@ -44,6 +45,33 @@ void UVTC_DataLogger::LogFrame(const FVTCBodyMeasurements& Measurements,
 	Row.DistanceResults = DistanceResults;
 	Row.bCollisionOccurred = false;
 
+	// ── 신체 부위 월드 위치 기록 ──────────────────────────────────────────
+	// TrackerSource가 있으면 직접 조회 (가장 정확).
+	// 없으면 DistanceResults에 포함된 BodyPartLocation으로 폴백.
+	if (TrackerSource)
+	{
+		Row.HipLocation       = TrackerSource->GetTrackerLocation(EVTCTrackerRole::Waist);
+		Row.LeftKneeLocation  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftKnee);
+		Row.RightKneeLocation = TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightKnee);
+		Row.LeftFootLocation  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftFoot);
+		Row.RightFootLocation = TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightFoot);
+	}
+	else
+	{
+		// DistanceResults에서 각 신체 부위 위치 추출 (중복 제거, 첫 번째 값 사용)
+		for (const FVTCDistanceResult& D : DistanceResults)
+		{
+			switch (D.BodyPart)
+			{
+			case EVTCTrackerRole::Waist:     if (Row.HipLocation.IsZero())       Row.HipLocation       = D.BodyPartLocation; break;
+			case EVTCTrackerRole::LeftKnee:  if (Row.LeftKneeLocation.IsZero())  Row.LeftKneeLocation  = D.BodyPartLocation; break;
+			case EVTCTrackerRole::RightKnee: if (Row.RightKneeLocation.IsZero()) Row.RightKneeLocation = D.BodyPartLocation; break;
+			case EVTCTrackerRole::LeftFoot:  if (Row.LeftFootLocation.IsZero())  Row.LeftFootLocation  = D.BodyPartLocation; break;
+			case EVTCTrackerRole::RightFoot: if (Row.RightFootLocation.IsZero()) Row.RightFootLocation = D.BodyPartLocation; break;
+			}
+		}
+	}
+
 	// 현재 프레임에 충돌이 있으면 표시
 	for (const FVTCDistanceResult& D : DistanceResults)
 	{
@@ -79,7 +107,7 @@ FString UVTC_DataLogger::ExportToCSV()
 	// 저장 경로 결정
 	if (LogDirectory.IsEmpty())
 	{
-		LogDirectory = FPaths::ProjectSavedDir() / TEXT("VKCLogs");
+		LogDirectory = FPaths::ProjectSavedDir() / TEXT("VTCLogs");
 	}
 
 	// 디렉토리 생성

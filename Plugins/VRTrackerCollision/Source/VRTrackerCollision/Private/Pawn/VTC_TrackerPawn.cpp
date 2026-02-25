@@ -2,6 +2,7 @@
 
 #include "Pawn/VTC_TrackerPawn.h"
 #include "DrawDebugHelpers.h"
+#include "HeadMountedDisplayFunctionLibrary.h"
 
 AVTC_TrackerPawn::AVTC_TrackerPawn()
 {
@@ -12,7 +13,7 @@ AVTC_TrackerPawn::AVTC_TrackerPawn()
 	// VROrigin을 별도로 두는 이유:
 	//   SteamVR/OpenXR은 바닥을 트래킹 원점으로 사용한다.
 	//   Pawn 루트는 고정하고 VROrigin 이하만 HMD 추적 공간을 공유하게 하면
-	//   나중에 좌표계 오프셋 조정이 VROrigin 위치 변경만으로 해결된다.
+	//   좌표계 오프셋 조정이 VROrigin 위치 변경만으로 해결된다.
 
 	USceneComponent* Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	SetRootComponent(Root);
@@ -24,8 +25,6 @@ AVTC_TrackerPawn::AVTC_TrackerPawn()
 	Camera->SetupAttachment(VROrigin);
 
 	// ── 5개 MotionController: 모두 VROrigin 하위에 붙임 ────────────────────
-	// VROrigin 기준 좌표계를 공유하므로 HMD와 Tracker 위치가 항상 동일 공간에서 계산됨
-
 	MC_Waist = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("MC_Waist"));
 	MC_Waist->SetupAttachment(VROrigin);
 
@@ -40,6 +39,10 @@ AVTC_TrackerPawn::AVTC_TrackerPawn()
 
 	MC_RightFoot = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("MC_RightFoot"));
 	MC_RightFoot->SetupAttachment(VROrigin);
+
+	// ── 시뮬레이션 이동 컴포넌트 ──────────────────────────────────────────────
+	// VR 장비 없이 데스크탑에서 테스트할 때 WASD로 Pawn을 이동시킨다.
+	SimMovement = CreateDefaultSubobject<UFloatingPawnMovement>(TEXT("SimMovement"));
 
 	// TrackerDataMap 초기화
 	for (uint8 i = 0; i <= static_cast<uint8>(EVTCTrackerRole::RightFoot); ++i)
@@ -61,19 +64,93 @@ void AVTC_TrackerPawn::BeginPlay()
 	if (MC_LeftFoot)  MC_LeftFoot->MotionSource  = MotionSource_LeftFoot;
 	if (MC_RightFoot) MC_RightFoot->MotionSource = MotionSource_RightFoot;
 
-	UE_LOG(LogTemp, Log, TEXT("[VTC] TrackerPawn initialized. MotionSources: %s / %s / %s / %s / %s"),
+	// ── HMD 자동 감지 → 시뮬레이션 모드 전환 ──────────────────────────────
+	// bAutoDetectSimulation = true이면 HMD가 미연결 시 자동으로 시뮬레이션 모드.
+	// VR Preview 실행 시에는 HMD가 감지되어 자동으로 VR 모드로 유지된다.
+	if (bAutoDetectSimulation && !DetectHMDPresence())
+	{
+		bSimulationMode = true;
+		UE_LOG(LogTemp, Log, TEXT("[VTC] HMD not detected -> Simulation mode ON (Desktop Test)"));
+	}
+
+	// ── 시뮬레이션 이동 컴포넌트 속도 설정 ────────────────────────────────
+	if (SimMovement)
+	{
+		SimMovement->MaxSpeed    = SimMoveSpeed;
+		SimMovement->Acceleration = 2000.f;
+		SimMovement->Deceleration = 4000.f;
+	}
+
+	UE_LOG(LogTemp, Log,
+		TEXT("[VTC] TrackerPawn initialized. MotionSources: %s / %s / %s / %s / %s | SimMode: %s"),
 		*MotionSource_Waist.ToString(),
 		*MotionSource_LeftKnee.ToString(),
 		*MotionSource_RightKnee.ToString(),
 		*MotionSource_LeftFoot.ToString(),
-		*MotionSource_RightFoot.ToString());
+		*MotionSource_RightFoot.ToString(),
+		bSimulationMode ? TEXT("ON") : TEXT("OFF"));
 }
 
 void AVTC_TrackerPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	UpdateAllTrackers();
+
+	if (bSimulationMode)
+	{
+		// ── 마우스 Yaw → Actor 전체 회전 (전방 방향 변경) ──────────────────
+		if (!FMath::IsNearlyZero(SimYawInput))
+		{
+			AddActorLocalRotation(FRotator(0.f, SimYawInput, 0.f));
+			SimYawInput = 0.f;
+		}
+
+		// ── 마우스 Pitch → Camera만 회전 (-80~80도 클램프) ─────────────────
+		// Actor 전체를 회전시키면 착석 자세 오프셋이 틀어지므로 카메라만 회전
+		if (!FMath::IsNearlyZero(SimPitchInput) && Camera)
+		{
+			const float CurPitch = Camera->GetRelativeRotation().Pitch;
+			const float NewPitch = FMath::Clamp(CurPitch + SimPitchInput, -80.f, 80.f);
+			Camera->SetRelativeRotation(FRotator(NewPitch, 0.f, 0.f));
+			SimPitchInput = 0.f;
+		}
+
+		UpdateSimulatedTrackers();
+	}
+	else
+	{
+		// VR 모드: 실제 Tracker에서 데이터 읽기
+		UpdateAllTrackers();
+	}
+
 	OnAllTrackersUpdated.Broadcast();
+}
+
+void AVTC_TrackerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	// ── 이동 (표준 UE 입력 축 이름) ─────────────────────────────────────────
+	// Project Settings -> Input 에서 기본 제공되는 축 이름 사용
+	PlayerInputComponent->BindAxis("MoveForward", this, &AVTC_TrackerPawn::SimMoveForward);
+	PlayerInputComponent->BindAxis("MoveRight",   this, &AVTC_TrackerPawn::SimMoveRight);
+	PlayerInputComponent->BindAxis("Turn",        this, &AVTC_TrackerPawn::SimLookYaw);
+	PlayerInputComponent->BindAxis("LookUp",      this, &AVTC_TrackerPawn::SimLookPitch);
+
+	// ── 무릎 위치 조절 (Project Settings -> Input에 아래 축 이름 추가 필요) ─
+	// VTC_SimLKneeX : NumPad4 (-1.0) / NumPad6 (+1.0)  <- 왼무릎 좌우
+	// VTC_SimLKneeY : NumPad2 (-1.0) / NumPad8 (+1.0)  <- 왼무릎 전후
+	// VTC_SimRKneeX : ArrowLeft (-1.0) / ArrowRight (+1.0)
+	// VTC_SimRKneeY : ArrowDown (-1.0) / ArrowUp (+1.0)
+	PlayerInputComponent->BindAxis("VTC_SimLKneeX", this, &AVTC_TrackerPawn::SimAdjustLeftKneeX);
+	PlayerInputComponent->BindAxis("VTC_SimLKneeY", this, &AVTC_TrackerPawn::SimAdjustLeftKneeY);
+	PlayerInputComponent->BindAxis("VTC_SimRKneeX", this, &AVTC_TrackerPawn::SimAdjustRightKneeX);
+	PlayerInputComponent->BindAxis("VTC_SimRKneeY", this, &AVTC_TrackerPawn::SimAdjustRightKneeY);
+
+	// ── 제어 액션 ─────────────────────────────────────────────────────────────
+	// VTC_ToggleSim  : F8  (시뮬레이션/VR 모드 전환)
+	// VTC_ResetKnees : R   (무릎 오프셋 초기화)
+	PlayerInputComponent->BindAction("VTC_ToggleSim",  IE_Pressed, this, &AVTC_TrackerPawn::ToggleSimulationMode);
+	PlayerInputComponent->BindAction("VTC_ResetKnees", IE_Pressed, this, &AVTC_TrackerPawn::ResetKneeAdjustments);
 }
 
 // ─── IVTC_TrackerInterface 구현 ─────────────────────────────────────────────
@@ -125,10 +202,10 @@ int32 AVTC_TrackerPawn::GetActiveTrackerCount() const
 FVTCTrackerData AVTC_TrackerPawn::BP_GetTrackerData(EVTCTrackerRole TrackerRole) const     { return GetTrackerData(TrackerRole); }
 FVector         AVTC_TrackerPawn::BP_GetTrackerLocation(EVTCTrackerRole TrackerRole) const { return GetTrackerLocation(TrackerRole); }
 bool            AVTC_TrackerPawn::BP_IsTrackerActive(EVTCTrackerRole TrackerRole) const    { return IsTrackerActive(TrackerRole); }
-bool            AVTC_TrackerPawn::BP_AreAllTrackersActive() const                   { return AreAllTrackersActive(); }
-int32           AVTC_TrackerPawn::BP_GetActiveTrackerCount() const                  { return GetActiveTrackerCount(); }
+bool            AVTC_TrackerPawn::BP_AreAllTrackersActive() const                          { return AreAllTrackersActive(); }
+int32           AVTC_TrackerPawn::BP_GetActiveTrackerCount() const                         { return GetActiveTrackerCount(); }
 
-// ─── Private ─────────────────────────────────────────────────────────────────
+// ─── VR 실제 Tracker 갱신 (Private) ─────────────────────────────────────────
 
 void AVTC_TrackerPawn::UpdateAllTrackers()
 {
@@ -144,7 +221,7 @@ void AVTC_TrackerPawn::UpdateTracker(EVTCTrackerRole TrackerRole, UMotionControl
 	if (!MC) return;
 
 	FVTCTrackerData& Data = TrackerDataMap.FindOrAdd(TrackerRole);
-	Data.Role      = TrackerRole;
+	Data.Role       = TrackerRole;
 	Data.bIsTracked = MC->IsTracked();
 
 	if (Data.bIsTracked)
@@ -181,4 +258,144 @@ UMotionControllerComponent* AVTC_TrackerPawn::GetMotionController(EVTCTrackerRol
 	case EVTCTrackerRole::RightFoot: return MC_RightFoot;
 	default: return nullptr;
 	}
+}
+
+// ─── 시뮬레이션 모드 — 제어 함수 ───────────────────────────────────────────
+
+void AVTC_TrackerPawn::ToggleSimulationMode()
+{
+	bSimulationMode = !bSimulationMode;
+	UE_LOG(LogTemp, Log, TEXT("[VTC] Simulation mode: %s"),
+		bSimulationMode ? TEXT("ON") : TEXT("OFF"));
+}
+
+void AVTC_TrackerPawn::ResetKneeAdjustments()
+{
+	SimKneeAdjust_Left  = FVector::ZeroVector;
+	SimKneeAdjust_Right = FVector::ZeroVector;
+	UE_LOG(LogTemp, Log, TEXT("[VTC] Knee adjustments reset."));
+}
+
+// ─── 시뮬레이션 모드 — Tracker 위치 계산 ────────────────────────────────────
+
+void AVTC_TrackerPawn::UpdateSimulatedTrackers()
+{
+	// 카메라(머리) 위치를 기준으로 각 신체 부위 오프셋을 월드 좌표로 변환.
+	// SimOffset_* 는 착석 자세를 가정한 카메라 로컬 오프셋 (cm, 전방X/우Y/위Z).
+	// SimKneeAdjust_* 는 런타임에 NumPad/Arrow 키로 추가 조절하는 값.
+
+	UpdateSimulatedTracker(EVTCTrackerRole::Waist,
+		SimOffsetToWorld(SimOffset_Waist));
+
+	UpdateSimulatedTracker(EVTCTrackerRole::LeftKnee,
+		SimOffsetToWorld(SimOffset_LeftKnee + SimKneeAdjust_Left));
+
+	UpdateSimulatedTracker(EVTCTrackerRole::RightKnee,
+		SimOffsetToWorld(SimOffset_RightKnee + SimKneeAdjust_Right));
+
+	UpdateSimulatedTracker(EVTCTrackerRole::LeftFoot,
+		SimOffsetToWorld(SimOffset_LeftFoot));
+
+	UpdateSimulatedTracker(EVTCTrackerRole::RightFoot,
+		SimOffsetToWorld(SimOffset_RightFoot));
+}
+
+void AVTC_TrackerPawn::UpdateSimulatedTracker(EVTCTrackerRole TrackerRole,
+	const FVector& WorldLocation)
+{
+	FVTCTrackerData& Data = TrackerDataMap.FindOrAdd(TrackerRole);
+	Data.Role          = TrackerRole;
+	Data.bIsTracked    = true;          // 시뮬레이션에서는 항상 추적 중
+	Data.WorldLocation = WorldLocation;
+	Data.WorldRotation = FRotator::ZeroRotator;
+
+	if (bShowDebugSpheres)
+	{
+		FColor Color = FColor::White;
+		switch (TrackerRole)
+		{
+		case EVTCTrackerRole::Waist:      Color = FColor::Blue;   break;
+		case EVTCTrackerRole::LeftKnee:   Color = FColor::Yellow; break;
+		case EVTCTrackerRole::RightKnee:  Color = FColor::Orange; break;
+		case EVTCTrackerRole::LeftFoot:   Color = FColor::Cyan;   break;
+		case EVTCTrackerRole::RightFoot:  Color = FColor::Purple; break;
+		}
+		// 시뮬레이션 구는 1.5배 크게 그려서 VR 모드와 시각적으로 구분
+		DrawDebugSphere(GetWorld(), WorldLocation, DebugSphereRadius * 1.5f,
+			8, Color, false, -1.0f, 0, 1.5f);
+	}
+
+	OnTrackerUpdated.Broadcast(TrackerRole, Data);
+}
+
+FVector AVTC_TrackerPawn::SimOffsetToWorld(const FVector& LocalOffset) const
+{
+	if (!Camera) return GetActorLocation();
+
+	// 카메라 월드 위치 기준 + Actor의 Yaw만 적용.
+	// Pitch/Roll을 제외해야 착석 자세에서 무릎 오프셋이 바닥 기준으로 고정된다.
+	// (카메라를 위아래로 봐도 무릎은 바닥에 있어야 한다)
+	const FVector CamWorldPos = Camera->GetComponentLocation();
+	const FQuat   YawOnlyRot  = FQuat(FRotator(0.f, GetActorRotation().Yaw, 0.f));
+
+	return CamWorldPos + YawOnlyRot.RotateVector(LocalOffset);
+}
+
+// ─── 시뮬레이션 모드 — 입력 핸들러 ─────────────────────────────────────────
+
+void AVTC_TrackerPawn::SimMoveForward(float Value)
+{
+	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
+	AddMovementInput(GetActorForwardVector(), Value);
+}
+
+void AVTC_TrackerPawn::SimMoveRight(float Value)
+{
+	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
+	AddMovementInput(GetActorRightVector(), Value);
+}
+
+void AVTC_TrackerPawn::SimLookYaw(float Value)
+{
+	// SimYawInput에 누적, Tick에서 실제 회전 적용
+	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
+	SimYawInput = Value * SimMouseSensitivity;
+}
+
+void AVTC_TrackerPawn::SimLookPitch(float Value)
+{
+	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
+	SimPitchInput = Value * SimMouseSensitivity;
+}
+
+void AVTC_TrackerPawn::SimAdjustLeftKneeX(float Value)
+{
+	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
+	SimKneeAdjust_Left.X += Value * SimKneeAdjustSpeed * GetWorld()->GetDeltaSeconds();
+}
+
+void AVTC_TrackerPawn::SimAdjustLeftKneeY(float Value)
+{
+	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
+	SimKneeAdjust_Left.Y += Value * SimKneeAdjustSpeed * GetWorld()->GetDeltaSeconds();
+}
+
+void AVTC_TrackerPawn::SimAdjustRightKneeX(float Value)
+{
+	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
+	SimKneeAdjust_Right.X += Value * SimKneeAdjustSpeed * GetWorld()->GetDeltaSeconds();
+}
+
+void AVTC_TrackerPawn::SimAdjustRightKneeY(float Value)
+{
+	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
+	SimKneeAdjust_Right.Y += Value * SimKneeAdjustSpeed * GetWorld()->GetDeltaSeconds();
+}
+
+// ─── HMD 감지 ────────────────────────────────────────────────────────────────
+
+bool AVTC_TrackerPawn::DetectHMDPresence() const
+{
+	return UHeadMountedDisplayFunctionLibrary::IsHeadMountedDisplayEnabled()
+		&& UHeadMountedDisplayFunctionLibrary::IsHeadMountedDisplayConnected();
 }
