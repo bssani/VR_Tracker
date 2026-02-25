@@ -112,8 +112,8 @@ struct VRTRACKERCOLLISION_API FVTCBodyMeasurements
 //  Tracker 업데이트 델리게이트
 // ─────────────────────────────────────────────
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVKCTrackerUpdated,
-	EVTCTrackerRole, Role,
-	const FVTCTrackerData&, TrackerData);
+	EVTCTrackerRole, InTrackerRole,
+	const FVTCTrackerData&, InTrackerData);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnVKCAllTrackersUpdated);
 

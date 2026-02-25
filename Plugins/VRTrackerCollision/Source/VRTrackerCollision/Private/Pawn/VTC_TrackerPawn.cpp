@@ -167,7 +167,7 @@ void AVTC_TrackerPawn::UpdateTracker(EVTCTrackerRole Role, UMotionControllerComp
 		DrawDebugSphere(GetWorld(), Data.WorldLocation, DebugSphereRadius, 8, Color, false, -1.0f, 0, 1.0f);
 	}
 
-	OnTrackerUpdated.Broadcast(Data);
+	OnTrackerUpdated.Broadcast(Role, Data);
 }
 
 UMotionControllerComponent* AVTC_TrackerPawn::GetMotionController(EVTCTrackerRole Role) const
