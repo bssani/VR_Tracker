@@ -130,6 +130,9 @@ FString AVTC_SessionManager::ExportAndEnd()
 	return FilePath;
 }
 
+bool AVTC_SessionManager::IsTesting() const    { return CurrentState == EVTCSessionState::Testing; }
+bool AVTC_SessionManager::IsCalibrating() const { return CurrentState == EVTCSessionState::Calibrating; }
+
 FVTCBodyMeasurements AVTC_SessionManager::GetCurrentBodyMeasurements() const
 {
 	if (BodyActor) return BodyActor->GetBodyMeasurements();

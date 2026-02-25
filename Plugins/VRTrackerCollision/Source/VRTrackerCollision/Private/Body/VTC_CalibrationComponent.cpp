@@ -68,6 +68,11 @@ void UVTC_CalibrationComponent::CancelCalibration()
 	UE_LOG(LogTemp, Log, TEXT("[VTC] Calibration cancelled."));
 }
 
+FVTCBodyMeasurements UVTC_CalibrationComponent::GetBodyMeasurements() const
+{
+	return LastMeasurements;
+}
+
 bool UVTC_CalibrationComponent::SnapCalibrate()
 {
 	if (!TrackerManager) return false;

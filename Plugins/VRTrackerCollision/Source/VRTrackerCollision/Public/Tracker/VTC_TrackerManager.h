@@ -81,19 +81,19 @@ public:
 
 	// Blueprint 접근용 (UFUNCTION은 virtual override에 직접 못 씀)
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	FVTCTrackerData BP_GetTrackerData(EVTCTrackerRole TrackerRole) const { return GetTrackerData(TrackerRole); }
+	FVTCTrackerData BP_GetTrackerData(EVTCTrackerRole TrackerRole) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	bool BP_IsTrackerActive(EVTCTrackerRole TrackerRole) const { return IsTrackerActive(TrackerRole); }
+	bool BP_IsTrackerActive(EVTCTrackerRole TrackerRole) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	FVector BP_GetTrackerLocation(EVTCTrackerRole TrackerRole) const { return GetTrackerLocation(TrackerRole); }
+	FVector BP_GetTrackerLocation(EVTCTrackerRole TrackerRole) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	bool BP_AreAllTrackersActive() const { return AreAllTrackersActive(); }
+	bool BP_AreAllTrackersActive() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	int32 BP_GetActiveTrackerCount() const { return GetActiveTrackerCount(); }
+	int32 BP_GetActiveTrackerCount() const;
 
 	// ─── Delegates ──────────────────────────────────────────────────────────
 

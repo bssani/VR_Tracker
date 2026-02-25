@@ -61,7 +61,7 @@ public:
 	bool SnapCalibrate();
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Calibration")
-	FVTCBodyMeasurements GetBodyMeasurements() const { return LastMeasurements; }
+	FVTCBodyMeasurements GetBodyMeasurements() const;
 
 	UFUNCTION(BlueprintCallable, Category = "VKC|Calibration")
 	void SetManualMeasurements(float HipToLKnee, float HipToRKnee,

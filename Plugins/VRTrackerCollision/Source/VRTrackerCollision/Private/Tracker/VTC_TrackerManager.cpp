@@ -117,6 +117,16 @@ UMotionControllerComponent* AVTC_TrackerManager::GetMotionController(EVTCTracker
 	}
 }
 
+// ─── Blueprint 래퍼 ──────────────────────────────────────────────────────────
+
+FVTCTrackerData AVTC_TrackerManager::BP_GetTrackerData(EVTCTrackerRole TrackerRole) const     { return GetTrackerData(TrackerRole); }
+bool            AVTC_TrackerManager::BP_IsTrackerActive(EVTCTrackerRole TrackerRole) const    { return IsTrackerActive(TrackerRole); }
+FVector         AVTC_TrackerManager::BP_GetTrackerLocation(EVTCTrackerRole TrackerRole) const { return GetTrackerLocation(TrackerRole); }
+bool            AVTC_TrackerManager::BP_AreAllTrackersActive() const                          { return AreAllTrackersActive(); }
+int32           AVTC_TrackerManager::BP_GetActiveTrackerCount() const                         { return GetActiveTrackerCount(); }
+
+// ─── IVTC_TrackerInterface 구현 ──────────────────────────────────────────────
+
 FVTCTrackerData AVTC_TrackerManager::GetTrackerData(EVTCTrackerRole TrackerRole) const
 {
 	if (const FVTCTrackerData* Found = TrackerDataMap.Find(TrackerRole))

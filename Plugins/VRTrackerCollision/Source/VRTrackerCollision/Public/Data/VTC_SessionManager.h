@@ -83,10 +83,10 @@ public:
 	// ─── 상태 조회 ───────────────────────────────────────────────────────────
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Session")
-	bool IsTesting() const { return CurrentState == EVTCSessionState::Testing; }
+	bool IsTesting() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Session")
-	bool IsCalibrating() const { return CurrentState == EVTCSessionState::Calibrating; }
+	bool IsCalibrating() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Session")
 	FVTCBodyMeasurements GetCurrentBodyMeasurements() const;
