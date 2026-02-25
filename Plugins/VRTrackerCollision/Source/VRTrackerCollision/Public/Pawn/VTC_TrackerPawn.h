@@ -18,11 +18,17 @@
 // [사용법]
 //   BP_VTC_TrackerPawn을 GameMode의 DefaultPawnClass로 설정하면
 //   게임 시작 시 자동 스폰된다.
+//
+// [시뮬레이션 모드]
+//   bSimulationMode = true 이면 VR 장비 없이 데스크탑에서 테스트 가능.
+//   WASD 이동 + 마우스 룩 + 착석 자세 시뮬레이션.
+//   bAutoDetectSimulation = true면 HMD 미감지 시 자동 전환.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/FloatingPawnMovement.h"
 #include "Camera/CameraComponent.h"
 #include "MotionControllerComponent.h"
 #include "Tracker/VTC_TrackerTypes.h"
@@ -40,7 +46,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
-	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override {}
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
 public:
 	// ─── VR 카메라 ───────────────────────────────────────────────────────────
@@ -74,22 +80,22 @@ public:
 
 	// ─── MotionSource 이름 (SteamVR Tracker Role과 일치시켜야 함) ────────────
 	// SteamVR → Settings → Controllers → Manage Trackers에서 할당한 Role과 맞춰야 한다.
-	// 기본값: Special_1 ~ Special_5
+	// 언리얼 엔진 최신 버전에서는 Special_X 대신 역할 이름으로 바로 매핑 가능.
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Tracker Config")
-	FName MotionSource_Waist = FName("Special_1");
+	FName MotionSource_Waist = FName("Waist");
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Tracker Config")
-	FName MotionSource_LeftKnee = FName("Special_2");
+	FName MotionSource_LeftKnee = FName("LeftKnee");
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Tracker Config")
-	FName MotionSource_RightKnee = FName("Special_3");
+	FName MotionSource_RightKnee = FName("RightKnee");
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Tracker Config")
-	FName MotionSource_LeftFoot = FName("Special_4");
+	FName MotionSource_LeftFoot = FName("LeftFoot");
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Tracker Config")
-	FName MotionSource_RightFoot = FName("Special_5");
+	FName MotionSource_RightFoot = FName("RightFoot");
 
 	// ─── IVTC_TrackerInterface 구현 ─────────────────────────────────────────
 
@@ -131,6 +137,93 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Debug")
 	float DebugSphereRadius = 5.0f;
 
+	// ═══════════════════════════════════════════════════════════════════════
+	//  시뮬레이션 모드 (VR 장비 없이 데스크탑에서 테스트)
+	// ═══════════════════════════════════════════════════════════════════════
+
+	// true면 VR 트래커 대신 시뮬레이션된 좌표를 사용
+	// HMD가 감지되지 않으면 자동으로 true가 될 수 있음 (bAutoDetectSimulation)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Simulation")
+	bool bSimulationMode = false;
+
+	// true면 BeginPlay 시점에 HMD 감지 여부를 확인하고
+	// 감지되지 않으면 자동으로 시뮬레이션 모드로 전환
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Simulation")
+	bool bAutoDetectSimulation = true;
+
+	// ─── 시뮬레이션 이동 설정 ───────────────────────────────────────────────
+
+	// WASD 이동 속도 (cm/s)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Simulation|Movement",
+		meta=(ClampMin=50.0f, ClampMax=1000.0f, EditCondition="bSimulationMode"))
+	float SimMoveSpeed = 200.0f;
+
+	// 마우스 감도
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Simulation|Movement",
+		meta=(ClampMin=0.1f, ClampMax=5.0f, EditCondition="bSimulationMode"))
+	float SimMouseSensitivity = 1.0f;
+
+	// ─── 시뮬레이션 신체 오프셋 (카메라 기준 상대 위치, cm) ─────────────────
+
+	// 착석 자세 기준:
+	// 카메라(머리)로부터의 상대 오프셋으로 각 트래커 위치를 시뮬레이션
+	// X = 전방(+)/후방(-), Y = 우측(+)/좌측(-), Z = 위(+)/아래(-)
+
+	// Waist: 머리 아래 약 40cm, 약간 뒤쪽
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Simulation|Body Offsets",
+		meta=(EditCondition="bSimulationMode"))
+	FVector SimOffset_Waist = FVector(-15.0f, 0.0f, -40.0f);
+
+	// Left Knee: 허리 아래 약 45cm, 전방으로 나옴, 왼쪽으로 15cm
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Simulation|Body Offsets",
+		meta=(EditCondition="bSimulationMode"))
+	FVector SimOffset_LeftKnee = FVector(20.0f, -15.0f, -65.0f);
+
+	// Right Knee: 허리 아래 약 45cm, 전방으로 나옴, 오른쪽으로 15cm
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Simulation|Body Offsets",
+		meta=(EditCondition="bSimulationMode"))
+	FVector SimOffset_RightKnee = FVector(20.0f, 15.0f, -65.0f);
+
+	// Left Foot: 무릎 아래 약 40cm, 전방으로 더 나옴, 왼쪽
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Simulation|Body Offsets",
+		meta=(EditCondition="bSimulationMode"))
+	FVector SimOffset_LeftFoot = FVector(40.0f, -15.0f, -100.0f);
+
+	// Right Foot: 무릎 아래 약 40cm, 전방으로 더 나옴, 오른쪽
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Simulation|Body Offsets",
+		meta=(EditCondition="bSimulationMode"))
+	FVector SimOffset_RightFoot = FVector(40.0f, 15.0f, -100.0f);
+
+	// ─── 시뮬레이션 무릎 조작 (키보드) ──────────────────────────────────────
+
+	// 무릎 추가 오프셋 — 런타임에 키보드로 조절됨
+	// NumPad 4/6: 왼쪽 무릎 좌우, NumPad 8/2: 왼쪽 무릎 전후
+	// Arrow Keys: 오른쪽 무릎 좌우/전후
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VKC|Simulation|Runtime")
+	FVector SimKneeAdjust_Left = FVector::ZeroVector;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VKC|Simulation|Runtime")
+	FVector SimKneeAdjust_Right = FVector::ZeroVector;
+
+	// 무릎 조절 속도 (cm/s)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Simulation|Movement",
+		meta=(ClampMin=5.0f, ClampMax=100.0f, EditCondition="bSimulationMode"))
+	float SimKneeAdjustSpeed = 30.0f;
+
+	// ─── 시뮬레이션 제어 함수 ───────────────────────────────────────────────
+
+	// 시뮬레이션 모드 토글 (런타임에서 F8 키로 전환)
+	UFUNCTION(BlueprintCallable, Category = "VKC|Simulation")
+	void ToggleSimulationMode();
+
+	// 무릎 위치를 기본값으로 리셋 (R 키)
+	UFUNCTION(BlueprintCallable, Category = "VKC|Simulation")
+	void ResetKneeAdjustments();
+
+	// 현재 시뮬레이션 모드 여부 조회
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Simulation")
+	bool IsInSimulationMode() const { return bSimulationMode; }
+
 private:
 	// TrackerRole → TrackerData 캐시 맵
 	TMap<EVTCTrackerRole, FVTCTrackerData> TrackerDataMap;
@@ -140,4 +233,36 @@ private:
 	void UpdateTracker(EVTCTrackerRole TrackerRole, UMotionControllerComponent* MC);
 
 	UMotionControllerComponent* GetMotionController(EVTCTrackerRole TrackerRole) const;
+
+	// ─── 시뮬레이션 Private ─────────────────────────────────────────────────
+
+	// 시뮬레이션 모드용 이동 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "VKC|Simulation")
+	TObjectPtr<UFloatingPawnMovement> SimMovement;
+
+	// 시뮬레이션 모드 Tick: 카메라 기준 상대 좌표로 트래커 위치 계산
+	void UpdateSimulatedTrackers();
+
+	// 시뮬레이션 모드에서 단일 트래커 데이터 갱신
+	void UpdateSimulatedTracker(EVTCTrackerRole TrackerRole, const FVector& WorldLocation);
+
+	// 카메라 기준 상대 오프셋을 월드 좌표로 변환
+	FVector SimOffsetToWorld(const FVector& LocalOffset) const;
+
+	// 마우스 룩 입력
+	float SimYawInput = 0.0f;
+	float SimPitchInput = 0.0f;
+
+	// 시뮬레이션 입력 바인딩용 함수
+	void SimMoveForward(float Value);
+	void SimMoveRight(float Value);
+	void SimLookYaw(float Value);
+	void SimLookPitch(float Value);
+	void SimAdjustLeftKneeX(float Value);
+	void SimAdjustLeftKneeY(float Value);
+	void SimAdjustRightKneeX(float Value);
+	void SimAdjustRightKneeY(float Value);
+
+	// HMD 감지 확인
+	bool DetectHMDPresence() const;
 };
