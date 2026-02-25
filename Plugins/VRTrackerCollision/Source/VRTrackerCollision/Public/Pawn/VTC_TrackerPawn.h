@@ -103,19 +103,19 @@ public:
 
 	// Blueprint에서도 호출 가능하도록 래핑 (인터페이스 메서드는 BP에서 직접 호출 불가)
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	FVTCTrackerData BP_GetTrackerData(EVTCTrackerRole Role) const { return GetTrackerData(Role); }
+	FVTCTrackerData BP_GetTrackerData(EVTCTrackerRole Role) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	FVector BP_GetTrackerLocation(EVTCTrackerRole Role) const { return GetTrackerLocation(Role); }
+	FVector BP_GetTrackerLocation(EVTCTrackerRole Role) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	bool BP_IsTrackerActive(EVTCTrackerRole Role) const { return IsTrackerActive(Role); }
+	bool BP_IsTrackerActive(EVTCTrackerRole Role) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	bool BP_AreAllTrackersActive() const { return AreAllTrackersActive(); }
+	bool BP_AreAllTrackersActive() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
-	int32 BP_GetActiveTrackerCount() const { return GetActiveTrackerCount(); }
+	int32 BP_GetActiveTrackerCount() const;
 
 	// ─── Delegates (TrackerManager와 동일한 이벤트 시스템) ──────────────────
 
