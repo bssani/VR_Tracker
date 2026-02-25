@@ -9,6 +9,7 @@ public class VR_Knee_CollisionEditorTarget : TargetRules
 	{
 		Type = TargetType.Editor;
 		DefaultBuildSettings = BuildSettingsVersion.V5;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_5;
 
 		ExtraModuleNames.AddRange( new string[] { "VR_Knee_Collision" } );
 	}

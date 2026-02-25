@@ -56,7 +56,7 @@ void AVTC_ReferencePoint::SetMarkerWarningColor(EVTCWarningLevel Level)
 	}
 	if (!MarkerDynMaterial) return;
 
-	FLinearColor Color;
+	FLinearColor Color = FLinearColor::Green;
 	switch (Level)
 	{
 	case EVTCWarningLevel::Safe:
@@ -67,6 +67,8 @@ void AVTC_ReferencePoint::SetMarkerWarningColor(EVTCWarningLevel Level)
 		break;
 	case EVTCWarningLevel::Collision:
 		Color = FLinearColor::Red;
+		break;
+	default:
 		break;
 	}
 
