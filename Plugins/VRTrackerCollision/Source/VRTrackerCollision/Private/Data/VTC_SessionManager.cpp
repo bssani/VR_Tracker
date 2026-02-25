@@ -1,7 +1,6 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "Data/VTC_SessionManager.h"
-#include "Tracker/VTC_TrackerManager.h"
 #include "Body/VTC_BodyActor.h"
 #include "Body/VTC_CalibrationComponent.h"
 #include "Collision/VTC_CollisionDetector.h"
@@ -131,6 +130,9 @@ FString AVTC_SessionManager::ExportAndEnd()
 	return FilePath;
 }
 
+bool AVTC_SessionManager::IsTesting() const    { return CurrentState == EVTCSessionState::Testing; }
+bool AVTC_SessionManager::IsCalibrating() const { return CurrentState == EVTCSessionState::Calibrating; }
+
 FVTCBodyMeasurements AVTC_SessionManager::GetCurrentBodyMeasurements() const
 {
 	if (BodyActor) return BodyActor->GetBodyMeasurements();
@@ -189,12 +191,16 @@ void AVTC_SessionManager::OnWarningLevelChanged(EVTCTrackerRole BodyPart,
 
 void AVTC_SessionManager::AutoFindSystems()
 {
-	// TrackerManager 탐색
-	if (!TrackerManager)
+	// TrackerPawn 탐색 (IVTC_TrackerInterface 구현체)
+	if (!TrackerSource)
 	{
 		TArray<AActor*> Found;
-		UGameplayStatics::GetAllActorsOfClass(GetWorld(), AVTC_TrackerManager::StaticClass(), Found);
-		if (Found.Num() > 0) TrackerManager = Cast<AVTC_TrackerManager>(Found[0]);
+		UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UVTC_TrackerInterface::StaticClass(), Found);
+		if (Found.Num() > 0)
+		{
+			TrackerSource = TScriptInterface<IVTC_TrackerInterface>(Found[0]);
+			UE_LOG(LogTemp, Log, TEXT("[VTC] Found tracker source: %s"), *Found[0]->GetName());
+		}
 	}
 
 	// BodyActor 탐색
@@ -205,8 +211,7 @@ void AVTC_SessionManager::AutoFindSystems()
 		if (Found.Num() > 0) BodyActor = Cast<AVTC_BodyActor>(Found[0]);
 	}
 
-	if (TrackerManager) { UE_LOG(LogTemp, Log, TEXT("[VTC] Found TrackerManager.")); }
-	else { UE_LOG(LogTemp, Warning, TEXT("[VTC] TrackerManager NOT found in level!")); }
+	if (!TrackerSource) { UE_LOG(LogTemp, Warning, TEXT("[VTC] No TrackerPawn found in level!")); }
 	if (BodyActor) { UE_LOG(LogTemp, Log, TEXT("[VTC] Found BodyActor.")); }
 	else { UE_LOG(LogTemp, Warning, TEXT("[VTC] BodyActor NOT found in level!")); }
 }

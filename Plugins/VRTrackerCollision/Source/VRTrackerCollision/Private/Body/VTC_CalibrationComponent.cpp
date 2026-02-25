@@ -1,7 +1,6 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "Body/VTC_CalibrationComponent.h"
-#include "Tracker/VTC_TrackerManager.h"
 #include "Camera/CameraComponent.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -40,14 +39,14 @@ void UVTC_CalibrationComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 
 void UVTC_CalibrationComponent::StartCalibration()
 {
-	if (!TrackerManager)
+	if (!TrackerSource)
 	{
-		OnCalibrationFailed.Broadcast(TEXT("TrackerManager is not set."));
+		OnCalibrationFailed.Broadcast(TEXT("TrackerSource (TrackerPawn) is not set."));
 		return;
 	}
-	if (!TrackerManager->AreAllTrackersActive())
+	if (!TrackerSource->AreAllTrackersActive())
 	{
-		const int32 Count = TrackerManager->GetActiveTrackerCount();
+		const int32 Count = TrackerSource->GetActiveTrackerCount();
 		OnCalibrationFailed.Broadcast(
 			FString::Printf(TEXT("Not all trackers are active. Active: %d/5"), Count));
 		return;
@@ -69,9 +68,14 @@ void UVTC_CalibrationComponent::CancelCalibration()
 	UE_LOG(LogTemp, Log, TEXT("[VTC] Calibration cancelled."));
 }
 
+FVTCBodyMeasurements UVTC_CalibrationComponent::GetBodyMeasurements() const
+{
+	return LastMeasurements;
+}
+
 bool UVTC_CalibrationComponent::SnapCalibrate()
 {
-	if (!TrackerManager) return false;
+	if (!TrackerSource) return false;
 
 	FVTCBodyMeasurements Measurements = CalculateMeasurements();
 
@@ -104,13 +108,13 @@ bool UVTC_CalibrationComponent::SnapCalibrate()
 FVTCBodyMeasurements UVTC_CalibrationComponent::CalculateMeasurements() const
 {
 	FVTCBodyMeasurements M;
-	if (!TrackerManager) return M;
+	if (!TrackerSource) return M;
 
-	const FVector HipPos    = TrackerManager->GetTrackerLocation(EVTCTrackerRole::Waist);
-	const FVector LKneePos  = TrackerManager->GetTrackerLocation(EVTCTrackerRole::LeftKnee);
-	const FVector RKneePos  = TrackerManager->GetTrackerLocation(EVTCTrackerRole::RightKnee);
-	const FVector LFootPos  = TrackerManager->GetTrackerLocation(EVTCTrackerRole::LeftFoot);
-	const FVector RFootPos  = TrackerManager->GetTrackerLocation(EVTCTrackerRole::RightFoot);
+	const FVector HipPos    = TrackerSource->GetTrackerLocation(EVTCTrackerRole::Waist);
+	const FVector LKneePos  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftKnee);
+	const FVector RKneePos  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightKnee);
+	const FVector LFootPos  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftFoot);
+	const FVector RFootPos  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightFoot);
 
 	M.Hip_LeftKnee         = FVector::Dist(HipPos, LKneePos);
 	M.Hip_RightKnee        = FVector::Dist(HipPos, RKneePos);

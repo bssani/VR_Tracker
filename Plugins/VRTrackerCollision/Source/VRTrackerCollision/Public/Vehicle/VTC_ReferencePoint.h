@@ -55,7 +55,7 @@ public:
 
 	// 월드 위치 반환 (ActorLocation과 동일하지만 BP 편의용)
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Reference Point")
-	FVector GetReferenceLocation() const { return GetActorLocation(); }
+	FVector GetReferenceLocation() const;
 
 	// 마커 색상 업데이트 (경고 상태에 따라)
 	UFUNCTION(BlueprintCallable, Category = "VKC|Reference Point")

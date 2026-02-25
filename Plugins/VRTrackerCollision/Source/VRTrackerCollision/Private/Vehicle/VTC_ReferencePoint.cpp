@@ -41,6 +41,11 @@ AVTC_ReferencePoint::AVTC_ReferencePoint()
 #endif
 }
 
+FVector AVTC_ReferencePoint::GetReferenceLocation() const
+{
+	return GetActorLocation();
+}
+
 void AVTC_ReferencePoint::SetMarkerWarningColor(EVTCWarningLevel Level)
 {
 	if (!MarkerMesh) return;

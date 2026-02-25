@@ -9,6 +9,7 @@
 #include "Body/VTC_BodySegmentComponent.h"
 #include "Body/VTC_CalibrationComponent.h"
 #include "Tracker/VTC_TrackerTypes.h"
+#include "Tracker/VTC_TrackerInterface.h"
 #include "VTC_BodyActor.generated.h"
 
 // Sphere가 차량 메시와 Overlap 시작 시 브로드캐스트
@@ -68,9 +69,9 @@ public:
 
 	// ─── 설정 ────────────────────────────────────────────────────────────────
 
-	// TrackerManager 연결 (에디터에서 설정)
+	// Tracker 공급자 — 비워두면 BeginPlay에서 TrackerPawn을 자동 탐색
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Body")
-	TObjectPtr<AVTC_TrackerManager> TrackerManager;
+	TScriptInterface<IVTC_TrackerInterface> TrackerSource;
 
 	// 신체 부위별 Sphere 반경 (cm)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Body|Collision Radius",
@@ -87,19 +88,15 @@ public:
 
 	// ─── 함수 ────────────────────────────────────────────────────────────────
 
-	// 캘리브레이션 시작 (BP에서 호출)
 	UFUNCTION(BlueprintCallable, Category = "VKC|Body")
 	void StartCalibration();
 
-	// 마지막 신체 측정값 반환
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Body")
 	FVTCBodyMeasurements GetBodyMeasurements() const;
 
-	// 특정 신체 부위의 현재 위치 반환
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Body")
 	FVector GetBodyPartLocation(EVTCTrackerRole TrackerRole) const;
 
-	// Sphere 반경 일괄 업데이트
 	UFUNCTION(BlueprintCallable, Category = "VKC|Body")
 	void UpdateSphereRadii();
 
@@ -112,10 +109,8 @@ public:
 	FOnVKCBodyOverlapEnd OnBodyOverlapEnd;
 
 private:
-	// 매 Tick: Sphere 위치를 Tracker 위치와 동기화
 	void SyncSpherePositions();
 
-	// Overlap 이벤트 핸들러
 	UFUNCTION()
 	void OnSphereOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
@@ -124,13 +119,11 @@ private:
 	void OnSphereOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
-	// Sphere → TrackerRole 매핑 (Overlap 시 어느 신체 부위인지 판단)
 	EVTCTrackerRole GetRoleFromSphere(UPrimitiveComponent* Sphere) const;
 
-	// 캘리브레이션 완료 시 콜백
 	UFUNCTION()
 	void OnCalibrationComplete(const FVTCBodyMeasurements& Measurements);
 
-	// TrackerManager 자동 탐색
-	void FindTrackerManager();
+	// 레벨에서 TrackerPawn을 자동 탐색
+	void FindTrackerSource();
 };

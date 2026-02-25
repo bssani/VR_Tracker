@@ -1,7 +1,6 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "Body/VTC_BodySegmentComponent.h"
-#include "Tracker/VTC_TrackerManager.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Materials/MaterialInstanceDynamic.h"
 
@@ -33,11 +32,11 @@ void UVTC_BodySegmentComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 
 void UVTC_BodySegmentComponent::UpdateSegmentTransform()
 {
-	if (!TrackerManager || !SegmentMesh) return;
+	if (!TrackerSource || !SegmentMesh) return;
 
 	// 두 Tracker 위치 가져오기
-	const FVTCTrackerData StartData = TrackerManager->GetTrackerData(RoleStart);
-	const FVTCTrackerData EndData   = TrackerManager->GetTrackerData(RoleEnd);
+	const FVTCTrackerData StartData = TrackerSource->GetTrackerData(RoleStart);
+	const FVTCTrackerData EndData   = TrackerSource->GetTrackerData(RoleEnd);
 
 	// 둘 다 추적 중일 때만 갱신
 	if (!StartData.bIsTracked || !EndData.bIsTracked)
@@ -72,21 +71,21 @@ void UVTC_BodySegmentComponent::UpdateSegmentTransform()
 
 bool UVTC_BodySegmentComponent::IsSegmentActive() const
 {
-	if (!TrackerManager) return false;
-	return TrackerManager->IsTrackerActive(RoleStart)
-		&& TrackerManager->IsTrackerActive(RoleEnd);
+	if (!TrackerSource) return false;
+	return TrackerSource->IsTrackerActive(RoleStart)
+		&& TrackerSource->IsTrackerActive(RoleEnd);
 }
 
 FVector UVTC_BodySegmentComponent::GetStartLocation() const
 {
-	if (!TrackerManager) return FVector::ZeroVector;
-	return TrackerManager->GetTrackerLocation(RoleStart);
+	if (!TrackerSource) return FVector::ZeroVector;
+	return TrackerSource->GetTrackerLocation(RoleStart);
 }
 
 FVector UVTC_BodySegmentComponent::GetEndLocation() const
 {
-	if (!TrackerManager) return FVector::ZeroVector;
-	return TrackerManager->GetTrackerLocation(RoleEnd);
+	if (!TrackerSource) return FVector::ZeroVector;
+	return TrackerSource->GetTrackerLocation(RoleEnd);
 }
 
 void UVTC_BodySegmentComponent::SetSegmentColor(FLinearColor Color)

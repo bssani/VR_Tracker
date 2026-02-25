@@ -1,7 +1,6 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "Body/VTC_BodyActor.h"
-#include "Tracker/VTC_TrackerManager.h"
 #include "Kismet/GameplayStatics.h"
 
 AVTC_BodyActor::AVTC_BodyActor()
@@ -57,20 +56,20 @@ void AVTC_BodyActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// TrackerManager 자동 탐색 (에디터에서 설정하지 않은 경우)
-	if (!TrackerManager)
+	// TrackerSource 자동 탐색 (에디터에서 설정하지 않은 경우)
+	if (!TrackerSource)
 	{
-		FindTrackerManager();
+		FindTrackerSource();
 	}
 
-	// 모든 세그먼트와 캘리브레이션에 TrackerManager 연결
-	if (TrackerManager)
+	// 모든 세그먼트와 캘리브레이션에 TrackerSource 연결
+	if (TrackerSource)
 	{
-		Seg_Hip_LeftKnee->TrackerManager        = TrackerManager;
-		Seg_Hip_RightKnee->TrackerManager       = TrackerManager;
-		Seg_LeftKnee_LeftFoot->TrackerManager   = TrackerManager;
-		Seg_RightKnee_RightFoot->TrackerManager = TrackerManager;
-		CalibrationComp->TrackerManager         = TrackerManager;
+		Seg_Hip_LeftKnee->TrackerSource        = TrackerSource;
+		Seg_Hip_RightKnee->TrackerSource       = TrackerSource;
+		Seg_LeftKnee_LeftFoot->TrackerSource   = TrackerSource;
+		Seg_RightKnee_RightFoot->TrackerSource = TrackerSource;
+		CalibrationComp->TrackerSource         = TrackerSource;
 	}
 
 	// Sphere 반경 초기화
@@ -100,12 +99,12 @@ void AVTC_BodyActor::Tick(float DeltaTime)
 
 void AVTC_BodyActor::SyncSpherePositions()
 {
-	if (!TrackerManager) return;
+	if (!TrackerSource) return;
 
 	auto SyncSphere = [&](USphereComponent* S, EVTCTrackerRole TrackerRole)
 	{
 		if (!S) return;
-		const FVTCTrackerData Data = TrackerManager->GetTrackerData(TrackerRole);
+		const FVTCTrackerData Data = TrackerSource->GetTrackerData(TrackerRole);
 		S->SetWorldLocation(Data.WorldLocation);
 		S->SetVisibility(Data.bIsTracked);
 	};
@@ -162,8 +161,8 @@ FVTCBodyMeasurements AVTC_BodyActor::GetBodyMeasurements() const
 
 FVector AVTC_BodyActor::GetBodyPartLocation(EVTCTrackerRole TrackerRole) const
 {
-	if (!TrackerManager) return FVector::ZeroVector;
-	return TrackerManager->GetTrackerLocation(TrackerRole);
+	if (!TrackerSource) return FVector::ZeroVector;
+	return TrackerSource->GetTrackerLocation(TrackerRole);
 }
 
 void AVTC_BodyActor::UpdateSphereRadii()
@@ -175,17 +174,18 @@ void AVTC_BodyActor::UpdateSphereRadii()
 	if (Sphere_RightFoot) Sphere_RightFoot->SetSphereRadius(FootSphereRadius);
 }
 
-void AVTC_BodyActor::FindTrackerManager()
+void AVTC_BodyActor::FindTrackerSource()
 {
+	// 레벨에서 IVTC_TrackerInterface 구현체(TrackerPawn) 탐색
 	TArray<AActor*> Found;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AVTC_TrackerManager::StaticClass(), Found);
+	UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UVTC_TrackerInterface::StaticClass(), Found);
 	if (Found.Num() > 0)
 	{
-		TrackerManager = Cast<AVTC_TrackerManager>(Found[0]);
-		UE_LOG(LogTemp, Log, TEXT("[VTC] BodyActor found TrackerManager automatically."));
+		TrackerSource = TScriptInterface<IVTC_TrackerInterface>(Found[0]);
+		UE_LOG(LogTemp, Log, TEXT("[VTC] BodyActor found tracker source: %s"), *Found[0]->GetName());
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[VTC] BodyActor: TrackerManager not found in level!"));
+		UE_LOG(LogTemp, Warning, TEXT("[VTC] BodyActor: No TrackerPawn found in level!"));
 	}
 }
