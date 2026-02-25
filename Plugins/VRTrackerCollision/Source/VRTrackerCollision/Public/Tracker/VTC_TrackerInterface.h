@@ -1,8 +1,8 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
-// VTC_TrackerInterface.h — TrackerManager와 TrackerPawn이 공통으로 구현하는 인터페이스
+// VTC_TrackerInterface.h — TrackerPawn이 구현하는 Tracker 데이터 접근 인터페이스
 //
 // 이 인터페이스를 통해 BodySegmentComponent, CalibrationComponent 등은
-// TrackerManager든 TrackerPawn이든 동일한 방법으로 트래커 데이터에 접근할 수 있다.
+// TrackerPawn으로부터 동일한 방법으로 트래커 데이터에 접근할 수 있다.
 
 #pragma once
 

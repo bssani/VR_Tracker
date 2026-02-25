@@ -191,14 +191,14 @@ void AVTC_SessionManager::OnWarningLevelChanged(EVTCTrackerRole BodyPart,
 
 void AVTC_SessionManager::AutoFindSystems()
 {
-	// Tracker 공급자 탐색 (TrackerPawn 또는 TrackerManager — 인터페이스로 통합 탐색)
-	if (!TrackerManager)
+	// TrackerPawn 탐색 (IVTC_TrackerInterface 구현체)
+	if (!TrackerSource)
 	{
 		TArray<AActor*> Found;
 		UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UVTC_TrackerInterface::StaticClass(), Found);
 		if (Found.Num() > 0)
 		{
-			TrackerManager = TScriptInterface<IVTC_TrackerInterface>(Found[0]);
+			TrackerSource = TScriptInterface<IVTC_TrackerInterface>(Found[0]);
 			UE_LOG(LogTemp, Log, TEXT("[VTC] Found tracker source: %s"), *Found[0]->GetName());
 		}
 	}
@@ -211,7 +211,7 @@ void AVTC_SessionManager::AutoFindSystems()
 		if (Found.Num() > 0) BodyActor = Cast<AVTC_BodyActor>(Found[0]);
 	}
 
-	if (!TrackerManager) { UE_LOG(LogTemp, Warning, TEXT("[VTC] No tracker source (TrackerPawn or TrackerManager) found in level!")); }
+	if (!TrackerSource) { UE_LOG(LogTemp, Warning, TEXT("[VTC] No TrackerPawn found in level!")); }
 	if (BodyActor) { UE_LOG(LogTemp, Log, TEXT("[VTC] Found BodyActor.")); }
 	else { UE_LOG(LogTemp, Warning, TEXT("[VTC] BodyActor NOT found in level!")); }
 }

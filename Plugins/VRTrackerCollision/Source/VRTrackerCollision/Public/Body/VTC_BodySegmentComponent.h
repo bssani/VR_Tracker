@@ -36,9 +36,9 @@ public:
 		meta=(ClampMin=1.0f, ClampMax=30.0f, UIMin=1.0f, UIMax=30.0f))
 	float SegmentRadius = 8.0f;
 
-	// Tracker 공급자 — TrackerPawn 또는 TrackerManager 모두 할당 가능
+	// Tracker 공급자 (TrackerPawn)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Body Segment")
-	TScriptInterface<IVTC_TrackerInterface> TrackerManager;
+	TScriptInterface<IVTC_TrackerInterface> TrackerSource;
 
 	// ─── 읽기 전용 정보 ───────────────────────────────────────────────────────
 

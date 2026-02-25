@@ -35,10 +35,9 @@ protected:
 public:
 	// ─── 시스템 컴포넌트 참조 ─────────────────────────────────────────────────
 
-	// Tracker 공급자 — TrackerPawn 또는 TrackerManager 모두 할당 가능
-	// 비워두면 BeginPlay에서 자동 탐색 (TrackerPawn 우선, 없으면 TrackerManager)
+	// Tracker 공급자 — 비워두면 BeginPlay에서 TrackerPawn을 자동 탐색
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Session|Systems")
-	TScriptInterface<IVTC_TrackerInterface> TrackerManager;
+	TScriptInterface<IVTC_TrackerInterface> TrackerSource;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Session|Systems")
 	TObjectPtr<AVTC_BodyActor> BodyActor;

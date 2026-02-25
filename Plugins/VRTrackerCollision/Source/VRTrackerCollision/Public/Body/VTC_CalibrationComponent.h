@@ -27,9 +27,9 @@ public:
 
 	// ─── 설정 ────────────────────────────────────────────────────────────────
 
-	// Tracker 공급자 — TrackerPawn 또는 TrackerManager 모두 할당 가능
+	// Tracker 공급자 (TrackerPawn)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Calibration")
-	TScriptInterface<IVTC_TrackerInterface> TrackerManager;
+	TScriptInterface<IVTC_TrackerInterface> TrackerSource;
 
 	// T-Pose를 유지해야 하는 시간 (초)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Calibration",

@@ -78,27 +78,27 @@ void AVTC_TrackerPawn::Tick(float DeltaTime)
 
 // ─── IVTC_TrackerInterface 구현 ─────────────────────────────────────────────
 
-FVTCTrackerData AVTC_TrackerPawn::GetTrackerData(EVTCTrackerRole Role) const
+FVTCTrackerData AVTC_TrackerPawn::GetTrackerData(EVTCTrackerRole TrackerRole) const
 {
-	if (const FVTCTrackerData* Found = TrackerDataMap.Find(Role))
+	if (const FVTCTrackerData* Found = TrackerDataMap.Find(TrackerRole))
 	{
 		return *Found;
 	}
 	return FVTCTrackerData();
 }
 
-FVector AVTC_TrackerPawn::GetTrackerLocation(EVTCTrackerRole Role) const
+FVector AVTC_TrackerPawn::GetTrackerLocation(EVTCTrackerRole TrackerRole) const
 {
-	if (const FVTCTrackerData* Found = TrackerDataMap.Find(Role))
+	if (const FVTCTrackerData* Found = TrackerDataMap.Find(TrackerRole))
 	{
 		return Found->WorldLocation;
 	}
 	return FVector::ZeroVector;
 }
 
-bool AVTC_TrackerPawn::IsTrackerActive(EVTCTrackerRole Role) const
+bool AVTC_TrackerPawn::IsTrackerActive(EVTCTrackerRole TrackerRole) const
 {
-	if (const FVTCTrackerData* Found = TrackerDataMap.Find(Role))
+	if (const FVTCTrackerData* Found = TrackerDataMap.Find(TrackerRole))
 	{
 		return Found->bIsTracked;
 	}
@@ -139,12 +139,12 @@ void AVTC_TrackerPawn::UpdateAllTrackers()
 	UpdateTracker(EVTCTrackerRole::RightFoot,  MC_RightFoot);
 }
 
-void AVTC_TrackerPawn::UpdateTracker(EVTCTrackerRole Role, UMotionControllerComponent* MC)
+void AVTC_TrackerPawn::UpdateTracker(EVTCTrackerRole TrackerRole, UMotionControllerComponent* MC)
 {
 	if (!MC) return;
 
-	FVTCTrackerData& Data = TrackerDataMap.FindOrAdd(Role);
-	Data.Role      = Role;
+	FVTCTrackerData& Data = TrackerDataMap.FindOrAdd(TrackerRole);
+	Data.Role      = TrackerRole;
 	Data.bIsTracked = MC->IsTracked();
 
 	if (Data.bIsTracked)
@@ -156,7 +156,7 @@ void AVTC_TrackerPawn::UpdateTracker(EVTCTrackerRole Role, UMotionControllerComp
 	if (bShowDebugSpheres && Data.bIsTracked)
 	{
 		FColor Color = FColor::Green;
-		switch (Role)
+		switch (TrackerRole)
 		{
 		case EVTCTrackerRole::Waist:      Color = FColor::Blue;   break;
 		case EVTCTrackerRole::LeftKnee:   Color = FColor::Yellow; break;
@@ -167,12 +167,12 @@ void AVTC_TrackerPawn::UpdateTracker(EVTCTrackerRole Role, UMotionControllerComp
 		DrawDebugSphere(GetWorld(), Data.WorldLocation, DebugSphereRadius, 8, Color, false, -1.0f, 0, 1.0f);
 	}
 
-	OnTrackerUpdated.Broadcast(Role, Data);
+	OnTrackerUpdated.Broadcast(TrackerRole, Data);
 }
 
-UMotionControllerComponent* AVTC_TrackerPawn::GetMotionController(EVTCTrackerRole Role) const
+UMotionControllerComponent* AVTC_TrackerPawn::GetMotionController(EVTCTrackerRole TrackerRole) const
 {
-	switch (Role)
+	switch (TrackerRole)
 	{
 	case EVTCTrackerRole::Waist:     return MC_Waist;
 	case EVTCTrackerRole::LeftKnee:  return MC_LeftKnee;

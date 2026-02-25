@@ -69,10 +69,9 @@ public:
 
 	// ─── 설정 ────────────────────────────────────────────────────────────────
 
-	// Tracker 공급자 — TrackerPawn 또는 TrackerManager 모두 할당 가능
-	// 비워두면 BeginPlay에서 레벨 내 구현체를 자동 탐색
+	// Tracker 공급자 — 비워두면 BeginPlay에서 TrackerPawn을 자동 탐색
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Body")
-	TScriptInterface<IVTC_TrackerInterface> TrackerManager;
+	TScriptInterface<IVTC_TrackerInterface> TrackerSource;
 
 	// 신체 부위별 Sphere 반경 (cm)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Body|Collision Radius",
@@ -125,6 +124,6 @@ private:
 	UFUNCTION()
 	void OnCalibrationComplete(const FVTCBodyMeasurements& Measurements);
 
-	// 인터페이스 구현체(TrackerPawn 또는 TrackerManager)를 레벨에서 자동 탐색
-	void FindTrackerManager();
+	// 레벨에서 TrackerPawn을 자동 탐색
+	void FindTrackerSource();
 };

@@ -2,9 +2,8 @@
 // VTC_TrackerPawn.h — VR HMD Camera + 5개 Tracker를 하나의 Pawn에 통합
 //
 // [왜 이게 필요한가]
-//   기존 AVTC_TrackerManager(AActor)는 VR Origin과 분리된 독립 Actor였다.
-//   UMotionControllerComponent는 Pawn의 VR Origin 기준으로 월드 위치를 계산하므로,
-//   Tracker를 Pawn과 분리하면 VR Origin이 맞지 않아 트래커 위치가 틀어질 수 있다.
+//   UMotionControllerComponent는 Pawn의 VR Origin 기준으로 월드 위치를 계산하므로
+//   Tracker는 반드시 Pawn 안에서 관리해야 VR Origin이 일치한다.
 //
 // [구조]
 //   Root
@@ -17,7 +16,6 @@
 //        └─ MC_RightFoot  (MotionController, Special_5)
 //
 // [사용법]
-//   레벨에 별도 BP_TrackerManager를 배치할 필요 없음.
 //   BP_VTC_TrackerPawn을 GameMode의 DefaultPawnClass로 설정하면
 //   게임 시작 시 자동 스폰된다.
 
@@ -95,9 +93,9 @@ public:
 
 	// ─── IVTC_TrackerInterface 구현 ─────────────────────────────────────────
 
-	virtual FVTCTrackerData GetTrackerData(EVTCTrackerRole Role) const override;
-	virtual FVector         GetTrackerLocation(EVTCTrackerRole Role) const override;
-	virtual bool            IsTrackerActive(EVTCTrackerRole Role) const override;
+	virtual FVTCTrackerData GetTrackerData(EVTCTrackerRole TrackerRole) const override;
+	virtual FVector         GetTrackerLocation(EVTCTrackerRole TrackerRole) const override;
+	virtual bool            IsTrackerActive(EVTCTrackerRole TrackerRole) const override;
 	virtual bool            AreAllTrackersActive() const override;
 	virtual int32           GetActiveTrackerCount() const override;
 
@@ -117,7 +115,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Tracker")
 	int32 BP_GetActiveTrackerCount() const;
 
-	// ─── Delegates (TrackerManager와 동일한 이벤트 시스템) ──────────────────
+	// ─── Delegates ──────────────────────────────────────────────────────────
 
 	UPROPERTY(BlueprintAssignable, Category = "VKC|Tracker|Events")
 	FOnVKCTrackerUpdated OnTrackerUpdated;
@@ -139,7 +137,7 @@ private:
 
 	// 매 Tick: 5개 트래커 데이터 갱신
 	void UpdateAllTrackers();
-	void UpdateTracker(EVTCTrackerRole Role, UMotionControllerComponent* MC);
+	void UpdateTracker(EVTCTrackerRole TrackerRole, UMotionControllerComponent* MC);
 
-	UMotionControllerComponent* GetMotionController(EVTCTrackerRole Role) const;
+	UMotionControllerComponent* GetMotionController(EVTCTrackerRole TrackerRole) const;
 };

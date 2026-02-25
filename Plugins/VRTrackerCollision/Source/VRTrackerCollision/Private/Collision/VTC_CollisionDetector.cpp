@@ -3,7 +3,6 @@
 #include "Collision/VTC_CollisionDetector.h"
 #include "Body/VTC_BodyActor.h"
 #include "Vehicle/VTC_ReferencePoint.h"
-#include "Tracker/VTC_TrackerManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
 
