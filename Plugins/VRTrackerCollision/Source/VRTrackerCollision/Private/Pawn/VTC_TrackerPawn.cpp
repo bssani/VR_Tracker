@@ -2,7 +2,7 @@
 
 #include "Pawn/VTC_TrackerPawn.h"
 #include "DrawDebugHelpers.h"
-#include "HeadMountedDisplayFunctionLibrary.h"
+#include "IXRTrackingSystem.h"
 
 AVTC_TrackerPawn::AVTC_TrackerPawn()
 {
@@ -396,6 +396,8 @@ void AVTC_TrackerPawn::SimAdjustRightKneeY(float Value)
 
 bool AVTC_TrackerPawn::DetectHMDPresence() const
 {
-	return UHeadMountedDisplayFunctionLibrary::IsHeadMountedDisplayEnabled()
-		&& UHeadMountedDisplayFunctionLibrary::IsHeadMountedDisplayConnected();
+	// UHeadMountedDisplayFunctionLibrary는 UE5.1에서 deprecated되어 링크 오류 유발.
+	// GEngine->XRSystem을 직접 참조해 HMD 연결 여부를 확인한다.
+	return GEngine && GEngine->XRSystem.IsValid()
+		&& GEngine->XRSystem->IsHeadTrackingAllowed();
 }
