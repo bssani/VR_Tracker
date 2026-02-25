@@ -106,7 +106,14 @@ void AVTC_BodyActor::SyncSpherePositions() {
     if (!S)
       return;
     const FVTCTrackerData Data = TrackerSource->GetTrackerData(TrackerRole);
-    S->SetWorldLocation(Data.WorldLocation);
+
+    // 마운트 오프셋 보정: 트래커 로컬 오프셋을 트래커 회전에 맞춰 월드로 변환
+    const FVector Offset = GetMountOffsetForRole(TrackerRole);
+    const FVector EffectiveLocation = Offset.IsNearlyZero()
+        ? Data.WorldLocation
+        : Data.WorldLocation + FQuat(Data.WorldRotation).RotateVector(Offset);
+
+    S->SetWorldLocation(EffectiveLocation);
     S->SetVisibility(Data.bIsTracked);
   };
 
@@ -170,6 +177,17 @@ float AVTC_BodyActor::GetSphereRadiusForRole(
   return 10.0f; // Default fallback
 }
 
+FVector AVTC_BodyActor::GetMountOffsetForRole(EVTCTrackerRole TrackerRole) const {
+  switch (TrackerRole) {
+  case EVTCTrackerRole::Waist:     return MountOffset_Waist;
+  case EVTCTrackerRole::LeftKnee:  return MountOffset_LeftKnee;
+  case EVTCTrackerRole::RightKnee: return MountOffset_RightKnee;
+  case EVTCTrackerRole::LeftFoot:  return MountOffset_LeftFoot;
+  case EVTCTrackerRole::RightFoot: return MountOffset_RightFoot;
+  }
+  return FVector::ZeroVector;
+}
+
 void AVTC_BodyActor::OnCalibrationComplete(
     const FVTCBodyMeasurements &Measurements) {
   UE_LOG(LogTemp, Log,
@@ -191,7 +209,14 @@ FVTCBodyMeasurements AVTC_BodyActor::GetBodyMeasurements() const {
 FVector AVTC_BodyActor::GetBodyPartLocation(EVTCTrackerRole TrackerRole) const {
   if (!TrackerSource)
     return FVector::ZeroVector;
-  return TrackerSource->GetTrackerLocation(TrackerRole);
+
+  const FVector Offset = GetMountOffsetForRole(TrackerRole);
+  if (Offset.IsNearlyZero())
+    return TrackerSource->GetTrackerLocation(TrackerRole);
+
+  // 오프셋이 있으면 트래커 회전을 포함해 월드 위치 보정
+  const FVTCTrackerData Data = TrackerSource->GetTrackerData(TrackerRole);
+  return Data.WorldLocation + FQuat(Data.WorldRotation).RotateVector(Offset);
 }
 
 void AVTC_BodyActor::UpdateSphereRadii() {

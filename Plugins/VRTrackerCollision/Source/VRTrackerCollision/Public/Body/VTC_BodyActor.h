@@ -92,6 +92,36 @@ public:
             meta = (ClampMin = 3.0f, ClampMax = 20.0f))
   float FootSphereRadius = 10.0f;
 
+  // ── 마운트 오프셋 (트래커 → 실제 신체 접촉점, 트래커 로컬 공간 기준) ──────
+  // Vive Tracker가 신체 표면보다 약간 돌출되어 있을 때 그 오프셋을
+  // 트래커 로컬 좌표(cm)로 입력하면 실제 접촉점 위치로 보정됩니다.
+  // 기본값 ZeroVector = 오프셋 없음 (하위 호환 유지)
+
+  UPROPERTY(EditAnywhere, BlueprintReadWrite,
+            Category = "VTC|Body|Mount Offset",
+            meta = (DisplayName = "Waist Mount Offset (Tracker Local, cm)"))
+  FVector MountOffset_Waist = FVector::ZeroVector;
+
+  UPROPERTY(EditAnywhere, BlueprintReadWrite,
+            Category = "VTC|Body|Mount Offset",
+            meta = (DisplayName = "Left Knee Mount Offset (Tracker Local, cm)"))
+  FVector MountOffset_LeftKnee = FVector::ZeroVector;
+
+  UPROPERTY(EditAnywhere, BlueprintReadWrite,
+            Category = "VTC|Body|Mount Offset",
+            meta = (DisplayName = "Right Knee Mount Offset (Tracker Local, cm)"))
+  FVector MountOffset_RightKnee = FVector::ZeroVector;
+
+  UPROPERTY(EditAnywhere, BlueprintReadWrite,
+            Category = "VTC|Body|Mount Offset",
+            meta = (DisplayName = "Left Foot Mount Offset (Tracker Local, cm)"))
+  FVector MountOffset_LeftFoot = FVector::ZeroVector;
+
+  UPROPERTY(EditAnywhere, BlueprintReadWrite,
+            Category = "VTC|Body|Mount Offset",
+            meta = (DisplayName = "Right Foot Mount Offset (Tracker Local, cm)"))
+  FVector MountOffset_RightFoot = FVector::ZeroVector;
+
   // ─── 함수 ────────────────────────────────────────────────────────────────
 
   UFUNCTION(BlueprintCallable, Category = "VTC|Body")
@@ -119,6 +149,9 @@ public:
 
 private:
   void SyncSpherePositions();
+
+  // 역할에 해당하는 마운트 오프셋 반환 (트래커 로컬 공간)
+  FVector GetMountOffsetForRole(EVTCTrackerRole TrackerRole) const;
 
   UFUNCTION()
   void OnSphereOverlapBegin(UPrimitiveComponent *OverlappedComp,
