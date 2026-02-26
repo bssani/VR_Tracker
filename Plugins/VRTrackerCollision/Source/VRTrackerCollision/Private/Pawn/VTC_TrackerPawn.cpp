@@ -147,8 +147,8 @@ void AVTC_TrackerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	PlayerInputComponent->BindAxis("VTC_SimRKneeY", this, &AVTC_TrackerPawn::SimAdjustRightKneeY);
 
 	// ── 제어 액션 ─────────────────────────────────────────────────────────────
-	// VTC_ToggleSim  : F8  (시뮬레이션/VR 모드 전환)
-	// VTC_ResetKnees : R   (무릎 오프셋 초기화)
+	// VTC_ToggleSim  : Backspace  (시뮬레이션/VR 모드 전환) ← F8은 UE PIE "Eject from Pawn"과 충돌
+	// VTC_ResetKnees : R          (무릎 오프셋 초기화)
 	PlayerInputComponent->BindAction("VTC_ToggleSim",  IE_Pressed, this, &AVTC_TrackerPawn::ToggleSimulationMode);
 	PlayerInputComponent->BindAction("VTC_ResetKnees", IE_Pressed, this, &AVTC_TrackerPawn::ResetKneeAdjustments);
 }

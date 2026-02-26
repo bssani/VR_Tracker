@@ -212,7 +212,7 @@ public:
 
 	// ─── 시뮬레이션 제어 함수 ───────────────────────────────────────────────
 
-	// 시뮬레이션 모드 토글 (런타임에서 F8 키로 전환)
+	// 시뮬레이션 모드 토글 (런타임에서 Backspace 키로 전환)
 	UFUNCTION(BlueprintCallable, Category = "VTC|Simulation")
 	void ToggleSimulationMode();
 
