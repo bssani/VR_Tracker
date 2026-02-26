@@ -366,8 +366,10 @@ void AVTC_TrackerPawn::SimAdjustLeftKnee(const FInputActionValue& Value)
 	if (!bSimulationMode) return;
 	const FVector2D Adj = Value.Get<FVector2D>();
 	const float DT = GetWorld()->GetDeltaSeconds();
-	SimKneeAdjust_Left.X += Adj.X * SimKneeAdjustSpeed * DT;
-	SimKneeAdjust_Left.Y += Adj.Y * SimKneeAdjustSpeed * DT;
+	// X 입력 → 카메라 로컬 Y (좌우): NumPad4=왼쪽, NumPad6=오른쪽
+	SimKneeAdjust_Left.Y += Adj.X * SimKneeAdjustSpeed * DT;
+	// Y 입력 → 카메라 로컬 Z (위아래): NumPad8=위, NumPad2=아래
+	SimKneeAdjust_Left.Z += Adj.Y * SimKneeAdjustSpeed * DT;
 }
 
 void AVTC_TrackerPawn::SimAdjustRightKnee(const FInputActionValue& Value)
@@ -375,8 +377,17 @@ void AVTC_TrackerPawn::SimAdjustRightKnee(const FInputActionValue& Value)
 	if (!bSimulationMode) return;
 	const FVector2D Adj = Value.Get<FVector2D>();
 	const float DT = GetWorld()->GetDeltaSeconds();
-	SimKneeAdjust_Right.X += Adj.X * SimKneeAdjustSpeed * DT;
-	SimKneeAdjust_Right.Y += Adj.Y * SimKneeAdjustSpeed * DT;
+	// X 입력 → 카메라 로컬 Y (좌우): ArrowLeft=왼쪽, ArrowRight=오른쪽
+	SimKneeAdjust_Right.Y += Adj.X * SimKneeAdjustSpeed * DT;
+	// Y 입력 → 카메라 로컬 Z (위아래): ArrowUp=위, ArrowDown=아래
+	SimKneeAdjust_Right.Z += Adj.Y * SimKneeAdjustSpeed * DT;
+}
+
+void AVTC_TrackerPawn::SimMoveUp(const FInputActionValue& Value)
+{
+	if (!bSimulationMode) return;
+	const float UpVal = Value.Get<float>();
+	if (!FMath::IsNearlyZero(UpVal)) AddMovementInput(FVector::UpVector, UpVal);
 }
 
 // ─── HMD 감지 ────────────────────────────────────────────────────────────────

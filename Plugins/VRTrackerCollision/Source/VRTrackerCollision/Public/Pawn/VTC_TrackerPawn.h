@@ -197,8 +197,8 @@ public:
 	// ─── 시뮬레이션 무릎 조작 (키보드) ──────────────────────────────────────
 
 	// 무릎 추가 오프셋 — 런타임에 키보드로 조절됨
-	// NumPad 4/6: 왼쪽 무릎 좌우, NumPad 8/2: 왼쪽 무릎 전후
-	// Arrow Keys: 오른쪽 무릎 좌우/전후
+	// NumPad 4/6: 왼쪽 무릎 좌우 (Y축), NumPad 8/2: 왼쪽 무릎 위아래 (Z축)
+	// Arrow Left/Right: 오른쪽 무릎 좌우 (Y축), Arrow Up/Down: 오른쪽 무릎 위아래 (Z축)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Simulation|Runtime")
 	FVector SimKneeAdjust_Left = FVector::ZeroVector;
 
@@ -244,6 +244,7 @@ public:
 	// ─── 입력 핸들러 (PlayerController가 포워딩) ──────────────────────────
 	// VTC_SimPlayerController가 Enhanced Input 바인딩 후 이 함수들을 직접 호출한다.
 	void SimMove(const FInputActionValue& Value);
+	void SimMoveUp(const FInputActionValue& Value);
 	void SimLook(const FInputActionValue& Value);
 	void SimAdjustLeftKnee(const FInputActionValue& Value);
 	void SimAdjustRightKnee(const FInputActionValue& Value);

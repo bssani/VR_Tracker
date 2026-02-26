@@ -56,10 +56,10 @@ C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**�
 
 > **시뮬레이션 모드 단축키:**
 > - **Backspace** — VR ↔ 시뮬레이션 모드 토글 *(F8은 UE PIE "Eject from Pawn"과 충돌)*
-> - **Q / E** — 위 / 아래 이동
+> - **Q / E** — Pawn 위 / 아래 이동
 > - **R** — 무릎 오프셋 초기화
-> - **NumPad 2/8** — 왼쪽 무릎 좌우, **NumPad 4/6** — 왼쪽 무릎 위아래
-> - **Arrow Left/Right** — 오른쪽 무릎 좌우, **Arrow Down/Up** — 오른쪽 무릎 위아래
+> - **NumPad 4/6** — 왼쪽 무릎 좌(4)/우(6), **NumPad 8/2** — 왼쪽 무릎 위(8)/아래(2)
+> - **Arrow Left/Right** — 오른쪽 무릎 좌/우, **Arrow Up/Down** — 오른쪽 무릎 위/아래
 
 ### Enhanced Input 에셋 생성 및 연결 (필수)
 
@@ -76,8 +76,8 @@ Content Browser 우클릭 → **Input → Input Action**
 | `IA_VTC_Look` | **Axis2D (Vector2D)** | 마우스 룩 (X=Yaw, Y=Pitch) |
 | `IA_VTC_ToggleSim` | **Digital (bool)** | 시뮬레이션 모드 토글 |
 | `IA_VTC_ResetKnees` | **Digital (bool)** | 무릎 오프셋 초기화 |
-| `IA_VTC_AdjustLeftKnee` | **Axis2D (Vector2D)** | 왼쪽 무릎 조절 (X=좌우, Y=위아래) |
-| `IA_VTC_AdjustRightKnee` | **Axis2D (Vector2D)** | 오른쪽 무릎 조절 (X=좌우, Y=위아래) |
+| `IA_VTC_AdjustLeftKnee` | **Axis2D (Vector2D)** | 왼쪽 무릎 조절 (X입력→Y축 좌우, Y입력→Z축 위아래) |
+| `IA_VTC_AdjustRightKnee` | **Axis2D (Vector2D)** | 오른쪽 무릎 조절 (X입력→Y축 좌우, Y입력→Z축 위아래) |
 
 #### Step B — Input Mapping Context 에셋 1개 생성
 
@@ -97,10 +97,10 @@ IMC 에셋을 열어 키 매핑 추가:
 | `IA_VTC_Look` | Mouse Y | **Negate** | Y=Pitch (반전) |
 | `IA_VTC_ToggleSim` | Backspace | *(없음)* | 모드 토글 |
 | `IA_VTC_ResetKnees` | R | *(없음)* | 무릎 초기화 |
-| `IA_VTC_AdjustLeftKnee` | NumPad8 | *(없음)* | 왼무릎 좌우 X=+1 (오른쪽) |
-| `IA_VTC_AdjustLeftKnee` | NumPad2 | **Negate** | 왼무릎 좌우 X=-1 (왼쪽) |
-| `IA_VTC_AdjustLeftKnee` | NumPad6 | **Swizzle YXZ** | 왼무릎 위아래 Y=+1 (위) |
-| `IA_VTC_AdjustLeftKnee` | NumPad4 | **Swizzle YXZ + Negate** | 왼무릎 위아래 Y=-1 (아래) |
+| `IA_VTC_AdjustLeftKnee` | NumPad6 | *(없음)* | 왼무릎 좌우 X=+1 (오른쪽) |
+| `IA_VTC_AdjustLeftKnee` | NumPad4 | **Negate** | 왼무릎 좌우 X=-1 (왼쪽) |
+| `IA_VTC_AdjustLeftKnee` | NumPad8 | **Swizzle YXZ** | 왼무릎 위아래 Y=+1 (위) |
+| `IA_VTC_AdjustLeftKnee` | NumPad2 | **Swizzle YXZ + Negate** | 왼무릎 위아래 Y=-1 (아래) |
 | `IA_VTC_AdjustRightKnee` | Right | *(없음)* | 오른무릎 좌우 X=+1 (오른쪽) |
 | `IA_VTC_AdjustRightKnee` | Left | **Negate** | 오른무릎 좌우 X=-1 (왼쪽) |
 | `IA_VTC_AdjustRightKnee` | Up | **Swizzle YXZ** | 오른무릎 위아래 Y=+1 (위) |
@@ -108,9 +108,16 @@ IMC 에셋을 열어 키 매핑 추가:
 
 > **Swizzle YXZ Modifier**: X 값을 Y 채널로 보내는 역할. Axis2D에서 두 번째 키를 Y에 매핑할 때 사용.
 
-#### Step C — BP_VTC_TrackerPawn에 에셋 연결
+#### Step C — BP_VTC_SimPlayerController에 에셋 연결
 
-BP_VTC_TrackerPawn 열기 → Details 패널 → **VTC|Simulation|Input**:
+> **주의:** 입력 에셋은 **BP_VTC_TrackerPawn이 아니라 BP_VTC_SimPlayerController**에 연결합니다.
+> C++ 아키텍처상 Enhanced Input 등록은 PlayerController::BeginPlay()에서 처리됩니다.
+
+1. Content Browser → Blueprint Class → `VTC_SimPlayerController` 기반
+2. 이름: `BP_VTC_SimPlayerController`
+3. BP_VTC_GameMode → **Player Controller Class** = `BP_VTC_SimPlayerController`
+
+BP_VTC_SimPlayerController 열기 → Details 패널 → **VTC|Input**:
 
 | 프로퍼티 | 연결할 에셋 |
 |---------|-----------|

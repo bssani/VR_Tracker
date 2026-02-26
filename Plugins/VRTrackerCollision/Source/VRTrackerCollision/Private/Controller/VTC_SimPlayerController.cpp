@@ -51,6 +51,7 @@ void AVTC_SimPlayerController::SetupInputComponent()
 
 	// Triggered: 키를 누르는 동안 매 프레임 호출
 	if (IA_Move)            EIC->BindAction(IA_Move,            ETriggerEvent::Triggered, this, &AVTC_SimPlayerController::Input_Move);
+	if (IA_MoveUp)          EIC->BindAction(IA_MoveUp,          ETriggerEvent::Triggered, this, &AVTC_SimPlayerController::Input_MoveUp);
 	if (IA_Look)            EIC->BindAction(IA_Look,            ETriggerEvent::Triggered, this, &AVTC_SimPlayerController::Input_Look);
 	if (IA_AdjustLeftKnee)  EIC->BindAction(IA_AdjustLeftKnee,  ETriggerEvent::Triggered, this, &AVTC_SimPlayerController::Input_AdjustLeftKnee);
 	if (IA_AdjustRightKnee) EIC->BindAction(IA_AdjustRightKnee, ETriggerEvent::Triggered, this, &AVTC_SimPlayerController::Input_AdjustRightKnee);
@@ -70,6 +71,11 @@ AVTC_TrackerPawn* AVTC_SimPlayerController::GetTrackerPawn() const
 void AVTC_SimPlayerController::Input_Move(const FInputActionValue& Value)
 {
 	if (AVTC_TrackerPawn* P = GetTrackerPawn()) P->SimMove(Value);
+}
+
+void AVTC_SimPlayerController::Input_MoveUp(const FInputActionValue& Value)
+{
+	if (AVTC_TrackerPawn* P = GetTrackerPawn()) P->SimMoveUp(Value);
 }
 
 void AVTC_SimPlayerController::Input_Look(const FInputActionValue& Value)

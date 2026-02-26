@@ -49,6 +49,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Input")
 	TObjectPtr<UInputAction> IA_Move;
 
+	// Axis1D — Q: 위, E: 아래
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Input")
+	TObjectPtr<UInputAction> IA_MoveUp;
+
 	// Axis2D — X: Yaw(마우스X), Y: Pitch(마우스Y)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Input")
 	TObjectPtr<UInputAction> IA_Look;
@@ -61,11 +65,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Input")
 	TObjectPtr<UInputAction> IA_ResetKnees;
 
-	// Axis2D — X: 좌우(NumPad4/6), Y: 전후(NumPad2/8)
+	// Axis2D — X: 좌우(NumPad4/6→Y축), Y: 위아래(NumPad8/2→Z축)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Input")
 	TObjectPtr<UInputAction> IA_AdjustLeftKnee;
 
-	// Axis2D — X: 좌우(ArrowLeft/Right), Y: 전후(ArrowDown/Up)
+	// Axis2D — X: 좌우(ArrowLeft/Right→Y축), Y: 위아래(ArrowUp/Down→Z축)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Input")
 	TObjectPtr<UInputAction> IA_AdjustRightKnee;
 
@@ -75,6 +79,7 @@ private:
 
 	// ─── 입력 핸들러 (Pawn의 해당 함수로 포워딩) ──────────────────────
 	void Input_Move(const FInputActionValue& Value);
+	void Input_MoveUp(const FInputActionValue& Value);
 	void Input_Look(const FInputActionValue& Value);
 	void Input_ToggleSim(const FInputActionValue& Value);
 	void Input_ResetKnees(const FInputActionValue& Value);
