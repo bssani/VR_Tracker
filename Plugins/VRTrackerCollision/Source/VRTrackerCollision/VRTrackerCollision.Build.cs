@@ -24,6 +24,7 @@ public class VRTrackerCollision : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"InputCore",
+			"EnhancedInput",        // UEnhancedInputComponent, UInputMappingContext
 			"HeadMountedDisplay",   // UMotionControllerComponent
 			"UMG",                  // Widget
 			"Niagara",              // Particle effects

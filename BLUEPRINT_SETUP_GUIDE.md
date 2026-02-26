@@ -55,9 +55,71 @@ C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**�
 | VTC\|Simulation | SimOffset_RightKnee | `(0, 30, -50)` | 착석 시 오른쪽 무릎 오프셋 (cm, 카메라 로컬) |
 
 > **시뮬레이션 모드 단축키:**
-> - **Backspace** — VR ↔ 시뮬레이션 모드 토글 (런타임) *(F8은 UE PIE "Eject from Pawn"과 충돌)*
+> - **Backspace** — VR ↔ 시뮬레이션 모드 토글 *(F8은 UE PIE "Eject from Pawn"과 충돌)*
 > - **R** — 무릎 오프셋 초기화
-> - **NumPad 8/2/4/6** — 무릎 위치 미세 조정 (앞뒤/좌우)
+> - **NumPad 4/6** — 왼쪽 무릎 좌우, **NumPad 2/8** — 왼쪽 무릎 전후
+> - **Arrow Left/Right** — 오른쪽 무릎 좌우, **Arrow Down/Up** — 오른쪽 무릎 전후
+
+### Enhanced Input 에셋 생성 및 연결 (필수)
+
+시뮬레이션 모드 키 입력이 동작하려면 **Enhanced Input 에셋을 반드시 생성**하고 BP_VTC_TrackerPawn에 연결해야 합니다.
+
+#### Step A — Input Action 에셋 6개 생성
+
+Content Browser 우클릭 → **Input → Input Action**
+
+| 에셋 이름 | Value Type | 설명 |
+|----------|-----------|------|
+| `IA_VTC_Move` | **Axis2D (Vector2D)** | 이동 (W/S = X, A/D = Y) |
+| `IA_VTC_Look` | **Axis2D (Vector2D)** | 마우스 룩 (X=Yaw, Y=Pitch) |
+| `IA_VTC_ToggleSim` | **Digital (bool)** | 시뮬레이션 모드 토글 |
+| `IA_VTC_ResetKnees` | **Digital (bool)** | 무릎 오프셋 초기화 |
+| `IA_VTC_AdjustLeftKnee` | **Axis2D (Vector2D)** | 왼쪽 무릎 조절 |
+| `IA_VTC_AdjustRightKnee` | **Axis2D (Vector2D)** | 오른쪽 무릎 조절 |
+
+#### Step B — Input Mapping Context 에셋 1개 생성
+
+Content Browser 우클릭 → **Input → Input Mapping Context** → 이름: `IMC_VTC_Simulation`
+
+IMC 에셋을 열어 키 매핑 추가:
+
+| Action | Key | Modifier | 설명 |
+|--------|-----|----------|------|
+| `IA_VTC_Move` | W | *(없음)* | X=+1 (전진) |
+| `IA_VTC_Move` | S | **Negate** | X=-1 (후진) |
+| `IA_VTC_Move` | D | **Swizzle YXZ** | Y=+1 (우) |
+| `IA_VTC_Move` | A | **Swizzle YXZ + Negate** | Y=-1 (좌) |
+| `IA_VTC_Look` | Mouse X | *(없음)* | X=Yaw |
+| `IA_VTC_Look` | Mouse Y | **Negate** | Y=Pitch (반전) |
+| `IA_VTC_ToggleSim` | Backspace | *(없음)* | 모드 토글 |
+| `IA_VTC_ResetKnees` | R | *(없음)* | 무릎 초기화 |
+| `IA_VTC_AdjustLeftKnee` | NumPad6 | *(없음)* | 왼무릎 X=+1 |
+| `IA_VTC_AdjustLeftKnee` | NumPad4 | **Negate** | 왼무릎 X=-1 |
+| `IA_VTC_AdjustLeftKnee` | NumPad8 | **Swizzle YXZ** | 왼무릎 Y=+1 |
+| `IA_VTC_AdjustLeftKnee` | NumPad2 | **Swizzle YXZ + Negate** | 왼무릎 Y=-1 |
+| `IA_VTC_AdjustRightKnee` | Right | *(없음)* | 오른무릎 X=+1 |
+| `IA_VTC_AdjustRightKnee` | Left | **Negate** | 오른무릎 X=-1 |
+| `IA_VTC_AdjustRightKnee` | Up | **Swizzle YXZ** | 오른무릎 Y=+1 |
+| `IA_VTC_AdjustRightKnee` | Down | **Swizzle YXZ + Negate** | 오른무릎 Y=-1 |
+
+> **Swizzle YXZ Modifier**: X 값을 Y 채널로 보내는 역할. Axis2D에서 두 번째 키(좌우)를 Y에 매핑할 때 사용.
+
+#### Step C — BP_VTC_TrackerPawn에 에셋 연결
+
+BP_VTC_TrackerPawn 열기 → Details 패널 → **VTC|Simulation|Input**:
+
+| 프로퍼티 | 연결할 에셋 |
+|---------|-----------|
+| Sim Input Mapping Context | `IMC_VTC_Simulation` |
+| IA Move | `IA_VTC_Move` |
+| IA Look | `IA_VTC_Look` |
+| IA Toggle Sim | `IA_VTC_ToggleSim` |
+| IA Reset Knees | `IA_VTC_ResetKnees` |
+| IA Adjust Left Knee | `IA_VTC_AdjustLeftKnee` |
+| IA Adjust Right Knee | `IA_VTC_AdjustRightKnee` |
+
+> **Project Settings 확인**: Engine → Input → Default Input Component Class = `EnhancedInputComponent`
+> Default Player Input Class = `EnhancedPlayerInput`
 
 ### MotionSource 매핑 확인
 SteamVR → Settings → Controllers → **Manage Trackers**에서:
@@ -309,41 +371,123 @@ C++ 코드 분석 결과, SessionManager는 자체적으로 `CollisionDetector`,
 
 ### Event Graph 연결 (Blueprint)
 
+#### [1] BeginPlay — 참조 취득 + 델리게이트 바인딩
+
 ```
-=== BeginPlay ===
+BeginPlay
+  │
+  ├─ Get All Actors Of Class (VTC_SessionManager)
+  │    └─ [0] → Set SessionManagerRef (변수)
+  │
+  ├─ SessionManagerRef → Get CollisionDetector
+  │    └─ Set CollisionDetectorRef (변수)
+  │
+  ├─ SessionManagerRef.OnSessionStateChanged → Bind Event → HandleStateChanged
+  │    └─ Custom Event HandleStateChanged(OldState, NewState)
+  │         └─ Switch on EVTCSessionState (NewState)
+  │              Idle        → TB_SessionState = "IDLE"
+  │              Calibrating → TB_SessionState = "CALIBRATING"
+  │              Testing     → TB_SessionState = "TESTING"
+  │              Reviewing   → TB_SessionState = "REVIEWING"
+  │
+  └─ CollisionDetectorRef.OnDistanceUpdated → Bind Event → HandleDistanceUpdated
+       └─ (아래 "거리 결과 리스트 갱신" 참조)
+```
 
-1. Get All Actors Of Class (VTC_SessionManager)
-   → Get (index 0) → Promote to Variable: "SessionManagerRef"
+#### [2] 거리 결과 리스트 동적 갱신 — 핵심
 
-2. SessionManagerRef → OnSessionStateChanged → Bind Event
-   → Custom Event "HandleStateChanged(OldState, NewState)"
-     → Switch on EVTCSessionState (NewState):
-        Idle        → TB_SessionState.SetText("IDLE"), 버튼 활성화 변경
-        Calibrating → TB_SessionState.SetText("CALIBRATING")
-        Testing     → TB_SessionState.SetText("TESTING")
-        Reviewing   → TB_SessionState.SetText("REVIEWING")
+**데이터 흐름:**
+```
+CollisionDetector (30Hz 측정)
+  └─ OnDistanceUpdated (FVTCDistanceResult& 브로드캐스트)
+       └─ WBP_VTC_HUD.HandleDistanceUpdated 호출
+            └─ VB_DistanceList 내용 재생성
+```
 
-=== Tick (또는 Timer) ===
+**HandleDistanceUpdated 이벤트 그래프:**
+```
+Custom Event HandleDistanceUpdated (DistanceResult: FVTCDistanceResult)
+  │
+  ├─ [옵션 A: 기존 항목 갱신 — 권장]
+  │   CollisionDetectorRef → CurrentDistanceResults (TArray)
+  │     → 루프로 전체 목록을 한 번에 업데이트
+  │
+  └─ [옵션 B: 이벤트 1개씩 갱신]
+        DistanceResult 바로 사용
+```
 
-3. SessionManagerRef → IsTesting?
-   → true:
-     → GetSessionMinDistance → TB_MinDistance.SetText(Format "Min: {0} cm")
-     → SessionElapsedTime → TB_ElapsedTime.SetText(FormatTime)
+**실제 구현 (옵션 A — 전체 재생성):**
+```
+Custom Event HandleDistanceUpdated (DistanceResult: FVTCDistanceResult)
+  │
+  ├─ VB_DistanceList → ClearChildren  ← 기존 행 전부 제거
+  │
+  └─ CollisionDetectorRef → CurrentDistanceResults
+       └─ ForEachLoop (Result: FVTCDistanceResult)
+            │
+            ├─ Create Widget → WBP_DistanceRow (별도 행 위젯)
+            │    └─ InitRow(Result) 함수 호출로 데이터 전달
+            │
+            └─ VB_DistanceList → AddChild(WBP_DistanceRow)
+```
 
-=== Button Clicks ===
+> **CollisionDetector에서 CurrentDistanceResults 가져오기:**
+> `SessionManagerRef → CollisionDetector → CurrentDistanceResults`
+> CurrentDistanceResults는 BlueprintReadOnly이므로 BP에서 직접 읽을 수 있음.
 
-4. BTN_StartSession.OnClicked
-   → SessionManagerRef → StartSession(ETB_SubjectID.GetText())
+---
 
-5. BTN_Stop.OnClicked
-   → SessionManagerRef → StopSession()
+#### [3] WBP_DistanceRow — 행 단위 위젯 (별도 생성)
 
-6. BTN_ReCalibrate.OnClicked
-   → SessionManagerRef → RequestReCalibration()
+Content Browser → Widget Blueprint → `WBP_DistanceRow`
 
-7. BTN_Export.OnClicked
-   → SessionManagerRef → ExportAndEnd()
-   → OnSessionExported 바인딩으로 파일 경로 표시
+**Designer 레이아웃:**
+```
+HorizontalBox
+  ├─ TextBlock TB_BodyPart    (예: "Left Knee")   Width: 120
+  ├─ TextBlock TB_VehiclePart (예: "Dashboard")   Width: 150
+  ├─ TextBlock TB_Distance    (예: "8.2 cm")      Width: 80
+  └─ Image     IMG_Status     (색상으로 경고 단계 표시)  Width: 20
+```
+
+**WBP_DistanceRow Graph — InitRow 함수:**
+```
+Function InitRow (Result: FVTCDistanceResult)
+  │
+  ├─ TB_BodyPart  → SetText ( Switch EVTCTrackerRole → "Left Knee" / "Right Knee" / ... )
+  ├─ TB_VehiclePart → SetText ( Result.VehiclePartName )
+  ├─ TB_Distance  → SetText ( Format "{0:.1f} cm" ← Result.Distance )
+  │
+  └─ Switch on EVTCWarningLevel (Result.WarningLevel)
+       Safe      → IMG_Status.SetColorAndOpacity( Green  0,1,0,1 )
+       Warning   → IMG_Status.SetColorAndOpacity( Yellow 1,1,0,1 )
+       Collision → IMG_Status.SetColorAndOpacity( Red    1,0,0,1 )
+```
+
+---
+
+#### [4] Tick / Timer — 경과시간 + 최소거리 갱신
+
+```
+Event Tick (DeltaTime)
+  │
+  └─ SessionManagerRef → IsTesting?
+       true →
+         ├─ SessionManagerRef → SessionElapsedTime
+         │    └─ TB_ElapsedTime → SetText ( FormatTime )
+         │
+         └─ SessionManagerRef → GetSessionMinDistance
+              └─ TB_MinDistance → SetText ( Format "Min: {0:.1f} cm" )
+```
+
+#### [5] 버튼 클릭
+
+```
+BTN_StartSession.OnClicked → SessionManagerRef → StartSession( ETB_SubjectID.GetText() )
+BTN_Stop.OnClicked         → SessionManagerRef → StopSession()
+BTN_ReCalibrate.OnClicked  → SessionManagerRef → RequestReCalibration()
+BTN_Export.OnClicked       → SessionManagerRef → ExportAndEnd()
+                               └─ OnSessionExported 델리게이트 → 파일 경로 표시
 ```
 
 ### HUD를 VR에서 표시하는 방법

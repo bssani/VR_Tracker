@@ -33,6 +33,9 @@
 #include "MotionControllerComponent.h"
 #include "Tracker/VTC_TrackerTypes.h"
 #include "Tracker/VTC_TrackerInterface.h"
+#include "InputActionValue.h"
+#include "InputMappingContext.h"
+#include "InputAction.h"
 #include "VTC_TrackerPawn.generated.h"
 
 UCLASS(BlueprintType, Blueprintable, meta=(DisplayName="VTC Tracker Pawn"))
@@ -210,6 +213,38 @@ public:
 		meta=(ClampMin=5.0f, ClampMax=100.0f, EditCondition="bSimulationMode"))
 	float SimKneeAdjustSpeed = 30.0f;
 
+	// ─── 시뮬레이션 입력 에셋 (Enhanced Input) ────────────────────────────────
+	// BP_VTC_TrackerPawn Details > "VTC|Simulation|Input" 에서 각 에셋을 연결하세요.
+	// 에셋 생성: Content Browser 우클릭 → Input → Input Action / Input Mapping Context
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input",
+		meta=(DisplayName="Sim Input Mapping Context"))
+	TObjectPtr<UInputMappingContext> SimInputMappingContext;
+
+	// Axis2D — X: 전후(W/S), Y: 좌우(A/D)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input")
+	TObjectPtr<UInputAction> IA_Move;
+
+	// Axis2D — X: Yaw(마우스X), Y: Pitch(마우스Y)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input")
+	TObjectPtr<UInputAction> IA_Look;
+
+	// Digital — Backspace: 시뮬레이션 모드 토글
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input")
+	TObjectPtr<UInputAction> IA_ToggleSim;
+
+	// Digital — R: 무릎 오프셋 초기화
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input")
+	TObjectPtr<UInputAction> IA_ResetKnees;
+
+	// Axis2D — X: 좌우(NumPad4/6), Y: 전후(NumPad2/8)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input")
+	TObjectPtr<UInputAction> IA_AdjustLeftKnee;
+
+	// Axis2D — X: 좌우(ArrowLeft/Right), Y: 전후(ArrowDown/Up)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input")
+	TObjectPtr<UInputAction> IA_AdjustRightKnee;
+
 	// ─── 시뮬레이션 제어 함수 ───────────────────────────────────────────────
 
 	// 시뮬레이션 모드 토글 (런타임에서 Backspace 키로 전환)
@@ -253,15 +288,11 @@ private:
 	float SimYawInput = 0.0f;
 	float SimPitchInput = 0.0f;
 
-	// 시뮬레이션 입력 바인딩용 함수
-	void SimMoveForward(float Value);
-	void SimMoveRight(float Value);
-	void SimLookYaw(float Value);
-	void SimLookPitch(float Value);
-	void SimAdjustLeftKneeX(float Value);
-	void SimAdjustLeftKneeY(float Value);
-	void SimAdjustRightKneeX(float Value);
-	void SimAdjustRightKneeY(float Value);
+	// 시뮬레이션 입력 바인딩용 함수 (Enhanced Input)
+	void SimMove(const FInputActionValue& Value);
+	void SimLook(const FInputActionValue& Value);
+	void SimAdjustLeftKnee(const FInputActionValue& Value);
+	void SimAdjustRightKnee(const FInputActionValue& Value);
 
 	// HMD 감지 확인
 	bool DetectHMDPresence() const;

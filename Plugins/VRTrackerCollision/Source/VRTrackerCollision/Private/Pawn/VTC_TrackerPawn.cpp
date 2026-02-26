@@ -3,6 +3,8 @@
 #include "Pawn/VTC_TrackerPawn.h"
 #include "DrawDebugHelpers.h"
 #include "IXRTrackingSystem.h"
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
 
 AVTC_TrackerPawn::AVTC_TrackerPawn()
 {
@@ -81,6 +83,25 @@ void AVTC_TrackerPawn::BeginPlay()
 		SimMovement->Deceleration = 4000.f;
 	}
 
+	// ── Enhanced Input: 시뮬레이션 매핑 컨텍스트 등록 ──────────────────────
+	// BeginPlay 시점에 Controller가 Possess된 이후라야 Subsystem에 접근 가능
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
+			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
+		{
+			if (SimInputMappingContext)
+			{
+				Subsystem->AddMappingContext(SimInputMappingContext, 0);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[VTC] SimInputMappingContext가 설정되지 않았습니다. "
+					"BP_VTC_TrackerPawn Details > VTC|Simulation|Input에서 IMC 에셋을 연결하세요."));
+			}
+		}
+	}
+
 	UE_LOG(LogTemp, Log,
 		TEXT("[VTC] TrackerPawn initialized. MotionSources: %s / %s / %s / %s / %s | SimMode: %s"),
 		*MotionSource_Waist.ToString(),
@@ -129,28 +150,25 @@ void AVTC_TrackerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	// ── 이동 (표준 UE 입력 축 이름) ─────────────────────────────────────────
-	// Project Settings -> Input 에서 기본 제공되는 축 이름 사용
-	PlayerInputComponent->BindAxis("MoveForward", this, &AVTC_TrackerPawn::SimMoveForward);
-	PlayerInputComponent->BindAxis("MoveRight",   this, &AVTC_TrackerPawn::SimMoveRight);
-	PlayerInputComponent->BindAxis("Turn",        this, &AVTC_TrackerPawn::SimLookYaw);
-	PlayerInputComponent->BindAxis("LookUp",      this, &AVTC_TrackerPawn::SimLookPitch);
+	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent);
+	if (!EIC)
+	{
+		UE_LOG(LogTemp, Error,
+			TEXT("[VTC] Enhanced Input Component를 찾지 못했습니다. "
+			     "Project Settings > Engine > Input > Default Input Component Class = "
+			     "EnhancedInputComponent 로 설정되어 있는지 확인하세요."));
+		return;
+	}
 
-	// ── 무릎 위치 조절 (Project Settings -> Input에 아래 축 이름 추가 필요) ─
-	// VTC_SimLKneeX : NumPad4 (-1.0) / NumPad6 (+1.0)  <- 왼무릎 좌우
-	// VTC_SimLKneeY : NumPad2 (-1.0) / NumPad8 (+1.0)  <- 왼무릎 전후
-	// VTC_SimRKneeX : ArrowLeft (-1.0) / ArrowRight (+1.0)
-	// VTC_SimRKneeY : ArrowDown (-1.0) / ArrowUp (+1.0)
-	PlayerInputComponent->BindAxis("VTC_SimLKneeX", this, &AVTC_TrackerPawn::SimAdjustLeftKneeX);
-	PlayerInputComponent->BindAxis("VTC_SimLKneeY", this, &AVTC_TrackerPawn::SimAdjustLeftKneeY);
-	PlayerInputComponent->BindAxis("VTC_SimRKneeX", this, &AVTC_TrackerPawn::SimAdjustRightKneeX);
-	PlayerInputComponent->BindAxis("VTC_SimRKneeY", this, &AVTC_TrackerPawn::SimAdjustRightKneeY);
+	// Triggered: 키를 누르는 동안 매 프레임 호출 (연속 입력)
+	if (IA_Move)            EIC->BindAction(IA_Move,            ETriggerEvent::Triggered, this, &AVTC_TrackerPawn::SimMove);
+	if (IA_Look)            EIC->BindAction(IA_Look,            ETriggerEvent::Triggered, this, &AVTC_TrackerPawn::SimLook);
+	if (IA_AdjustLeftKnee)  EIC->BindAction(IA_AdjustLeftKnee,  ETriggerEvent::Triggered, this, &AVTC_TrackerPawn::SimAdjustLeftKnee);
+	if (IA_AdjustRightKnee) EIC->BindAction(IA_AdjustRightKnee, ETriggerEvent::Triggered, this, &AVTC_TrackerPawn::SimAdjustRightKnee);
 
-	// ── 제어 액션 ─────────────────────────────────────────────────────────────
-	// VTC_ToggleSim  : Backspace  (시뮬레이션/VR 모드 전환) ← F8은 UE PIE "Eject from Pawn"과 충돌
-	// VTC_ResetKnees : R          (무릎 오프셋 초기화)
-	PlayerInputComponent->BindAction("VTC_ToggleSim",  IE_Pressed, this, &AVTC_TrackerPawn::ToggleSimulationMode);
-	PlayerInputComponent->BindAction("VTC_ResetKnees", IE_Pressed, this, &AVTC_TrackerPawn::ResetKneeAdjustments);
+	// Started: 키를 처음 눌렀을 때 1회만 호출 (토글/리셋)
+	if (IA_ToggleSim)       EIC->BindAction(IA_ToggleSim,       ETriggerEvent::Started,   this, &AVTC_TrackerPawn::ToggleSimulationMode);
+	if (IA_ResetKnees)      EIC->BindAction(IA_ResetKnees,      ETriggerEvent::Started,   this, &AVTC_TrackerPawn::ResetKneeAdjustments);
 }
 
 // ─── IVTC_TrackerInterface 구현 ─────────────────────────────────────────────
@@ -341,55 +359,41 @@ FVector AVTC_TrackerPawn::SimOffsetToWorld(const FVector& LocalOffset) const
 	return CamWorldPos + YawOnlyRot.RotateVector(LocalOffset);
 }
 
-// ─── 시뮬레이션 모드 — 입력 핸들러 ─────────────────────────────────────────
+// ─── 시뮬레이션 모드 — Enhanced Input 핸들러 ────────────────────────────────
 
-void AVTC_TrackerPawn::SimMoveForward(float Value)
+void AVTC_TrackerPawn::SimMove(const FInputActionValue& Value)
 {
-	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
-	AddMovementInput(GetActorForwardVector(), Value);
+	if (!bSimulationMode) return;
+	const FVector2D MoveVec = Value.Get<FVector2D>();
+	if (!FMath::IsNearlyZero(MoveVec.X)) AddMovementInput(GetActorForwardVector(), MoveVec.X);
+	if (!FMath::IsNearlyZero(MoveVec.Y)) AddMovementInput(GetActorRightVector(),   MoveVec.Y);
 }
 
-void AVTC_TrackerPawn::SimMoveRight(float Value)
+void AVTC_TrackerPawn::SimLook(const FInputActionValue& Value)
 {
-	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
-	AddMovementInput(GetActorRightVector(), Value);
+	// SimYawInput / SimPitchInput에 누적 → Tick에서 실제 회전 적용
+	if (!bSimulationMode) return;
+	const FVector2D LookVec = Value.Get<FVector2D>();
+	SimYawInput   = LookVec.X * SimMouseSensitivity;
+	SimPitchInput = LookVec.Y * SimMouseSensitivity;
 }
 
-void AVTC_TrackerPawn::SimLookYaw(float Value)
+void AVTC_TrackerPawn::SimAdjustLeftKnee(const FInputActionValue& Value)
 {
-	// SimYawInput에 누적, Tick에서 실제 회전 적용
-	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
-	SimYawInput = Value * SimMouseSensitivity;
+	if (!bSimulationMode) return;
+	const FVector2D Adj = Value.Get<FVector2D>();
+	const float DT = GetWorld()->GetDeltaSeconds();
+	SimKneeAdjust_Left.X += Adj.X * SimKneeAdjustSpeed * DT;
+	SimKneeAdjust_Left.Y += Adj.Y * SimKneeAdjustSpeed * DT;
 }
 
-void AVTC_TrackerPawn::SimLookPitch(float Value)
+void AVTC_TrackerPawn::SimAdjustRightKnee(const FInputActionValue& Value)
 {
-	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
-	SimPitchInput = Value * SimMouseSensitivity;
-}
-
-void AVTC_TrackerPawn::SimAdjustLeftKneeX(float Value)
-{
-	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
-	SimKneeAdjust_Left.X += Value * SimKneeAdjustSpeed * GetWorld()->GetDeltaSeconds();
-}
-
-void AVTC_TrackerPawn::SimAdjustLeftKneeY(float Value)
-{
-	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
-	SimKneeAdjust_Left.Y += Value * SimKneeAdjustSpeed * GetWorld()->GetDeltaSeconds();
-}
-
-void AVTC_TrackerPawn::SimAdjustRightKneeX(float Value)
-{
-	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
-	SimKneeAdjust_Right.X += Value * SimKneeAdjustSpeed * GetWorld()->GetDeltaSeconds();
-}
-
-void AVTC_TrackerPawn::SimAdjustRightKneeY(float Value)
-{
-	if (!bSimulationMode || FMath::IsNearlyZero(Value)) return;
-	SimKneeAdjust_Right.Y += Value * SimKneeAdjustSpeed * GetWorld()->GetDeltaSeconds();
+	if (!bSimulationMode) return;
+	const FVector2D Adj = Value.Get<FVector2D>();
+	const float DT = GetWorld()->GetDeltaSeconds();
+	SimKneeAdjust_Right.X += Adj.X * SimKneeAdjustSpeed * DT;
+	SimKneeAdjust_Right.Y += Adj.Y * SimKneeAdjustSpeed * DT;
 }
 
 // ─── HMD 감지 ────────────────────────────────────────────────────────────────
