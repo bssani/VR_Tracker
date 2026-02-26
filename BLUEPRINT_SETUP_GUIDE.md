@@ -333,140 +333,221 @@ C++ 코드 분석 결과, SessionManager는 자체적으로 `CollisionDetector`,
 1. Content Browser → 우클릭 → **User Interface → Widget Blueprint**
 2. 이름: `WBP_VTC_HUD`
 
-### 디자인 레이아웃 (Designer 탭)
+---
+
+### Designer 탭 — 전체 위젯 트리
+
+HUD는 **항상 표시되는 상단 바** + **세션 상태별로 바뀌는 4개 패널**로 구성됩니다.
 
 ```
-┌─────────────────────────────────────────────┐
-│ [상단 바]                                     │
-│  세션 상태: TESTING    경과: 00:02:35         │
-│  피험자: SUBJECT_001                          │
-├─────────────────────────────────────────────┤
-│                                             │
-│  [왼쪽 패널 - 거리 모니터]                     │
-│   Left Knee ↔ Dashboard:   8.2cm  ⚠️ Warning │
-│   Right Knee ↔ Dashboard:  12.5cm ✅ Safe     │
-│   Left Knee ↔ Door Panel:  5.1cm  ⚠️ Warning │
-│   Right Foot ↔ Pedal:      15.3cm ✅ Safe     │
-│                                             │
-│  [최소 거리]: 3.8cm                           │
-│                                             │
-├─────────────────────────────────────────────┤
-│ [하단 버튼 바]                                │
-│  [Start Session] [Stop] [Re-Calibrate] [Export]│
-└─────────────────────────────────────────────┘
+[Canvas Panel]  (루트)
+  │
+  ├─ [Vertical Box]  (전체 레이아웃)
+  │    │
+  │    ├─ ── 상단 상태 바 (항상 표시) ──────────────────────
+  │    │   HorizontalBox
+  │    │     ├─ TextBlock  TB_SessionState   "IDLE"
+  │    │     ├─ TextBlock  TB_ElapsedTime    "00:00:00"
+  │    │     └─ TextBlock  TB_SubjectID      ""
+  │    │
+  │    ├─ ── Panel_Idle (Overlay) ────────────────────────
+  │    │   VerticalBox  [이름: Panel_Idle]
+  │    │     ├─ TextBlock  "피험자 ID 입력 후 Start를 누르세요"
+  │    │     ├─ EditableTextBox  ETB_SubjectID
+  │    │     └─ Button  BTN_StartSession  "Start Session"
+  │    │
+  │    ├─ ── Panel_Calibrating (Overlay) ─────────────────
+  │    │   VerticalBox  [이름: Panel_Calibrating]
+  │    │     ├─ TextBlock  "T-Pose를 취하고 있으세요"
+  │    │     ├─ TextBlock  TB_CalibCountdown  "3"  (카운트다운)
+  │    │     └─ Button  BTN_SkipCalib  "Skip (Direct Test)"
+  │    │
+  │    ├─ ── Panel_Testing (Overlay) ──────────────────────
+  │    │   VerticalBox  [이름: Panel_Testing]
+  │    │     ├─ VerticalBox  VB_DistanceList  (동적 행 생성)
+  │    │     ├─ TextBlock  TB_MinDistance  "Min: -- cm"
+  │    │     └─ HorizontalBox
+  │    │          ├─ Button  BTN_Stop         "Stop"
+  │    │          └─ Button  BTN_ReCalibrate  "Re-Calibrate"
+  │    │
+  │    └─ ── Panel_Reviewing (Overlay) ───────────────────
+  │        VerticalBox  [이름: Panel_Reviewing]
+  │          ├─ TextBlock  "세션 완료"
+  │          ├─ TextBlock  TB_FinalMinDist  "최소 거리: -- cm"
+  │          ├─ Button  BTN_Export   "Export CSV"
+  │          └─ Button  BTN_NewSession  "New Session"
 ```
 
-### 주요 위젯 구성
+> **중요:** Panel_Idle / Panel_Calibrating / Panel_Testing / Panel_Reviewing 는
+> UMG에서 **Is Variable = true** 로 체크해야 Event Graph에서 참조할 수 있습니다.
 
-- **TextBlock** `TB_SessionState` — 현재 상태 표시
-- **TextBlock** `TB_ElapsedTime` — 경과 시간
-- **TextBlock** `TB_SubjectID` — 피험자 ID
-- **VerticalBox** `VB_DistanceList` — 거리 결과 리스트 (동적 생성)
-- **TextBlock** `TB_MinDistance` — 세션 최소 거리
-- **Button** `BTN_StartSession` → StartSession 호출
-- **Button** `BTN_Stop` → StopSession 호출
-- **Button** `BTN_ReCalibrate` → RequestReCalibration 호출
-- **Button** `BTN_Export` → ExportAndEnd 호출
-- **EditableTextBox** `ETB_SubjectID` — 피험자 ID 입력
+---
+
+### 각 패널이 하는 일 요약
+
+| 패널 이름 | 표시 조건 (SessionState) | 내용 |
+|----------|------------------------|------|
+| **Panel_Idle** | `Idle` | 피험자 ID 입력 + Start 버튼. 세션 시작 전 대기 화면 |
+| **Panel_Calibrating** | `Calibrating` | "T-Pose 취하세요" 안내 + 카운트다운. 캘리브레이션 진행 중 |
+| **Panel_Testing** | `Testing` | VB_DistanceList (실시간 거리 목록) + 최소거리 + Stop 버튼 |
+| **Panel_Reviewing** | `Reviewing` | 세션 종료 후 최종 결과 + Export + New Session 버튼 |
+
+---
 
 ### Event Graph 연결 (Blueprint)
 
 #### [1] BeginPlay — 참조 취득 + 델리게이트 바인딩
 
 ```
-BeginPlay
+Event BeginPlay
   │
-  ├─ Get All Actors Of Class (VTC_SessionManager)
+  ├─ Get All Actors Of Class → BP_VTC_SessionManager
   │    └─ [0] → Set SessionManagerRef (변수)
   │
-  ├─ SessionManagerRef → Get CollisionDetector
+  ├─ SessionManagerRef → CollisionDetector
   │    └─ Set CollisionDetectorRef (변수)
   │
-  ├─ SessionManagerRef.OnSessionStateChanged → Bind Event → HandleStateChanged
-  │    └─ Custom Event HandleStateChanged(OldState, NewState)
-  │         └─ Switch on EVTCSessionState (NewState)
-  │              Idle        → TB_SessionState = "IDLE"
-  │              Calibrating → TB_SessionState = "CALIBRATING"
-  │              Testing     → TB_SessionState = "TESTING"
-  │              Reviewing   → TB_SessionState = "REVIEWING"
+  ├─ Bind Event to OnSessionStateChanged (Target: SessionManagerRef)
+  │    └─ Event: Custom Event [HandleStateChanged]
   │
-  └─ CollisionDetectorRef.OnDistanceUpdated → Bind Event → HandleDistanceUpdated
-       └─ (아래 "거리 결과 리스트 갱신" 참조)
-```
-
-#### [2] 거리 결과 리스트 동적 갱신 — 핵심
-
-**데이터 흐름:**
-```
-CollisionDetector (30Hz 측정)
-  └─ OnDistanceUpdated (FVTCDistanceResult& 브로드캐스트)
-       └─ WBP_VTC_HUD.HandleDistanceUpdated 호출
-            └─ VB_DistanceList 내용 재생성
-```
-
-**HandleDistanceUpdated 이벤트 그래프:**
-```
-Custom Event HandleDistanceUpdated (DistanceResult: FVTCDistanceResult)
+  ├─ Bind Event to OnDistanceUpdated (Target: CollisionDetectorRef)
+  │    └─ Event: Custom Event [HandleDistanceUpdated]
   │
-  ├─ [옵션 A: 기존 항목 갱신 — 권장]
-  │   CollisionDetectorRef → CurrentDistanceResults (TArray)
-  │     → 루프로 전체 목록을 한 번에 업데이트
-  │
-  └─ [옵션 B: 이벤트 1개씩 갱신]
-        DistanceResult 바로 사용
+  └─ Call HandleStateChanged (OldState: Idle, NewState: Idle)
+       ← 시작 시 Idle 패널을 즉시 표시하기 위해 1회 수동 호출
 ```
-
-**실제 구현 (옵션 A — 전체 재생성):**
-```
-Custom Event HandleDistanceUpdated (DistanceResult: FVTCDistanceResult)
-  │
-  ├─ VB_DistanceList → ClearChildren  ← 기존 행 전부 제거
-  │
-  └─ CollisionDetectorRef → CurrentDistanceResults
-       └─ ForEachLoop (Result: FVTCDistanceResult)
-            │
-            ├─ Create Widget → WBP_DistanceRow (별도 행 위젯)
-            │    └─ InitRow(Result) 함수 호출로 데이터 전달
-            │
-            └─ VB_DistanceList → AddChild(WBP_DistanceRow)
-```
-
-> **CollisionDetector에서 CurrentDistanceResults 가져오기:**
-> `SessionManagerRef → CollisionDetector → CurrentDistanceResults`
-> CurrentDistanceResults는 BlueprintReadOnly이므로 BP에서 직접 읽을 수 있음.
 
 ---
 
-#### [3] WBP_DistanceRow — 행 단위 위젯 (별도 생성)
+#### [2] HandleStateChanged — 패널 전환
 
-Content Browser → Widget Blueprint → `WBP_DistanceRow`
+```
+Custom Event HandleStateChanged (OldState, NewState: EVTCSessionState)
+  │
+  ├─ Panel_Idle        → SetVisibility (Collapsed)
+  ├─ Panel_Calibrating → SetVisibility (Collapsed)
+  ├─ Panel_Testing     → SetVisibility (Collapsed)
+  └─ Panel_Reviewing   → SetVisibility (Collapsed)
+         (일단 전부 숨기고)
+  │
+  └─ Switch on EVTCSessionState (NewState)
+       │
+       ├─ Idle        → Panel_Idle        SetVisibility (Visible)
+       │
+       ├─ Calibrating → Panel_Calibrating SetVisibility (Visible)
+       │
+       ├─ Testing     → Panel_Testing     SetVisibility (Visible)
+       │                VB_DistanceList   ClearChildren  ← 이전 행 제거
+       │                DistanceWidgetMap Clear          ← Map 초기화
+       │
+       └─ Reviewing   → Panel_Reviewing   SetVisibility (Visible)
+                        TB_FinalMinDist   SetText ( SessionManagerRef → GetSessionMinDistance )
+```
+
+> **왜 전부 Collapsed 후 하나만 Visible?**
+> 상태가 바뀔 때마다 어떤 패널이 켜져있는지 추적할 필요 없이
+> "전부 끄고 해당하는 것만 켠다" 패턴이 가장 안전합니다.
+
+---
+
+#### [3] HandleDistanceUpdated — VB_DistanceList Row 관리 (Map 방식)
+
+`OnDistanceUpdated`는 30Hz로 발동하며 **매번 (BodyPart 1개, VehiclePart 1개) 쌍**을 전달합니다.
+ClearChildren + 재생성하면 30Hz × Row 수만큼 Widget이 생성/삭제되어 성능 낭비입니다.
+대신 **Map으로 Row를 재사용**합니다.
+
+**변수 추가 (WBP_VTC_HUD Variables):**
+```
+DistanceWidgetMap : Map <EVTCTrackerRole, WBP_Distance>
+  (Variable Type: Map, Key: EVTCTrackerRole Enum, Value: WBP_Distance Object Reference)
+```
+
+**HandleDistanceUpdated 흐름:**
+```
+Custom Event HandleDistanceUpdated (Result: FVTCDistanceResult)
+  │
+  ├─ Break FVTCDistanceResult → BodyPart, VehiclePartName, Distance, WarningLevel
+  │
+  └─ Map Contains? DistanceWidgetMap[BodyPart]
+       │                          │
+      YES                         NO
+       │                          │
+       ▼                          ▼
+  Map Find                   Create Widget (WBP_Distance)
+  DistanceWidgetMap[BodyPart]      │
+       │                    VB_DistanceList → Add Child
+       │                    Map Add (BodyPart → 새 위젯)
+       │                          │
+       └──────────────────────────┘
+                    │
+                    ▼
+          [WBP_Distance 위젯 ref]
+                    │
+                    ▼
+          Call Function: UpdateRow(Result)
+          (WBP_Distance 안에 만드는 함수 — 아래 [4] 참조)
+```
+
+> **핵심:** BodyPart 하나당 Row 하나입니다. Waist, LeftKnee, RightKnee, LeftFoot, RightFoot 최대 5개.
+> 한번 생성된 Row는 UpdateRow()로 값만 바꾸고 재사용합니다.
+
+---
+
+#### [4] WBP_Distance — Row 위젯 (이미 만드셨죠)
+
+Content Browser → Widget Blueprint → `WBP_Distance`
 
 **Designer 레이아웃:**
 ```
 HorizontalBox
-  ├─ TextBlock TB_BodyPart    (예: "Left Knee")   Width: 120
-  ├─ TextBlock TB_VehiclePart (예: "Dashboard")   Width: 150
-  ├─ TextBlock TB_Distance    (예: "8.2 cm")      Width: 80
-  └─ Image     IMG_Status     (색상으로 경고 단계 표시)  Width: 20
+  ├─ TextBlock  TB_BodyPart     Width: 100   예) "Left Knee"
+  ├─ TextBlock  TB_VehiclePart  Width: 140   예) "Dashboard"
+  ├─ TextBlock  TB_Distance     Width: 80    예) "8.2 cm"
+  └─ Border     BDR_Status      Width: 16    (배경색으로 경고 단계 표시)
 ```
 
-**WBP_DistanceRow Graph — InitRow 함수:**
+**Function: UpdateRow (Result: FVTCDistanceResult)**
 ```
-Function InitRow (Result: FVTCDistanceResult)
+Break FVTCDistanceResult (Result)
   │
-  ├─ TB_BodyPart  → SetText ( Switch EVTCTrackerRole → "Left Knee" / "Right Knee" / ... )
-  ├─ TB_VehiclePart → SetText ( Result.VehiclePartName )
-  ├─ TB_Distance  → SetText ( Format "{0:.1f} cm" ← Result.Distance )
+  ├─ BodyPart → Switch on EVTCTrackerRole
+  │               Waist      → TB_BodyPart SetText "Waist"
+  │               LeftKnee   → TB_BodyPart SetText "Left Knee"
+  │               RightKnee  → TB_BodyPart SetText "Right Knee"
+  │               LeftFoot   → TB_BodyPart SetText "Left Foot"
+  │               RightFoot  → TB_BodyPart SetText "Right Foot"
   │
-  └─ Switch on EVTCWarningLevel (Result.WarningLevel)
-       Safe      → IMG_Status.SetColorAndOpacity( Green  0,1,0,1 )
-       Warning   → IMG_Status.SetColorAndOpacity( Yellow 1,1,0,1 )
-       Collision → IMG_Status.SetColorAndOpacity( Red    1,0,0,1 )
+  ├─ VehiclePartName → TB_VehiclePart SetText
+  │
+  ├─ Distance → Float To Text (최대소수점 1자리) → Append " cm" → TB_Distance SetText
+  │
+  └─ WarningLevel → Switch on EVTCWarningLevel
+                      Safe      → BDR_Status SetBrushColor (0, 0.8, 0, 1)  초록
+                      Warning   → BDR_Status SetBrushColor (1, 0.9, 0, 1)  노랑
+                      Collision → BDR_Status SetBrushColor (1, 0.1, 0, 1)  빨강
 ```
 
 ---
 
-#### [4] Tick / Timer — 경과시간 + 최소거리 갱신
+#### [5] Panel_Calibrating — 카운트다운 연결
+
+캘리브레이션 카운트다운은 **CalibrationComponent의 OnCalibrationCountdown** 델리게이트를 이용합니다.
+SessionManager → BodyActor → CalibrationComp 경로로 접근합니다.
+
+```
+BeginPlay (추가)
+  │
+  └─ SessionManagerRef → BodyActor → CalibrationComp
+       └─ Bind Event to OnCalibrationCountdown
+            └─ Custom Event HandleCalibCountdown (SecondsRemaining: int)
+                    └─ TB_CalibCountdown SetText (SecondsRemaining → To Text)
+```
+
+BTN_SkipCalib.OnClicked → SessionManagerRef → StartTestingDirectly()
+
+---
+
+#### [6] Tick — 경과 시간 + 최소 거리 갱신
 
 ```
 Event Tick (DeltaTime)
@@ -474,21 +555,29 @@ Event Tick (DeltaTime)
   └─ SessionManagerRef → IsTesting?
        true →
          ├─ SessionManagerRef → SessionElapsedTime
-         │    └─ TB_ElapsedTime → SetText ( FormatTime )
+         │    └─ TB_ElapsedTime SetText ( 초 → "MM:SS" 포맷 )
          │
-         └─ SessionManagerRef → GetSessionMinDistance
-              └─ TB_MinDistance → SetText ( Format "Min: {0:.1f} cm" )
+         └─ CollisionDetectorRef → CurrentDistanceResults → Length > 0?
+              true → SessionManagerRef → GetSessionMinDistance
+                       └─ TB_MinDistance SetText ( Format "Min: {0} cm" )
 ```
 
-#### [5] 버튼 클릭
+> **MM:SS 포맷 팁:** `Floor(Time / 60)` → 분, `Fmod(Time, 60)` → 초, 각각 두자리로 포맷
+
+---
+
+#### [7] 버튼 클릭
 
 ```
-BTN_StartSession.OnClicked → SessionManagerRef → StartSession( ETB_SubjectID.GetText() )
-BTN_Stop.OnClicked         → SessionManagerRef → StopSession()
-BTN_ReCalibrate.OnClicked  → SessionManagerRef → RequestReCalibration()
-BTN_Export.OnClicked       → SessionManagerRef → ExportAndEnd()
-                               └─ OnSessionExported 델리게이트 → 파일 경로 표시
+BTN_StartSession.OnClicked  → SessionManagerRef → StartSession ( ETB_SubjectID.GetText() )
+BTN_Stop.OnClicked          → SessionManagerRef → StopSession()
+BTN_ReCalibrate.OnClicked   → SessionManagerRef → RequestReCalibration()
+BTN_Export.OnClicked        → SessionManagerRef → ExportAndEnd()
+BTN_NewSession.OnClicked    → SessionManagerRef → StopSession()
+                               (Idle로 돌아가면 HandleStateChanged가 Panel_Idle 표시)
 ```
+
+---
 
 ### HUD를 VR에서 표시하는 방법
 
