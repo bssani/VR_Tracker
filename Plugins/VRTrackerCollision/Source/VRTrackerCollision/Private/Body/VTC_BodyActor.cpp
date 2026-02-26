@@ -2,6 +2,7 @@
 
 #include "Body/VTC_BodyActor.h"
 #include "Kismet/GameplayStatics.h"
+#include "UObject/ConstructorHelpers.h"
 
 AVTC_BodyActor::AVTC_BodyActor() {
   PrimaryActorTick.bCanEverTick = true;
@@ -49,6 +50,29 @@ AVTC_BodyActor::AVTC_BodyActor() {
   Sphere_RightKnee = MakeSphere(TEXT("Sphere_RKnee"));
   Sphere_LeftFoot = MakeSphere(TEXT("Sphere_LFoot"));
   Sphere_RightFoot = MakeSphere(TEXT("Sphere_RFoot"));
+
+  // ── 시각화용 Sphere 메시 5개 생성 (VR에서 관절 위치 표시) ────────────────
+  // USphereComponent는 메시가 없으므로 별도 StaticMesh로 렌더링.
+  // 엔진 기본 Sphere(반경 50cm)를 사용하며 스케일로 실제 반경에 맞춤.
+  static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMeshAsset(
+      TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+
+  auto MakeVisualSphere = [&](const TCHAR* Name) -> UStaticMeshComponent*
+  {
+    UStaticMeshComponent* M = CreateDefaultSubobject<UStaticMeshComponent>(Name);
+    M->SetupAttachment(Root);
+    M->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    M->SetCastShadow(false);
+    if (SphereMeshAsset.Succeeded())
+      M->SetStaticMesh(SphereMeshAsset.Object);
+    return M;
+  };
+
+  VisualSphere_Hip       = MakeVisualSphere(TEXT("VisualSphere_Hip"));
+  VisualSphere_LeftKnee  = MakeVisualSphere(TEXT("VisualSphere_LKnee"));
+  VisualSphere_RightKnee = MakeVisualSphere(TEXT("VisualSphere_RKnee"));
+  VisualSphere_LeftFoot  = MakeVisualSphere(TEXT("VisualSphere_LFoot"));
+  VisualSphere_RightFoot = MakeVisualSphere(TEXT("VisualSphere_RFoot"));
 
   // ── 캘리브레이션 컴포넌트 ──
   CalibrationComp = CreateDefaultSubobject<UVTC_CalibrationComponent>(
@@ -102,9 +126,10 @@ void AVTC_BodyActor::SyncSpherePositions() {
   if (!TrackerSource)
     return;
 
-  auto SyncSphere = [&](USphereComponent *S, EVTCTrackerRole TrackerRole) {
-    if (!S)
-      return;
+  auto SyncSphere = [&](USphereComponent* S, UStaticMeshComponent* Visual,
+                        EVTCTrackerRole TrackerRole)
+  {
+    if (!S) return;
     const FVTCTrackerData Data = TrackerSource->GetTrackerData(TrackerRole);
 
     // 마운트 오프셋 보정: 트래커 로컬 오프셋을 트래커 회전에 맞춰 월드로 변환
@@ -115,13 +140,20 @@ void AVTC_BodyActor::SyncSpherePositions() {
 
     S->SetWorldLocation(EffectiveLocation);
     S->SetVisibility(Data.bIsTracked);
+
+    // 시각화 메시도 동일 위치/가시성으로 동기화 (VR 렌더링용)
+    if (Visual)
+    {
+      Visual->SetWorldLocation(EffectiveLocation);
+      Visual->SetVisibility(Data.bIsTracked);
+    }
   };
 
-  SyncSphere(Sphere_Hip, EVTCTrackerRole::Waist);
-  SyncSphere(Sphere_LeftKnee, EVTCTrackerRole::LeftKnee);
-  SyncSphere(Sphere_RightKnee, EVTCTrackerRole::RightKnee);
-  SyncSphere(Sphere_LeftFoot, EVTCTrackerRole::LeftFoot);
-  SyncSphere(Sphere_RightFoot, EVTCTrackerRole::RightFoot);
+  SyncSphere(Sphere_Hip,       VisualSphere_Hip,       EVTCTrackerRole::Waist);
+  SyncSphere(Sphere_LeftKnee,  VisualSphere_LeftKnee,  EVTCTrackerRole::LeftKnee);
+  SyncSphere(Sphere_RightKnee, VisualSphere_RightKnee, EVTCTrackerRole::RightKnee);
+  SyncSphere(Sphere_LeftFoot,  VisualSphere_LeftFoot,  EVTCTrackerRole::LeftFoot);
+  SyncSphere(Sphere_RightFoot, VisualSphere_RightFoot, EVTCTrackerRole::RightFoot);
 }
 
 void AVTC_BodyActor::OnSphereOverlapBegin(UPrimitiveComponent *OverlappedComp,
@@ -230,6 +262,21 @@ void AVTC_BodyActor::UpdateSphereRadii() {
     Sphere_LeftFoot->SetSphereRadius(FootSphereRadius);
   if (Sphere_RightFoot)
     Sphere_RightFoot->SetSphereRadius(FootSphereRadius);
+
+  // 엔진 기본 Sphere는 반경 50cm → 실제 반경에 맞게 균등 스케일 적용
+  auto SetVisualScale = [](UStaticMeshComponent* M, float Radius)
+  {
+    if (M)
+    {
+      const float S = Radius / 50.0f;
+      M->SetRelativeScale3D(FVector(S));
+    }
+  };
+  SetVisualScale(VisualSphere_Hip,       HipSphereRadius);
+  SetVisualScale(VisualSphere_LeftKnee,  KneeSphereRadius);
+  SetVisualScale(VisualSphere_RightKnee, KneeSphereRadius);
+  SetVisualScale(VisualSphere_LeftFoot,  FootSphereRadius);
+  SetVisualScale(VisualSphere_RightFoot, FootSphereRadius);
 }
 
 void AVTC_BodyActor::FindTrackerSource() {

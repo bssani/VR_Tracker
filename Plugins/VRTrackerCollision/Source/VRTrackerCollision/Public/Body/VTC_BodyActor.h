@@ -6,6 +6,7 @@
 #include "Body/VTC_BodySegmentComponent.h"
 #include "Body/VTC_CalibrationComponent.h"
 #include "Components/SphereComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Tracker/VTC_TrackerInterface.h"
@@ -63,6 +64,25 @@ public:
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Collision")
   TObjectPtr<USphereComponent> Sphere_RightFoot;
+
+  // ─── 시각화용 Sphere 메시 (VR 렌더링, 5개) ───────────────────────────────
+  // USphereComponent는 메시가 없어 VR HMD에서 보이지 않으므로
+  // UStaticMeshComponent(Engine Sphere)를 별도로 추가해 관절 위치를 표시한다.
+
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Visual")
+  TObjectPtr<UStaticMeshComponent> VisualSphere_Hip;
+
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Visual")
+  TObjectPtr<UStaticMeshComponent> VisualSphere_LeftKnee;
+
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Visual")
+  TObjectPtr<UStaticMeshComponent> VisualSphere_RightKnee;
+
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Visual")
+  TObjectPtr<UStaticMeshComponent> VisualSphere_LeftFoot;
+
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Visual")
+  TObjectPtr<UStaticMeshComponent> VisualSphere_RightFoot;
 
   // ─── 캘리브레이션 ─────────────────────────────────────────────────────────
 
