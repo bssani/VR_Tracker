@@ -291,7 +291,10 @@ FString UVTC_DataLogger::BuildSummaryRow() const
 		     ",%.1f,%.1f,%.1f"
 		     ",%s,%d,%d,%d"),
 		*CurrentSubjectID, *SessionStartTime,
-		CachedMeasurements.EstimatedHeight,
+		// ManualHeight_cm > 0이면 직접 입력값 우선, 아니면 HMD 추정값 사용
+		CachedMeasurements.ManualHeight_cm > 0.0f
+			? CachedMeasurements.ManualHeight_cm
+			: CachedMeasurements.EstimatedHeight,
 		CachedMeasurements.Hip_LeftKnee,         CachedMeasurements.Hip_RightKnee,
 		CachedMeasurements.LeftKnee_LeftFoot,     CachedMeasurements.RightKnee_RightFoot,
 		CachedMeasurements.TotalLeftLeg,          CachedMeasurements.TotalRightLeg,

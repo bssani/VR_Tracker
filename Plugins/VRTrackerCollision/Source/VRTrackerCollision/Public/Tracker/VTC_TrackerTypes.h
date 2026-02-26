@@ -92,9 +92,13 @@ struct VRTRACKERCOLLISION_API FVTCBodyMeasurements
 	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
 	float TotalRightLeg = 0.0f;
 
-	// HMD 높이 기반 키 추정 (cm) — 바닥 기준
+	// HMD 높이 기반 키 추정 (cm) — 바닥 기준 (자동 보정, ±5cm 오차)
 	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
 	float EstimatedHeight = 0.0f;
+
+	// 위젯에서 직접 입력한 키 (cm) — 0이면 EstimatedHeight 사용
+	UPROPERTY(BlueprintReadWrite, Category = "VTC|Body")
+	float ManualHeight_cm = 0.0f;
 
 	// 캘리브레이션 완료 여부
 	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")

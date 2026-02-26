@@ -68,19 +68,27 @@ void AVTC_SessionManager::Tick(float DeltaTime)
 
 void AVTC_SessionManager::StartSession(const FString& SubjectID)
 {
+	StartSessionWithHeight(SubjectID, 0.0f);
+}
+
+void AVTC_SessionManager::StartSessionWithHeight(const FString& SubjectID, float ManualHeight_cm)
+{
 	if (CurrentState != EVTCSessionState::Idle)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[VTC] StartSession called but not in Idle state."));
 		return;
 	}
 
-	CurrentSubjectID = SubjectID.IsEmpty() ? TEXT("Unknown") : SubjectID;
-	SessionElapsedTime = 0.0f;
-	LogTimer = 0.0f;
+	CurrentSubjectID       = SubjectID.IsEmpty() ? TEXT("Unknown") : SubjectID;
+	PendingManualHeight_cm = ManualHeight_cm;
+	SessionElapsedTime     = 0.0f;
+	LogTimer               = 0.0f;
+
+	UE_LOG(LogTemp, Log, TEXT("[VTC] StartSession: SubjectID=%s, ManualHeight=%.1f cm"),
+		*CurrentSubjectID, PendingManualHeight_cm);
 
 	TransitionToState(EVTCSessionState::Calibrating);
 
-	// 캘리브레이션 시작
 	if (BodyActor)
 	{
 		BodyActor->StartCalibration();
@@ -158,6 +166,15 @@ void AVTC_SessionManager::TransitionToState(EVTCSessionState NewState)
 
 void AVTC_SessionManager::OnCalibrationComplete(const FVTCBodyMeasurements& Measurements)
 {
+	// 위젯에서 직접 입력된 키가 있으면 CalibrationComp.LastMeasurements에 주입
+	// → DataLogger의 CachedMeasurements.ManualHeight_cm에 반영됨
+	if (PendingManualHeight_cm > 0.0f && BodyActor && BodyActor->CalibrationComp)
+	{
+		BodyActor->CalibrationComp->LastMeasurements.ManualHeight_cm = PendingManualHeight_cm;
+		UE_LOG(LogTemp, Log, TEXT("[VTC] ManualHeight %.1f cm applied to calibration data."),
+			PendingManualHeight_cm);
+	}
+
 	UE_LOG(LogTemp, Log, TEXT("[VTC] Calibration complete → Starting test."));
 	StartTestingDirectly();
 }

@@ -64,8 +64,13 @@ public:
 
 	// ─── 세션 제어 함수 ──────────────────────────────────────────────────────
 
+	// 피실험자 ID만으로 시작 (키는 HMD 높이에서 자동 추정)
 	UFUNCTION(BlueprintCallable, Category = "VTC|Session")
 	void StartSession(const FString& SubjectID);
+
+	// WBP_VTC_SubjectInfo 위젯에서 직접 입력한 키와 함께 세션 시작 (권장)
+	UFUNCTION(BlueprintCallable, Category = "VTC|Session")
+	void StartSessionWithHeight(const FString& SubjectID, float ManualHeight_cm);
 
 	UFUNCTION(BlueprintCallable, Category = "VTC|Session")
 	void StartTestingDirectly();
@@ -104,6 +109,9 @@ public:
 private:
 	void TransitionToState(EVTCSessionState NewState);
 	void AutoFindSystems();
+
+	// 위젯에서 입력된 키 — 0이면 HMD 추정값 사용 (OnCalibrationComplete에서 Measurements에 주입)
+	float PendingManualHeight_cm = 0.0f;
 
 	float LogTimer = 0.0f;
 
