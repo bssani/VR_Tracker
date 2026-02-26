@@ -210,6 +210,14 @@ public:
 		meta=(ClampMin=5.0f, ClampMax=100.0f, EditCondition="bSimulationMode"))
 	float SimKneeAdjustSpeed = 30.0f;
 
+	// ─── 착석 정렬 ──────────────────────────────────────────────────────────
+
+	// Waist tracker가 WorldPos에 오도록 Pawn 전체를 이동.
+	// 차량 DriverHip 소켓 위치를 넘기면 착석 자세가 정렬된다.
+	// 차량이 Static이면 게임 시작 시 1회 호출로 충분하다.
+	UFUNCTION(BlueprintCallable, Category = "VTC|Seating")
+	void SnapWaistTo(const FVector& WorldPos);
+
 	// ─── 시뮬레이션 제어 함수 (PlayerController에서 호출) ─────────────────
 
 	// 시뮬레이션 모드 토글 (Backspace 키 → PlayerController → 여기 호출)

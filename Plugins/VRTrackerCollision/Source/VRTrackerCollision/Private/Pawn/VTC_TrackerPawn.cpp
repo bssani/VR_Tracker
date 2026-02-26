@@ -232,6 +232,23 @@ UMotionControllerComponent* AVTC_TrackerPawn::GetMotionController(EVTCTrackerRol
 	}
 }
 
+// ─── 착석 정렬 ────────────────────────────────────────────────────────────────
+
+void AVTC_TrackerPawn::SnapWaistTo(const FVector& WorldPos)
+{
+	// Waist tracker 현재 월드 위치와 목표 위치의 차이만큼 Pawn 루트를 이동.
+	// Pawn 루트는 바닥 기준이므로 Waist 위치와 다르다 → 반드시 Delta 방식 사용.
+	const FVector WaistWorld = GetTrackerLocation(EVTCTrackerRole::Waist);
+	const FVector Delta = WorldPos - WaistWorld;
+	SetActorLocation(GetActorLocation() + Delta);
+
+	UE_LOG(LogTemp, Log,
+		TEXT("[VTC] SnapWaistTo: Waist %.1f,%.1f,%.1f → Target %.1f,%.1f,%.1f (delta %.1f,%.1f,%.1f)"),
+		WaistWorld.X, WaistWorld.Y, WaistWorld.Z,
+		WorldPos.X,   WorldPos.Y,   WorldPos.Z,
+		Delta.X,      Delta.Y,      Delta.Z);
+}
+
 // ─── 시뮬레이션 모드 — 제어 함수 ───────────────────────────────────────────
 
 void AVTC_TrackerPawn::ToggleSimulationMode()
