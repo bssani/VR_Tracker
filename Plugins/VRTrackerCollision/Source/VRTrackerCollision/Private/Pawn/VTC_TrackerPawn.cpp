@@ -83,25 +83,6 @@ void AVTC_TrackerPawn::BeginPlay()
 		SimMovement->Deceleration = 4000.f;
 	}
 
-	// ── Enhanced Input: 시뮬레이션 매핑 컨텍스트 등록 ──────────────────────
-	// BeginPlay 시점에 Controller가 Possess된 이후라야 Subsystem에 접근 가능
-	if (APlayerController* PC = Cast<APlayerController>(GetController()))
-	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
-			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
-		{
-			if (SimInputMappingContext)
-			{
-				Subsystem->AddMappingContext(SimInputMappingContext, 0);
-			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("[VTC] SimInputMappingContext가 설정되지 않았습니다. "
-					"BP_VTC_TrackerPawn Details > VTC|Simulation|Input에서 IMC 에셋을 연결하세요."));
-			}
-		}
-	}
-
 	UE_LOG(LogTemp, Log,
 		TEXT("[VTC] TrackerPawn initialized. MotionSources: %s / %s / %s / %s / %s | SimMode: %s"),
 		*MotionSource_Waist.ToString(),
@@ -169,6 +150,31 @@ void AVTC_TrackerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	// Started: 키를 처음 눌렀을 때 1회만 호출 (토글/리셋)
 	if (IA_ToggleSim)       EIC->BindAction(IA_ToggleSim,       ETriggerEvent::Started,   this, &AVTC_TrackerPawn::ToggleSimulationMode);
 	if (IA_ResetKnees)      EIC->BindAction(IA_ResetKnees,      ETriggerEvent::Started,   this, &AVTC_TrackerPawn::ResetKneeAdjustments);
+}
+
+void AVTC_TrackerPawn::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	// BeginPlay 시점에는 Controller가 null이므로 IMC 등록은 여기서 수행
+	APlayerController* PC = Cast<APlayerController>(NewController);
+	if (!PC) return;
+
+	UEnhancedInputLocalPlayerSubsystem* Subsystem =
+		ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer());
+	if (!Subsystem) return;
+
+	if (SimInputMappingContext)
+	{
+		Subsystem->AddMappingContext(SimInputMappingContext, 0);
+		UE_LOG(LogTemp, Log, TEXT("[VTC] IMC registered on Possess."));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[VTC] SimInputMappingContext가 없습니다. "
+			     "BP_VTC_TrackerPawn > VTC|Simulation|Input 에서 IMC 에셋을 연결하세요."));
+	}
 }
 
 // ─── IVTC_TrackerInterface 구현 ─────────────────────────────────────────────
