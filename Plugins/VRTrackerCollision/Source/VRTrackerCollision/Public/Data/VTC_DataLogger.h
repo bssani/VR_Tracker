@@ -1,5 +1,9 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 // VTC_DataLogger.h — CSV 데이터 로깅 및 내보내기
+//
+// [출력 파일 종류]
+//   ExportToCSV()       → *_summary.csv : 세션당 1행, Human Factors 분석용 (기본 출력)
+//   ExportFrameDataCSV()→ *_frames.csv  : 10Hz 원시 프레임 데이터 (연구자 선택 사용)
 
 #pragma once
 
@@ -9,7 +13,7 @@
 #include "Tracker/VTC_TrackerInterface.h"
 #include "VTC_DataLogger.generated.h"
 
-// CSV 행 구조 (메모리 내 버퍼)
+// 프레임 버퍼용 내부 구조체 (ExportFrameDataCSV에서 사용)
 USTRUCT(BlueprintType)
 struct FVTCLogRow
 {
@@ -30,7 +34,7 @@ struct FVTCLogRow
 	UPROPERTY(BlueprintReadOnly) FVector LeftFootLocation;
 	UPROPERTY(BlueprintReadOnly) FVector RightFootLocation;
 
-	// 거리 정보 (기준점별)
+	// 거리 정보 (기준점별 전체)
 	UPROPERTY(BlueprintReadOnly) TArray<FVTCDistanceResult> DistanceResults;
 
 	// 충돌 발생 여부
@@ -82,9 +86,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
 	void StopLogging();
 
-	// CSV 파일로 내보내기 → 파일 경로 반환
+	// [메인] Human Factors 요약 CSV (*_summary.csv, 세션당 1행) → 파일 경로 반환
 	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
 	FString ExportToCSV();
+
+	// [선택] 10Hz 원시 프레임 CSV (*_frames.csv) → 파일 경로 반환
+	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
+	FString ExportFrameDataCSV();
 
 	// 충돌 이벤트 즉시 기록
 	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
@@ -103,18 +111,50 @@ public:
 	FOnVTCLogExported OnLogExported;
 
 private:
-	TArray<FVTCLogRow> LogBuffer;
+	TArray<FVTCLogRow>       LogBuffer;
 	TArray<FVTCCollisionEvent> CollisionEvents;
 
-	float LogTimer = 0.0f;
+	float   LogTimer        = 0.0f;
 	FString SessionStartTime;
 
-	// CSV 헤더 문자열 생성
-	FString BuildCSVHeader() const;
+	// ─── 세션 요약 추적 필드 (StartLogging에서 초기화, LogFrame에서 갱신) ──────
 
-	// 단일 행을 CSV 문자열로 변환
-	FString RowToCSVLine(const FVTCLogRow& Row) const;
+	// 캘리브레이션 측정값 캐시 (세션 내 변하지 않음)
+	FVTCBodyMeasurements CachedMeasurements;
 
-	// 타임스탬프 문자열 생성
+	// Hip 위치 누적 (세션 평균 계산용)
+	FVector HipPosSum         = FVector::ZeroVector;
+	int32   HipPosSampleCount = 0;
+
+	// 신체 부위별 최소 클리어런스 (cm) — 미측정 시 TNumericLimits<float>::Max()
+	float MinClearance_Hip   = 0.0f;
+	float MinClearance_LKnee = 0.0f;
+	float MinClearance_RKnee = 0.0f;
+
+	// 세션 전체 최소 클리어런스 및 발생 정보
+	float   MinClearance_Overall    = 0.0f;
+	FString MinClearance_BodyPart;   // 어느 신체 부위
+	FString MinClearance_RefPoint;   // 어느 기준점
+	FVector HipPosAtMinClearance    = FVector::ZeroVector;  // 최악 순간의 Hip 위치
+
+	// 전체 최악 경고 단계
+	EVTCWarningLevel OverallWorstStatus = EVTCWarningLevel::Safe;
+
+	// 경고/충돌이 발생한 프레임 수
+	int32 WarningFrameCount = 0;
+
+	// ─── 내부 빌더 함수 ──────────────────────────────────────────────────────
+
+	// Summary CSV
+	FString BuildSummaryHeader() const;
+	FString BuildSummaryRow() const;
+
+	// Frame CSV (ExportFrameDataCSV 전용)
+	FString BuildFrameHeader() const;
+	FString FrameRowToCSVLine(const FVTCLogRow& Row) const;
+
+	// 공통 유틸
+	FString SaveFile(const FString& Suffix, const FString& Content) const;
+	static FString WarningLevelToStatus(EVTCWarningLevel Level);
 	static FString GetTimestampString();
 };

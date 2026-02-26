@@ -6,19 +6,37 @@
 #include "Misc/Paths.h"
 #include "HAL/PlatformFileManager.h"
 
+// ─── 초기화 ──────────────────────────────────────────────────────────────────
+
 UVTC_DataLogger::UVTC_DataLogger()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
+// ─── 세션 제어 ───────────────────────────────────────────────────────────────
+
 void UVTC_DataLogger::StartLogging(const FString& SubjectID)
 {
-	bIsLogging = true;
+	bIsLogging       = true;
 	CurrentSubjectID = SubjectID;
-	LoggedRowCount = 0;
+	LoggedRowCount   = 0;
 	SessionStartTime = GetTimestampString();
 	LogBuffer.Empty();
 	CollisionEvents.Empty();
+
+	// 세션 요약 추적 필드 초기화
+	CachedMeasurements      = FVTCBodyMeasurements();
+	HipPosSum               = FVector::ZeroVector;
+	HipPosSampleCount       = 0;
+	MinClearance_Hip        = TNumericLimits<float>::Max();
+	MinClearance_LKnee      = TNumericLimits<float>::Max();
+	MinClearance_RKnee      = TNumericLimits<float>::Max();
+	MinClearance_Overall    = TNumericLimits<float>::Max();
+	MinClearance_BodyPart   = TEXT("");
+	MinClearance_RefPoint   = TEXT("");
+	HipPosAtMinClearance    = FVector::ZeroVector;
+	OverallWorstStatus      = EVTCWarningLevel::Safe;
+	WarningFrameCount       = 0;
 
 	UE_LOG(LogTemp, Log, TEXT("[VTC] Logging started for subject: %s"), *SubjectID);
 }
@@ -26,28 +44,29 @@ void UVTC_DataLogger::StartLogging(const FString& SubjectID)
 void UVTC_DataLogger::StopLogging()
 {
 	bIsLogging = false;
-	UE_LOG(LogTemp, Log, TEXT("[VTC] Logging stopped. Total rows: %d"), LoggedRowCount);
+	UE_LOG(LogTemp, Log, TEXT("[VTC] Logging stopped. Total frames: %d"), LoggedRowCount);
 }
+
+// ─── 프레임 기록 ─────────────────────────────────────────────────────────────
 
 void UVTC_DataLogger::LogFrame(const FVTCBodyMeasurements& Measurements,
 	const TArray<FVTCDistanceResult>& DistanceResults)
 {
 	if (!bIsLogging) return;
 
+	// ── 행 구성 ──────────────────────────────────────────────────────────────
 	FVTCLogRow Row;
-	Row.Timestamp       = GetTimestampString();
-	Row.SubjectID       = CurrentSubjectID;
-	Row.Height          = Measurements.EstimatedHeight;
-	Row.UpperLeftLeg    = Measurements.Hip_LeftKnee;
-	Row.UpperRightLeg   = Measurements.Hip_RightKnee;
-	Row.LowerLeftLeg    = Measurements.LeftKnee_LeftFoot;
-	Row.LowerRightLeg   = Measurements.RightKnee_RightFoot;
+	Row.Timestamp      = GetTimestampString();
+	Row.SubjectID      = CurrentSubjectID;
+	Row.Height         = Measurements.EstimatedHeight;
+	Row.UpperLeftLeg   = Measurements.Hip_LeftKnee;
+	Row.UpperRightLeg  = Measurements.Hip_RightKnee;
+	Row.LowerLeftLeg   = Measurements.LeftKnee_LeftFoot;
+	Row.LowerRightLeg  = Measurements.RightKnee_RightFoot;
 	Row.DistanceResults = DistanceResults;
 	Row.bCollisionOccurred = false;
 
-	// ── 신체 부위 월드 위치 기록 ──────────────────────────────────────────
-	// TrackerSource가 있으면 직접 조회 (가장 정확).
-	// 없으면 DistanceResults에 포함된 BodyPartLocation으로 폴백.
+	// 신체 부위 월드 위치 기록
 	if (TrackerSource)
 	{
 		Row.HipLocation       = TrackerSource->GetTrackerLocation(EVTCTrackerRole::Waist);
@@ -58,7 +77,6 @@ void UVTC_DataLogger::LogFrame(const FVTCBodyMeasurements& Measurements,
 	}
 	else
 	{
-		// DistanceResults에서 각 신체 부위 위치 추출 (중복 제거, 첫 번째 값 사용)
 		for (const FVTCDistanceResult& D : DistanceResults)
 		{
 			switch (D.BodyPart)
@@ -72,7 +90,7 @@ void UVTC_DataLogger::LogFrame(const FVTCBodyMeasurements& Measurements,
 		}
 	}
 
-	// 현재 프레임에 충돌이 있으면 표시
+	// 충돌 플래그
 	for (const FVTCDistanceResult& D : DistanceResults)
 	{
 		if (D.WarningLevel == EVTCWarningLevel::Collision)
@@ -85,6 +103,53 @@ void UVTC_DataLogger::LogFrame(const FVTCBodyMeasurements& Measurements,
 
 	LogBuffer.Add(Row);
 	LoggedRowCount++;
+
+	// ── 세션 요약 갱신 ───────────────────────────────────────────────────────
+
+	// 측정값 캐시 (첫 유효 캘리브레이션 데이터 저장)
+	if (!CachedMeasurements.bIsCalibrated && Measurements.bIsCalibrated)
+	{
+		CachedMeasurements = Measurements;
+	}
+
+	// Hip 위치 누적
+	HipPosSum += Row.HipLocation;
+	HipPosSampleCount++;
+
+	// 신체 부위별 최소 클리어런스 및 전체 최악 상태 추적
+	bool bAnyWarning = false;
+	for (const FVTCDistanceResult& D : DistanceResults)
+	{
+		// 신체 부위별 최소값 갱신
+		switch (D.BodyPart)
+		{
+		case EVTCTrackerRole::Waist:
+			if (D.Distance < MinClearance_Hip)   MinClearance_Hip   = D.Distance; break;
+		case EVTCTrackerRole::LeftKnee:
+			if (D.Distance < MinClearance_LKnee) MinClearance_LKnee = D.Distance; break;
+		case EVTCTrackerRole::RightKnee:
+			if (D.Distance < MinClearance_RKnee) MinClearance_RKnee = D.Distance; break;
+		default: break;
+		}
+
+		// 전체 최소 클리어런스 (Hip 위치 포함)
+		if (D.Distance < MinClearance_Overall)
+		{
+			MinClearance_Overall  = D.Distance;
+			MinClearance_BodyPart = StaticEnum<EVTCTrackerRole>()->GetDisplayValueAsText(D.BodyPart).ToString();
+			MinClearance_RefPoint = D.VehiclePartName;
+			HipPosAtMinClearance  = Row.HipLocation;
+		}
+
+		// 전체 최악 경고 단계
+		if (static_cast<uint8>(D.WarningLevel) > static_cast<uint8>(OverallWorstStatus))
+		{
+			OverallWorstStatus = D.WarningLevel;
+		}
+
+		if (D.WarningLevel != EVTCWarningLevel::Safe) bAnyWarning = true;
+	}
+	if (bAnyWarning) WarningFrameCount++;
 }
 
 void UVTC_DataLogger::LogCollisionEvent(const FVTCCollisionEvent& Event)
@@ -96,6 +161,8 @@ void UVTC_DataLogger::LogCollisionEvent(const FVTCCollisionEvent& Event)
 		Event.Distance);
 }
 
+// ─── CSV 내보내기 — 요약 (메인) ──────────────────────────────────────────────
+
 FString UVTC_DataLogger::ExportToCSV()
 {
 	if (LogBuffer.Num() == 0)
@@ -104,108 +171,227 @@ FString UVTC_DataLogger::ExportToCSV()
 		return TEXT("");
 	}
 
-	// 저장 경로 결정
-	if (LogDirectory.IsEmpty())
-	{
-		LogDirectory = FPaths::ProjectSavedDir() / TEXT("VTCLogs");
-	}
+	FString Content = BuildSummaryHeader() + LINE_TERMINATOR;
+	Content        += BuildSummaryRow()    + LINE_TERMINATOR;
 
-	// 디렉토리 생성
-	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-	if (!PlatformFile.DirectoryExists(*LogDirectory))
-	{
-		PlatformFile.CreateDirectoryTree(*LogDirectory);
-	}
-
-	// 파일명: SubjectID_YYYYMMDD_HHMMSS.csv
-	const FString FileName = FString::Printf(TEXT("%s_%s.csv"),
-		*CurrentSubjectID, *SessionStartTime.Replace(TEXT(":"), TEXT("-")).Replace(TEXT(" "), TEXT("_")));
-	const FString FilePath = LogDirectory / FileName;
-
-	// CSV 내용 빌드
-	FString CSVContent = BuildCSVHeader() + LINE_TERMINATOR;
-	for (const FVTCLogRow& Row : LogBuffer)
-	{
-		CSVContent += RowToCSVLine(Row) + LINE_TERMINATOR;
-	}
-
-	// 충돌 이벤트 섹션 추가
+	// 충돌 이벤트 섹션
 	if (CollisionEvents.Num() > 0)
 	{
-		CSVContent += LINE_TERMINATOR;
-		CSVContent += TEXT("=== COLLISION EVENTS ===") + FString(LINE_TERMINATOR);
-		CSVContent += TEXT("Timestamp,BodyPart,VehiclePart,Distance(cm),Location") + FString(LINE_TERMINATOR);
+		Content += LINE_TERMINATOR;
+		Content += TEXT("=== COLLISION EVENTS ===") + FString(LINE_TERMINATOR);
+		Content += TEXT("Timestamp,BodyPart,VehiclePart,Distance(cm),Location") + FString(LINE_TERMINATOR);
 		for (const FVTCCollisionEvent& Event : CollisionEvents)
 		{
-			CSVContent += FString::Printf(TEXT("%s,%s,%s,%.2f,\"(%.1f %.1f %.1f)\""),
+			Content += FString::Printf(TEXT("%s,%s,%s,%.2f,\"(%.1f %.1f %.1f)\""),
 				*Event.Timestamp,
 				*StaticEnum<EVTCTrackerRole>()->GetValueAsString(Event.BodyPart),
 				*Event.VehiclePartName,
 				Event.Distance,
 				Event.CollisionLocation.X, Event.CollisionLocation.Y, Event.CollisionLocation.Z);
-			CSVContent += LINE_TERMINATOR;
+			Content += LINE_TERMINATOR;
 		}
 	}
 
-	// 파일 저장
-	if (FFileHelper::SaveStringToFile(CSVContent, *FilePath))
+	const FString FilePath = SaveFile(TEXT("summary"), Content);
+	if (!FilePath.IsEmpty())
 	{
-		UE_LOG(LogTemp, Log, TEXT("[VTC] Exported CSV: %s (%d rows)"), *FilePath, LogBuffer.Num());
+		UE_LOG(LogTemp, Log, TEXT("[VTC] Exported summary CSV: %s"), *FilePath);
 		OnLogExported.Broadcast(FilePath);
-		return FilePath;
 	}
-	else
+	return FilePath;
+}
+
+// ─── CSV 내보내기 — 원시 프레임 (선택) ──────────────────────────────────────
+
+FString UVTC_DataLogger::ExportFrameDataCSV()
+{
+	if (LogBuffer.Num() == 0)
 	{
-		UE_LOG(LogTemp, Error, TEXT("[VTC] Failed to export CSV to: %s"), *FilePath);
+		UE_LOG(LogTemp, Warning, TEXT("[VTC] No frame data to export."));
 		return TEXT("");
 	}
-}
 
-FString UVTC_DataLogger::BuildCSVHeader() const
-{
-	return TEXT("Timestamp,SubjectID,Height(cm),UpperLeft(cm),UpperRight(cm),LowerLeft(cm),LowerRight(cm)")
-		TEXT(",HipX,HipY,HipZ,LKneeX,LKneeY,LKneeZ,RKneeX,RKneeY,RKneeZ")
-		TEXT(",LFootX,LFootY,LFootZ,RFootX,RFootY,RFootZ")
-		TEXT(",PartName,BodyPart,Distance(cm),WarningLevel")
-		TEXT(",CollisionOccurred,CollisionPart");
-}
-
-FString UVTC_DataLogger::RowToCSVLine(const FVTCLogRow& Row) const
-{
-	// 거리 정보 (여러 기준점이 있으면 첫 번째 것만 메인 컬럼에 기록)
-	FString PartName, BodyPartStr, DistStr, LevelStr;
-	if (Row.DistanceResults.Num() > 0)
+	FString Content = BuildFrameHeader() + LINE_TERMINATOR;
+	for (const FVTCLogRow& Row : LogBuffer)
 	{
-		const FVTCDistanceResult& D = Row.DistanceResults[0];
-		PartName    = D.VehiclePartName;
-		BodyPartStr = StaticEnum<EVTCTrackerRole>()->GetValueAsString(D.BodyPart);
-		DistStr     = FString::SanitizeFloat(D.Distance);
-		LevelStr    = StaticEnum<EVTCWarningLevel>()->GetValueAsString(D.WarningLevel);
+		Content += FrameRowToCSVLine(Row) + LINE_TERMINATOR;
 	}
 
-	return FString::Printf(
-		TEXT("%s,%s,%.1f,%.1f,%.1f,%.1f,%.1f")
-		TEXT(",%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f")
-		TEXT(",%.1f,%.1f,%.1f,%.1f,%.1f,%.1f")
-		TEXT(",%s,%s,%s,%s")
-		TEXT(",%s,%s"),
-		*Row.Timestamp, *Row.SubjectID,
-		Row.Height, Row.UpperLeftLeg, Row.UpperRightLeg, Row.LowerLeftLeg, Row.LowerRightLeg,
-		Row.HipLocation.X, Row.HipLocation.Y, Row.HipLocation.Z,
-		Row.LeftKneeLocation.X, Row.LeftKneeLocation.Y, Row.LeftKneeLocation.Z,
-		Row.RightKneeLocation.X, Row.RightKneeLocation.Y, Row.RightKneeLocation.Z,
-		Row.LeftFootLocation.X, Row.LeftFootLocation.Y, Row.LeftFootLocation.Z,
-		Row.RightFootLocation.X, Row.RightFootLocation.Y, Row.RightFootLocation.Z,
-		*PartName, *BodyPartStr, *DistStr, *LevelStr,
-		Row.bCollisionOccurred ? TEXT("TRUE") : TEXT("FALSE"), *Row.CollisionPartName
-	);
+	const FString FilePath = SaveFile(TEXT("frames"), Content);
+	if (!FilePath.IsEmpty())
+	{
+		UE_LOG(LogTemp, Log, TEXT("[VTC] Exported frame CSV: %s (%d rows)"), *FilePath, LogBuffer.Num());
+	}
+	return FilePath;
 }
+
+// ─── 초기화 ──────────────────────────────────────────────────────────────────
 
 void UVTC_DataLogger::ClearLog()
 {
 	LogBuffer.Empty();
 	CollisionEvents.Empty();
-	LoggedRowCount = 0;
+	LoggedRowCount      = 0;
+	HipPosSum           = FVector::ZeroVector;
+	HipPosSampleCount   = 0;
+	MinClearance_Hip    = TNumericLimits<float>::Max();
+	MinClearance_LKnee  = TNumericLimits<float>::Max();
+	MinClearance_RKnee  = TNumericLimits<float>::Max();
+	MinClearance_Overall = TNumericLimits<float>::Max();
+	MinClearance_BodyPart = TEXT("");
+	MinClearance_RefPoint = TEXT("");
+	HipPosAtMinClearance  = FVector::ZeroVector;
+	OverallWorstStatus    = EVTCWarningLevel::Safe;
+	WarningFrameCount     = 0;
+	CachedMeasurements    = FVTCBodyMeasurements();
+}
+
+// ─── Summary CSV 빌더 ────────────────────────────────────────────────────────
+
+FString UVTC_DataLogger::BuildSummaryHeader() const
+{
+	return
+		TEXT("SubjectID,Date")
+		TEXT(",Height_cm")
+		TEXT(",WaistToKnee_L_cm,WaistToKnee_R_cm")
+		TEXT(",KneeToFoot_L_cm,KneeToFoot_R_cm")
+		TEXT(",WaistToFoot_L_cm,WaistToFoot_R_cm")
+		TEXT(",HipPos_avg_X,HipPos_avg_Y,HipPos_avg_Z")
+		TEXT(",HipDist_to_Ref_min_cm")
+		TEXT(",LKnee_to_Ref_min_cm")
+		TEXT(",RKnee_to_Ref_min_cm")
+		TEXT(",MinClearance_cm,NearestBodyPart,NearestRefPoint")
+		TEXT(",HipX_atMinClearance,HipY_atMinClearance,HipZ_atMinClearance")
+		TEXT(",OverallStatus,CollisionCount,WarningFrames,TotalFrames");
+}
+
+FString UVTC_DataLogger::BuildSummaryRow() const
+{
+	// 평균 Hip 위치
+	const FVector HipAvg = (HipPosSampleCount > 0)
+		? HipPosSum / static_cast<float>(HipPosSampleCount)
+		: FVector::ZeroVector;
+
+	// 미측정 항목은 -1로 표시
+	auto SafeMinStr = [](float Val) -> FString
+	{
+		return (Val >= TNumericLimits<float>::Max() * 0.5f)
+			? TEXT("-1") : FString::Printf(TEXT("%.1f"), Val);
+	};
+
+	return FString::Printf(
+		TEXT("%s,%s"
+		     ",%.1f"
+		     ",%.1f,%.1f"
+		     ",%.1f,%.1f"
+		     ",%.1f,%.1f"
+		     ",%.1f,%.1f,%.1f"
+		     ",%s,%s,%s"
+		     ",%s,%s,%s"
+		     ",%.1f,%.1f,%.1f"
+		     ",%s,%d,%d,%d"),
+		*CurrentSubjectID, *SessionStartTime,
+		CachedMeasurements.EstimatedHeight,
+		CachedMeasurements.Hip_LeftKnee,         CachedMeasurements.Hip_RightKnee,
+		CachedMeasurements.LeftKnee_LeftFoot,     CachedMeasurements.RightKnee_RightFoot,
+		CachedMeasurements.TotalLeftLeg,          CachedMeasurements.TotalRightLeg,
+		HipAvg.X, HipAvg.Y, HipAvg.Z,
+		*SafeMinStr(MinClearance_Hip),
+		*SafeMinStr(MinClearance_LKnee),
+		*SafeMinStr(MinClearance_RKnee),
+		*SafeMinStr(MinClearance_Overall),
+		*MinClearance_BodyPart,
+		*MinClearance_RefPoint,
+		HipPosAtMinClearance.X, HipPosAtMinClearance.Y, HipPosAtMinClearance.Z,
+		*WarningLevelToStatus(OverallWorstStatus),
+		CollisionEvents.Num(), WarningFrameCount, LoggedRowCount
+	);
+}
+
+// ─── Frame CSV 빌더 ──────────────────────────────────────────────────────────
+
+FString UVTC_DataLogger::BuildFrameHeader() const
+{
+	// 거리 정보는 기준점별로 전부 기록 (BodyPart|RefPoint|Distance|Status 반복 컬럼)
+	return
+		TEXT("Timestamp,SubjectID,Height_cm")
+		TEXT(",WaistToKnee_L,WaistToKnee_R,KneeToFoot_L,KneeToFoot_R")
+		TEXT(",HipX,HipY,HipZ")
+		TEXT(",LKneeX,LKneeY,LKneeZ,RKneeX,RKneeY,RKneeZ")
+		TEXT(",LFootX,LFootY,LFootZ,RFootX,RFootY,RFootZ")
+		TEXT(",BodyPart,RefPoint,Distance_cm,Status[repeated per ref]")
+		TEXT(",CollisionOccurred,CollisionPart");
+}
+
+FString UVTC_DataLogger::FrameRowToCSVLine(const FVTCLogRow& Row) const
+{
+	// 기본 컬럼
+	FString Line = FString::Printf(
+		TEXT("%s,%s,%.1f,%.1f,%.1f,%.1f,%.1f"
+		     ",%.1f,%.1f,%.1f"
+		     ",%.1f,%.1f,%.1f,%.1f,%.1f,%.1f"
+		     ",%.1f,%.1f,%.1f,%.1f,%.1f,%.1f"),
+		*Row.Timestamp, *Row.SubjectID,
+		Row.Height, Row.UpperLeftLeg, Row.UpperRightLeg, Row.LowerLeftLeg, Row.LowerRightLeg,
+		Row.HipLocation.X,        Row.HipLocation.Y,        Row.HipLocation.Z,
+		Row.LeftKneeLocation.X,   Row.LeftKneeLocation.Y,   Row.LeftKneeLocation.Z,
+		Row.RightKneeLocation.X,  Row.RightKneeLocation.Y,  Row.RightKneeLocation.Z,
+		Row.LeftFootLocation.X,   Row.LeftFootLocation.Y,   Row.LeftFootLocation.Z,
+		Row.RightFootLocation.X,  Row.RightFootLocation.Y,  Row.RightFootLocation.Z
+	);
+
+	// 기준점별 거리 컬럼 (모두 출력)
+	for (const FVTCDistanceResult& D : Row.DistanceResults)
+	{
+		Line += FString::Printf(TEXT(",%s,%s,%.1f,%s"),
+			*StaticEnum<EVTCTrackerRole>()->GetValueAsString(D.BodyPart),
+			*D.VehiclePartName,
+			D.Distance,
+			*WarningLevelToStatus(D.WarningLevel));
+	}
+
+	// 충돌 플래그
+	Line += FString::Printf(TEXT(",%s,%s"),
+		Row.bCollisionOccurred ? TEXT("TRUE") : TEXT("FALSE"),
+		*Row.CollisionPartName);
+
+	return Line;
+}
+
+// ─── 공통 유틸 ───────────────────────────────────────────────────────────────
+
+FString UVTC_DataLogger::SaveFile(const FString& Suffix, const FString& Content) const
+{
+	FString Dir = LogDirectory.IsEmpty()
+		? FPaths::ProjectSavedDir() / TEXT("VTCLogs")
+		: LogDirectory;
+
+	IPlatformFile& PF = FPlatformFileManager::Get().GetPlatformFile();
+	if (!PF.DirectoryExists(*Dir)) PF.CreateDirectoryTree(*Dir);
+
+	const FString SafeTime = SessionStartTime
+		.Replace(TEXT(":"), TEXT("-"))
+		.Replace(TEXT(" "), TEXT("_"));
+	const FString FilePath = Dir / FString::Printf(TEXT("%s_%s_%s.csv"),
+		*CurrentSubjectID, *SafeTime, *Suffix);
+
+	if (FFileHelper::SaveStringToFile(Content, *FilePath))
+	{
+		return FilePath;
+	}
+	UE_LOG(LogTemp, Error, TEXT("[VTC] Failed to save file: %s"), *FilePath);
+	return TEXT("");
+}
+
+FString UVTC_DataLogger::WarningLevelToStatus(EVTCWarningLevel Level)
+{
+	switch (Level)
+	{
+	case EVTCWarningLevel::Safe:      return TEXT("GREEN");
+	case EVTCWarningLevel::Warning:   return TEXT("YELLOW");
+	case EVTCWarningLevel::Collision: return TEXT("RED");
+	}
+	return TEXT("UNKNOWN");
 }
 
 FString UVTC_DataLogger::GetTimestampString()
