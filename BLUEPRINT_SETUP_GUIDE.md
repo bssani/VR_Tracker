@@ -40,13 +40,24 @@ C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**�
 
 | 카테고리 | 프로퍼티 | 값 | 설명 |
 |---------|---------|-----|------|
-| VKC\|Tracker Config | MotionSource_Waist | `Special_1` | Vive Tracker 0 (골반) |
-| VKC\|Tracker Config | MotionSource_LeftKnee | `Special_2` | Vive Tracker 1 (왼쪽 무릎) |
-| VKC\|Tracker Config | MotionSource_RightKnee | `Special_3` | Vive Tracker 2 (오른쪽 무릎) |
-| VKC\|Tracker Config | MotionSource_LeftFoot | `Special_4` | Vive Tracker 3 (왼발) |
-| VKC\|Tracker Config | MotionSource_RightFoot | `Special_5` | Vive Tracker 4 (오른발) |
-| VKC\|Debug | bShowDebugSpheres | `true` (개발 중) | 디버그 구 표시 |
-| VKC\|Debug | DebugSphereRadius | `5.0` | 디버그 구 반지름(cm) |
+| VTC\|Tracker Config | MotionSource_Waist | `Special_1` | Vive Tracker 0 (골반) |
+| VTC\|Tracker Config | MotionSource_LeftKnee | `Special_2` | Vive Tracker 1 (왼쪽 무릎) |
+| VTC\|Tracker Config | MotionSource_RightKnee | `Special_3` | Vive Tracker 2 (오른쪽 무릎) |
+| VTC\|Tracker Config | MotionSource_LeftFoot | `Special_4` | Vive Tracker 3 (왼발) |
+| VTC\|Tracker Config | MotionSource_RightFoot | `Special_5` | Vive Tracker 4 (오른발) |
+| VTC\|Debug | bShowDebugSpheres | `true` (개발 중) | 디버그 구 표시 |
+| VTC\|Debug | DebugSphereRadius | `5.0` | 디버그 구 반지름(cm) |
+| VTC\|Simulation | bAutoDetectSimulation | `true` | HMD 미감지 시 자동으로 시뮬레이션 모드 전환 |
+| VTC\|Simulation | bSimulationMode | `false` | 강제 시뮬레이션 모드 (HMD 없이 에디터에서 테스트) |
+| VTC\|Simulation | SimMoveSpeed | `300.0` | WASD 이동 속도 (cm/s) |
+| VTC\|Simulation | SimMouseSensitivity | `1.0` | 마우스 룩 감도 |
+| VTC\|Simulation | SimOffset_LeftKnee | `(0, -30, -50)` | 착석 시 왼쪽 무릎 오프셋 (cm, 카메라 로컬) |
+| VTC\|Simulation | SimOffset_RightKnee | `(0, 30, -50)` | 착석 시 오른쪽 무릎 오프셋 (cm, 카메라 로컬) |
+
+> **시뮬레이션 모드 단축키:**
+> - **F8** — VR ↔ 시뮬레이션 모드 토글 (런타임)
+> - **R** — 무릎 오프셋 초기화
+> - **NumPad 8/2/4/6** — 무릎 위치 미세 조정 (앞뒤/좌우)
 
 ### MotionSource 매핑 확인
 SteamVR → Settings → Controllers → **Manage Trackers**에서:
@@ -90,10 +101,20 @@ BP_VTC_TrackerPawn (Root: DefaultSceneRoot)
 
 | 카테고리 | 프로퍼티 | 기본값 | 설명 |
 |---------|---------|-------|------|
-| VKC\|Body | TrackerSource | *비워두기* | BeginPlay에서 자동 탐색 |
-| VKC\|Body\|Collision Radius | HipSphereRadius | `12.0` | 골반 충돌 구 반지름(cm) |
-| VKC\|Body\|Collision Radius | KneeSphereRadius | `8.0` | 무릎 충돌 구 반지름(cm) |
-| VKC\|Body\|Collision Radius | FootSphereRadius | `10.0` | 발 충돌 구 반지름(cm) |
+| VTC\|Body | TrackerSource | *비워두기* | BeginPlay에서 자동 탐색 |
+| VTC\|Body\|Collision Radius | HipSphereRadius | `12.0` | 골반 충돌 구 반지름(cm) |
+| VTC\|Body\|Collision Radius | KneeSphereRadius | `8.0` | 무릎 충돌 구 반지름(cm) |
+| VTC\|Body\|Collision Radius | FootSphereRadius | `10.0` | 발 충돌 구 반지름(cm) |
+| VTC\|Body\|Mount Offset | MountOffset_Waist | `(0,0,0)` | 골반 트래커 마운트 오프셋 (트래커 로컬, cm) |
+| VTC\|Body\|Mount Offset | MountOffset_LeftKnee | `(0,0,0)` | 왼쪽 무릎 트래커 마운트 오프셋 |
+| VTC\|Body\|Mount Offset | MountOffset_RightKnee | `(0,0,0)` | 오른쪽 무릎 트래커 마운트 오프셋 |
+| VTC\|Body\|Mount Offset | MountOffset_LeftFoot | `(0,0,0)` | 왼발 트래커 마운트 오프셋 |
+| VTC\|Body\|Mount Offset | MountOffset_RightFoot | `(0,0,0)` | 오른발 트래커 마운트 오프셋 |
+
+> **마운트 오프셋 사용법:**
+> Vive Tracker가 무릎 앞으로 2cm 돌출된 경우 (트래커 X축 = 앞 방향):
+> `MountOffset_LeftKnee = (2.0, 0.0, 0.0)`
+> 트래커 방향이 바뀌어도 자동으로 올바른 월드 위치로 변환됩니다.
 
 ### 자동 동작 원리
 - **BeginPlay**에서 `TrackerSource`가 비어있으면 `GetAllActorsWithInterface(IVTC_TrackerInterface)`로 **자동 탐색**합니다.
@@ -150,11 +171,11 @@ OnWarningLevelChanged →
 
 | 카테고리 | 프로퍼티 | 예시 값 | 설명 |
 |---------|---------|--------|------|
-| VKC\|Reference Point | PartName | `"Dashboard"` | 차량 부품 이름 |
-| VKC\|Reference Point | RelevantBodyParts | `[LeftKnee, RightKnee]` | 거리 측정 대상 신체 부위 |
-| VKC\|Reference Point | bActive | `true` | 활성 상태 |
-| VKC\|Reference Point | MarkerRadius | `5.0` | 마커 구 크기(cm) |
-| VKC\|Reference Point | MarkerColor | `Orange (1,0.5,0,1)` | 마커 기본 색상 |
+| VTC\|Reference Point | PartName | `"Dashboard"` | 차량 부품 이름 |
+| VTC\|Reference Point | RelevantBodyParts | `[LeftKnee, RightKnee]` | 거리 측정 대상 신체 부위 |
+| VTC\|Reference Point | bActive | `true` | 활성 상태 |
+| VTC\|Reference Point | MarkerRadius | `5.0` | 마커 구 크기(cm) |
+| VTC\|Reference Point | MarkerColor | `Orange (1,0.5,0,1)` | 마커 기본 색상 |
 
 ### 차량별 배치 예시
 
@@ -183,11 +204,11 @@ OnWarningLevelChanged →
 
 | 카테고리 | 프로퍼티 | 설정 방법 | 설명 |
 |---------|---------|----------|------|
-| VKC\|Session\|Systems | TrackerSource | *비워두기* | BeginPlay 자동 탐색 |
-| VKC\|Session\|Systems | BodyActor | *비워두기* | BeginPlay 자동 탐색 |
-| VKC\|Session\|Systems | CollisionDetector | *자기 자신의 컴포넌트* | 아래 설명 참조 |
-| VKC\|Session\|Systems | WarningFeedback | *자기 자신의 컴포넌트* | 아래 설명 참조 |
-| VKC\|Session\|Systems | DataLogger | *자기 자신의 컴포넌트* | 아래 설명 참조 |
+| VTC\|Session\|Systems | TrackerSource | *비워두기* | BeginPlay 자동 탐색 |
+| VTC\|Session\|Systems | BodyActor | *비워두기* | BeginPlay 자동 탐색 |
+| VTC\|Session\|Systems | CollisionDetector | *자기 자신의 컴포넌트* | 아래 설명 참조 |
+| VTC\|Session\|Systems | WarningFeedback | *자기 자신의 컴포넌트* | 아래 설명 참조 |
+| VTC\|Session\|Systems | DataLogger | *자기 자신의 컴포넌트* | 아래 설명 참조 |
 
 ### 중요: 컴포넌트 연결 방식
 
@@ -512,5 +533,5 @@ SessionManager 내 CollisionDetector 컴포넌트에서:
 - SessionManager → WarningFeedback → PostProcessVolume 레퍼런스가 연결되었는지 확인
 
 **Q: CSV가 저장되지 않아요**
-- DataLogger의 LogDirectory가 비어있으면 `Saved/VKCLogs/`에 자동 저장
+- DataLogger의 LogDirectory가 비어있으면 `Saved/VTCLogs/`에 자동 저장
 - 파일 쓰기 권한 확인
