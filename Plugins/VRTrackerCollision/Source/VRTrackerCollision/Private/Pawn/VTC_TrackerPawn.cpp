@@ -3,8 +3,6 @@
 #include "Pawn/VTC_TrackerPawn.h"
 #include "DrawDebugHelpers.h"
 #include "IXRTrackingSystem.h"
-#include "EnhancedInputComponent.h"
-#include "EnhancedInputSubsystems.h"
 
 AVTC_TrackerPawn::AVTC_TrackerPawn()
 {
@@ -125,56 +123,6 @@ void AVTC_TrackerPawn::Tick(float DeltaTime)
 	}
 
 	OnAllTrackersUpdated.Broadcast();
-}
-
-void AVTC_TrackerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent);
-	if (!EIC)
-	{
-		UE_LOG(LogTemp, Error,
-			TEXT("[VTC] Enhanced Input Component를 찾지 못했습니다. "
-			     "Project Settings > Engine > Input > Default Input Component Class = "
-			     "EnhancedInputComponent 로 설정되어 있는지 확인하세요."));
-		return;
-	}
-
-	// Triggered: 키를 누르는 동안 매 프레임 호출 (연속 입력)
-	if (IA_Move)            EIC->BindAction(IA_Move,            ETriggerEvent::Triggered, this, &AVTC_TrackerPawn::SimMove);
-	if (IA_Look)            EIC->BindAction(IA_Look,            ETriggerEvent::Triggered, this, &AVTC_TrackerPawn::SimLook);
-	if (IA_AdjustLeftKnee)  EIC->BindAction(IA_AdjustLeftKnee,  ETriggerEvent::Triggered, this, &AVTC_TrackerPawn::SimAdjustLeftKnee);
-	if (IA_AdjustRightKnee) EIC->BindAction(IA_AdjustRightKnee, ETriggerEvent::Triggered, this, &AVTC_TrackerPawn::SimAdjustRightKnee);
-
-	// Started: 키를 처음 눌렀을 때 1회만 호출 (토글/리셋)
-	if (IA_ToggleSim)       EIC->BindAction(IA_ToggleSim,       ETriggerEvent::Started,   this, &AVTC_TrackerPawn::ToggleSimulationMode);
-	if (IA_ResetKnees)      EIC->BindAction(IA_ResetKnees,      ETriggerEvent::Started,   this, &AVTC_TrackerPawn::ResetKneeAdjustments);
-}
-
-void AVTC_TrackerPawn::PossessedBy(AController* NewController)
-{
-	Super::PossessedBy(NewController);
-
-	// BeginPlay 시점에는 Controller가 null이므로 IMC 등록은 여기서 수행
-	APlayerController* PC = Cast<APlayerController>(NewController);
-	if (!PC) return;
-
-	UEnhancedInputLocalPlayerSubsystem* Subsystem =
-		ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer());
-	if (!Subsystem) return;
-
-	if (SimInputMappingContext)
-	{
-		Subsystem->AddMappingContext(SimInputMappingContext, 0);
-		UE_LOG(LogTemp, Log, TEXT("[VTC] IMC registered on Possess."));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("[VTC] SimInputMappingContext가 없습니다. "
-			     "BP_VTC_TrackerPawn > VTC|Simulation|Input 에서 IMC 에셋을 연결하세요."));
-	}
 }
 
 // ─── IVTC_TrackerInterface 구현 ─────────────────────────────────────────────

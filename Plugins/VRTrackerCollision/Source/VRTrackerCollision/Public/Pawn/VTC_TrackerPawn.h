@@ -34,8 +34,6 @@
 #include "Tracker/VTC_TrackerTypes.h"
 #include "Tracker/VTC_TrackerInterface.h"
 #include "InputActionValue.h"
-#include "InputMappingContext.h"
-#include "InputAction.h"
 #include "VTC_TrackerPawn.generated.h"
 
 UCLASS(BlueprintType, Blueprintable, meta=(DisplayName="VTC Tracker Pawn"))
@@ -49,8 +47,6 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
-	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-	virtual void PossessedBy(AController* NewController) override; // IMC 등록 타이밍
 
 public:
 	// ─── VR 카메라 ───────────────────────────────────────────────────────────
@@ -214,41 +210,9 @@ public:
 		meta=(ClampMin=5.0f, ClampMax=100.0f, EditCondition="bSimulationMode"))
 	float SimKneeAdjustSpeed = 30.0f;
 
-	// ─── 시뮬레이션 입력 에셋 (Enhanced Input) ────────────────────────────────
-	// BP_VTC_TrackerPawn Details > "VTC|Simulation|Input" 에서 각 에셋을 연결하세요.
-	// 에셋 생성: Content Browser 우클릭 → Input → Input Action / Input Mapping Context
+	// ─── 시뮬레이션 제어 함수 (PlayerController에서 호출) ─────────────────
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input",
-		meta=(DisplayName="Sim Input Mapping Context"))
-	TObjectPtr<UInputMappingContext> SimInputMappingContext;
-
-	// Axis2D — X: 전후(W/S), Y: 좌우(A/D)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input")
-	TObjectPtr<UInputAction> IA_Move;
-
-	// Axis2D — X: Yaw(마우스X), Y: Pitch(마우스Y)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input")
-	TObjectPtr<UInputAction> IA_Look;
-
-	// Digital — Backspace: 시뮬레이션 모드 토글
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input")
-	TObjectPtr<UInputAction> IA_ToggleSim;
-
-	// Digital — R: 무릎 오프셋 초기화
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input")
-	TObjectPtr<UInputAction> IA_ResetKnees;
-
-	// Axis2D — X: 좌우(NumPad4/6), Y: 전후(NumPad2/8)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input")
-	TObjectPtr<UInputAction> IA_AdjustLeftKnee;
-
-	// Axis2D — X: 좌우(ArrowLeft/Right), Y: 전후(ArrowDown/Up)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Input")
-	TObjectPtr<UInputAction> IA_AdjustRightKnee;
-
-	// ─── 시뮬레이션 제어 함수 ───────────────────────────────────────────────
-
-	// 시뮬레이션 모드 토글 (런타임에서 Backspace 키로 전환)
+	// 시뮬레이션 모드 토글 (Backspace 키 → PlayerController → 여기 호출)
 	UFUNCTION(BlueprintCallable, Category = "VTC|Simulation")
 	void ToggleSimulationMode();
 
@@ -259,6 +223,13 @@ public:
 	// 현재 시뮬레이션 모드 여부 조회
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Simulation")
 	bool IsInSimulationMode() const { return bSimulationMode; }
+
+	// ─── 입력 핸들러 (PlayerController가 포워딩) ──────────────────────────
+	// VTC_SimPlayerController가 Enhanced Input 바인딩 후 이 함수들을 직접 호출한다.
+	void SimMove(const FInputActionValue& Value);
+	void SimLook(const FInputActionValue& Value);
+	void SimAdjustLeftKnee(const FInputActionValue& Value);
+	void SimAdjustRightKnee(const FInputActionValue& Value);
 
 private:
 	// TrackerRole → TrackerData 캐시 맵
@@ -285,15 +256,9 @@ private:
 	// 카메라 기준 상대 오프셋을 월드 좌표로 변환
 	FVector SimOffsetToWorld(const FVector& LocalOffset) const;
 
-	// 마우스 룩 입력
+	// 마우스 룩 입력 누적값 (Tick에서 소비)
 	float SimYawInput = 0.0f;
 	float SimPitchInput = 0.0f;
-
-	// 시뮬레이션 입력 바인딩용 함수 (Enhanced Input)
-	void SimMove(const FInputActionValue& Value);
-	void SimLook(const FInputActionValue& Value);
-	void SimAdjustLeftKnee(const FInputActionValue& Value);
-	void SimAdjustRightKnee(const FInputActionValue& Value);
 
 	// HMD 감지 확인
 	bool DetectHMDPresence() const;
