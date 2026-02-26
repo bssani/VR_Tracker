@@ -12,13 +12,15 @@ C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**�
 
 ```
 만들어야 할 Blueprint:
-  1. BP_VTC_TrackerPawn      (VTC_TrackerPawn 기반)
-  2. BP_VTC_BodyActor        (VTC_BodyActor 기반)
-  3. BP_VTC_ReferencePoint   (VTC_ReferencePoint 기반)
-  4. BP_VTC_SessionManager   (VTC_SessionManager 기반)
-  5. BP_VTC_GameMode         (VTC_GameMode 기반)
-  6. WBP_VTC_HUD             (UMG Widget Blueprint)
-  7. PP_VTC_Warning          (PostProcessVolume — 레벨 배치)
+  1. BP_VTC_TrackerPawn         (VTC_TrackerPawn 기반)
+  2. BP_VTC_BodyActor           (VTC_BodyActor 기반)
+  3. BP_VTC_ReferencePoint      (VTC_ReferencePoint 기반)
+  4. BP_VTC_SessionManager      (VTC_SessionManager 기반)
+  5. BP_VTC_GameMode            (VTC_GameMode 기반)
+  6. BP_VTC_SimPlayerController (VTC_SimPlayerController 기반)
+  7. WBP_VTC_SubjectInfo        (VTC_SubjectInfoWidget 기반)  ← 피실험자 ID + 키 입력 위젯
+  8. WBP_VTC_HUD                (UMG Widget Blueprint)
+  9. PP_VTC_Warning             (PostProcessVolume — 레벨 배치)
 
 필요한 에셋:
   - Material: M_VTC_BodySegment (+ MI_Safe, MI_Warning, MI_Collision)
@@ -306,11 +308,12 @@ SessionManager의 `BeginPlay`에서 레벨 내 액터/컴포넌트를 자동으�
 C++ 코드 분석 결과, SessionManager는 자체적으로 `CollisionDetector`, `WarningFeedback`, `DataLogger`를 **소유하는 Actor**입니다. 이 3개는 SessionManager Actor의 컴포넌트로 자동 생성됩니다.
 
 ### 사용 가능한 함수 (HUD에서 호출)
-- `StartSession("SubjectID")` — 세션 시작 → Calibrating 상태로 전환
+- `StartSessionWithHeight("SubjectID", Height_cm)` — **(권장)** 세션 시작, 직접 입력한 키 포함
+- `StartSession("SubjectID")` — 키 없이 시작 (HMD 높이에서 자동 추정)
 - `StartTestingDirectly()` — 캘리브레이션 건너뛰고 바로 테스트
 - `StopSession()` — 테스트 종료 → Reviewing 상태
 - `RequestReCalibration()` — 재캘리브레이션 요청
-- `ExportAndEnd()` → FString (CSV 경로 반환)
+- `ExportAndEnd()` → FString (요약 CSV 경로 반환)
 - `IsTesting()`, `IsCalibrating()` → bool
 - `GetCurrentBodyMeasurements()` → FVTCBodyMeasurements
 - `GetSessionMinDistance()` → float (최소 거리 cm)
@@ -333,13 +336,64 @@ C++ 코드 분석 결과, SessionManager는 자체적으로 `CollisionDetector`,
 |---------|-----|
 | Default Pawn Class | `BP_VTC_TrackerPawn` |
 | HUD Class | `None` (또는 커스텀 HUD) |
-| Player Controller Class | `PlayerController` (기본) |
+| Player Controller Class | `BP_VTC_SimPlayerController` |
 
-> **중요:** C++ `VTC_GameMode`는 이미 DefaultPawnClass를 `AVTC_TrackerPawn`으로 설정합니다. 하지만 Blueprint 버전(BP_VTC_TrackerPawn)을 사용하려면 **반드시 BP_VTC_GameMode에서 Default Pawn Class를 `BP_VTC_TrackerPawn`으로 오버라이드**해야 합니다.
+> **중요:** C++ `VTC_GameMode`는 이미 DefaultPawnClass를 `AVTC_TrackerPawn`으로 설정합니다. 하지만 Blueprint 버전을 사용하려면 **두 항목 모두 반드시 오버라이드**해야 합니다.
+> - Default Pawn Class → `BP_VTC_TrackerPawn`
+> - Player Controller Class → `BP_VTC_SimPlayerController` (Enhanced Input 등록이 이 컨트롤러에서 처리됨)
 
 ---
 
-## 6. WBP_VTC_HUD (UMG Widget)
+## 6. WBP_VTC_SubjectInfo (피실험자 정보 입력 위젯)
+
+### 생성 방법
+1. Content Browser → 우클릭 → **User Interface → Widget Blueprint**
+2. **Parent Class**: `VTC_SubjectInfoWidget` *(검색 후 선택)*
+3. 이름: `WBP_VTC_SubjectInfo`
+
+### 필수: BindWidget 위젯 배치
+
+C++ 코드에서 `meta=(BindWidget)` 으로 선언된 위젯 이름을 **정확히** 맞춰야 합니다.
+이름이 하나라도 다르면 컴파일 에러가 발생합니다.
+
+| 위젯 타입 | 이름 (대소문자 정확히) | 내용 |
+|---------|-------------------|------|
+| EditableTextBox | `TB_SubjectID` | 피실험자 ID 입력 |
+| EditableTextBox | `TB_Height` | 키(cm) 숫자 입력 (예: `175`) |
+| Button | `Btn_StartSession` | 시작 버튼 |
+
+**Designer 탭 예시 레이아웃:**
+```
+[Vertical Box]
+  ├─ TextBlock  "피실험자 ID"
+  ├─ EditableTextBox  TB_SubjectID    (힌트: "P001")
+  ├─ TextBlock  "키 (cm)"
+  ├─ EditableTextBox  TB_Height       (힌트: "175")
+  │     → KeyboardType: NumberPad (숫자 입력 강제)
+  └─ Button  Btn_StartSession  "시작"
+```
+
+> **`TB_Height` 설정 팁:**
+> - Input Method Type → `Number` 로 설정하면 숫자만 입력 가능
+> - Hint Text → `"키 입력 (cm), 예: 175"` 설정 권장
+
+### 연결 방법 (Level Blueprint 또는 WBP_VTC_HUD에서)
+
+```
+Event BeginPlay
+  │
+  └─ SubjectInfoWidgetRef → Bind Event to OnSessionStartRequested
+       └─ Custom Event HandleSessionStart (SubjectID: String, Height_cm: float)
+               └─ SessionManagerRef → StartSessionWithHeight (SubjectID, Height_cm)
+```
+
+> **참고:** `OnSessionStartRequested`는 버튼 클릭 시 자동으로 발동합니다.
+> C++ `NativeConstruct()`에서 버튼 바인딩이 완료되어 있습니다.
+> IsInputValid() 검사도 C++ 안에서 자동으로 처리됩니다 (SubjectID 비어있거나 Height ≤ 0이면 브로드캐스트 안 함).
+
+---
+
+## 7. WBP_VTC_HUD (UMG Widget)
 
 ### 생성 방법
 1. Content Browser → 우클릭 → **User Interface → Widget Blueprint**
@@ -364,9 +418,8 @@ HUD는 **항상 표시되는 상단 바** + **세션 상태별로 바뀌는 4개
   │    │
   │    ├─ ── Panel_Idle (Overlay) ────────────────────────
   │    │   VerticalBox  [이름: Panel_Idle]
-  │    │     ├─ TextBlock  "피험자 ID 입력 후 Start를 누르세요"
-  │    │     ├─ EditableTextBox  ETB_SubjectID
-  │    │     └─ Button  BTN_StartSession  "Start Session"
+  │    │     └─ [WBP_VTC_SubjectInfo]  SubjectInfoWidget
+  │    │          (피실험자 ID + 키 입력 + 시작 버튼 — 모두 내장)
   │    │
   │    ├─ ── Panel_Calibrating (Overlay) ─────────────────
   │    │   VerticalBox  [이름: Panel_Calibrating]
@@ -418,6 +471,12 @@ Event BeginPlay
   │
   ├─ SessionManagerRef → CollisionDetector
   │    └─ Set CollisionDetectorRef (변수)
+  │
+  ├─ Panel_Idle 안의 WBP_VTC_SubjectInfo → Get (Is Variable = true 로 설정)
+  │    └─ Set SubjectInfoWidgetRef (변수)
+  │         └─ Bind Event to OnSessionStartRequested
+  │              └─ Custom Event HandleSessionStart (SubjectID, Height_cm: float)
+  │                       └─ SessionManagerRef → StartSessionWithHeight (SubjectID, Height_cm)
   │
   ├─ Bind Event to OnSessionStateChanged (Target: SessionManagerRef)
   │    └─ Event: Custom Event [HandleStateChanged]
@@ -581,10 +640,16 @@ Event Tick (DeltaTime)
 #### [7] 버튼 클릭
 
 ```
-BTN_StartSession.OnClicked  → SessionManagerRef → StartSession ( ETB_SubjectID.GetText() )
+[Panel_Idle 시작 버튼]
+  WBP_VTC_SubjectInfo.OnSessionStartRequested → HandleSessionStart (BeginPlay에서 바인딩)
+    └─ SessionManagerRef → StartSessionWithHeight (SubjectID, Height_cm)
+       ← SubjectID 비어있거나 Height ≤ 0이면 C++ 내부에서 자동으로 차단됨
+
+[Testing / Reviewing 패널 버튼]
 BTN_Stop.OnClicked          → SessionManagerRef → StopSession()
 BTN_ReCalibrate.OnClicked   → SessionManagerRef → RequestReCalibration()
 BTN_Export.OnClicked        → SessionManagerRef → ExportAndEnd()
+                               (반환: summary CSV 경로 — Print String으로 확인 가능)
 BTN_NewSession.OnClicked    → SessionManagerRef → StopSession()
                                (Idle로 돌아가면 HandleStateChanged가 Panel_Idle 표시)
 ```
@@ -780,3 +845,16 @@ SessionManager 내 CollisionDetector 컴포넌트에서:
 **Q: CSV가 저장되지 않아요**
 - DataLogger의 LogDirectory가 비어있으면 `Saved/VTCLogs/`에 자동 저장
 - 파일 쓰기 권한 확인
+
+**Q: CSV에 어떤 데이터가 저장되나요?**
+- `ExportAndEnd()` / `ExportToCSV()` → `*_summary.csv` (세션당 1행, Human Factors용)
+  - 키(Height_cm), 허리→무릎, 무릎→발, 허리→발 길이, Hip 평균 위치
+  - Hip/무릎별 최소 클리어런스, 최악 순간의 Hip 위치
+  - 전체 상태: GREEN / YELLOW / RED, 충돌 횟수
+- `DataLogger → ExportFrameDataCSV()` → `*_frames.csv` (10Hz 원시 데이터, 연구자용)
+  - 모든 기준점별 거리 전체 포함 (기존 버그 수정됨)
+
+**Q: 키(Height)가 CSV에 0으로 저장돼요**
+- `WBP_VTC_SubjectInfo`에서 키를 입력하고 시작했는지 확인
+- `StartSessionWithHeight(SubjectID, Height_cm)` 호출 여부 확인
+- HMD만으로 세션을 시작하면 `EstimatedHeight`(자동 추정, ±5cm 오차)가 사용됨
