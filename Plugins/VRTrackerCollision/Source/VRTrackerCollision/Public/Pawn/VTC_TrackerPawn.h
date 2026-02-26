@@ -212,9 +212,18 @@ public:
 
 	// ─── 착석 정렬 ──────────────────────────────────────────────────────────
 
+	// true면 BeginPlay 시 SeatHipWorldPosition으로 자동 스냅
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Seating")
+	bool bAutoSnapOnBeginPlay = false;
+
+	// 차량 Hip의 월드 좌표. 에디터 Details에서 직접 입력.
+	// 예) 차량 DriverHip 위치가 (50, 20, 100)이면 그대로 입력.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Seating",
+		meta=(EditCondition="bAutoSnapOnBeginPlay"))
+	FVector SeatHipWorldPosition = FVector::ZeroVector;
+
 	// Waist tracker가 WorldPos에 오도록 Pawn 전체를 이동.
-	// 차량 DriverHip 소켓 위치를 넘기면 착석 자세가 정렬된다.
-	// 차량이 Static이면 게임 시작 시 1회 호출로 충분하다.
+	// 런타임에서도 호출 가능 (블루프린트에서 직접 벡터 지정).
 	UFUNCTION(BlueprintCallable, Category = "VTC|Seating")
 	void SnapWaistTo(const FVector& WorldPos);
 

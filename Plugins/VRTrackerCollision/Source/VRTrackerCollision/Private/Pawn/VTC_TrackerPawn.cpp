@@ -89,6 +89,18 @@ void AVTC_TrackerPawn::BeginPlay()
 		*MotionSource_LeftFoot.ToString(),
 		*MotionSource_RightFoot.ToString(),
 		bSimulationMode ? TEXT("ON") : TEXT("OFF"));
+
+	// ── 착석 자동 스냅 ────────────────────────────────────────────────────
+	// bAutoSnapOnBeginPlay = true이면 SeatHipWorldPosition으로 Waist를 스냅.
+	// 시뮬레이션 모드에서는 TrackerData가 BeginPlay 시점에 아직 갱신되지 않으므로
+	// 첫 Tick 이후로 한 프레임 지연해서 실행한다.
+	if (bAutoSnapOnBeginPlay)
+	{
+		GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
+		{
+			SnapWaistTo(SeatHipWorldPosition);
+		});
+	}
 }
 
 void AVTC_TrackerPawn::Tick(float DeltaTime)
