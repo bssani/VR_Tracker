@@ -140,6 +140,12 @@ void AVTC_BodyActor::SyncSpherePositions() {
 
     S->SetWorldLocation(EffectiveLocation);
     S->SetVisibility(Data.bIsTracked);
+    // 미연결 트래커는 충돌도 비활성화.
+    // SetVisibility(false)는 렌더링만 끄고 충돌 판정은 유지하므로
+    // 위치가 (0,0,0)에 고정된 sphere가 phantom overlap을 일으키는 것을 방지.
+    S->SetCollisionEnabled(Data.bIsTracked
+        ? ECollisionEnabled::QueryAndPhysics
+        : ECollisionEnabled::NoCollision);
 
     // 시각화 메시도 동일 위치/가시성으로 동기화 (VR 렌더링용)
     if (Visual)
