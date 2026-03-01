@@ -94,6 +94,7 @@ Level 2 로드 → OperatorController::BeginPlay → ApplyGameInstanceConfig()
   BP_VTC_SessionManager   (VTC_SessionManager 기반)
   BP_VTC_StatusActor      (VTC_StatusActor 기반)
   WBP_StatusWidget        (VTC_StatusWidget 기반)
+  BP_VTC_OperatorViewActor (VTC_OperatorViewActor 기반) ← Feature I
 
 [공통]
   BP_VTC_GameInstance     (VTC_GameInstance 기반)
@@ -160,6 +161,12 @@ Level 2 로드 → OperatorController::BeginPlay → ApplyGameInstanceConfig()
 | EditableTextBox | `TB_HipRef_Z` | 차량 Hip 기준점 Z |
 | CheckBox | `CB_ShowCollisionSpheres` | 충돌 구 표시 여부 |
 | CheckBox | `CB_ShowTrackerMesh` | Tracker 하드웨어 메시 표시 여부 |
+| Slider | `Slider_Warning` | Warning 임계값 슬라이더 (범위 3~50 cm, 기본 10) |
+| Slider | `Slider_Collision` | Collision 임계값 슬라이더 (범위 1~20 cm, 기본 3) |
+| TextBlock | `Txt_WarningVal` | Warning 임계값 현재값 표시 ("10 cm") |
+| TextBlock | `Txt_CollisionVal` | Collision 임계값 현재값 표시 ("3 cm") |
+| ComboBoxString | `Combo_VehiclePreset` | 차종 프리셋 선택 드롭다운 |
+| Button | `Btn_SavePreset` | 현재 ReferencePoint 설정을 프리셋으로 저장 |
 | Button | `Btn_SaveConfig` | 설정 저장 버튼 |
 | Button | `Btn_LoadConfig` | 설정 불러오기 버튼 |
 | Button | `Btn_StartSession` | 세션 시작 버튼 |
@@ -199,6 +206,23 @@ Level 2 로드 → OperatorController::BeginPlay → ApplyGameInstanceConfig()
        ├─ [Section] 가시성
        │    ├─ CheckBox CB_ShowCollisionSpheres "충돌 구 표시"
        │    └─ CheckBox CB_ShowTrackerMesh      "Tracker 하드웨어 메시 표시"
+       │
+       ├─ [Section] 거리 임계값 설정 (Feature A) ←─────────────────────── NEW
+       │    ├─ HorizontalBox
+       │    │    ├─ TextBlock "Warning 임계값"
+       │    │    ├─ Slider Slider_Warning   (Min=3, Max=50, Step=1, Default=10)
+       │    │    └─ TextBlock Txt_WarningVal "10 cm"
+       │    └─ HorizontalBox
+       │         ├─ TextBlock "Collision 임계값"
+       │         ├─ Slider Slider_Collision (Min=1, Max=20, Step=1, Default=3)
+       │         └─ TextBlock Txt_CollisionVal "3 cm"
+       │    > Collision 임계값은 항상 Warning 임계값보다 작게 자동 클램프됨
+       │
+       ├─ [Section] 차종 프리셋 (Feature B) ←────────────────────────────── NEW
+       │    ├─ ComboBoxString Combo_VehiclePreset  "프리셋 선택..."
+       │    │    (NativeConstruct에서 Saved/VTCPresets/*.json 목록 자동 채움)
+       │    └─ Button Btn_SavePreset  "현재 설정 저장"
+       │         (프리셋 이름은 VehicleHipPosition + Offset 입력값으로 현재 프리셋명 사용)
        │
        └─ [Section] 버튼
             ├─ Button Btn_LoadConfig   "Load Config"
@@ -1020,11 +1044,19 @@ VR에서는 Screen Space Widget이 보이지 않으므로 **Widget Component**�
 2. SessionManager의 WarningFeedback → PostProcessVolume 연결
 
 ### Step 7: 사운드 & FX 에셋 연결
-SessionManager의 WarningFeedback 컴포넌트에서:
+
+SessionManager의 **WarningFeedback** 컴포넌트에서:
 - `WarningSFX` → 경고 사운드 에셋
 - `CollisionSFX` → 충돌 사운드 에셋
 - `CollisionImpactFX` → Niagara 시스템 (있으면)
 - `WarningPulseFX` → Niagara 시스템 (있으면)
+
+SessionManager → BodyActor → **CalibrationComp** 컴포넌트에서 (Feature H):
+- `CountdownSFX[0]` → 카운트다운 3초 음성 (예: SC_VTC_Cal_3)
+- `CountdownSFX[1]` → 카운트다운 2초 음성 (예: SC_VTC_Cal_2)
+- `CountdownSFX[2]` → 카운트다운 1초 음성 (예: SC_VTC_Cal_1)
+- `CountdownSFX[3]` → 캘리브레이션 완료 음성 (예: SC_VTC_Cal_Complete)
+- 비워두면 무음, 일부만 연결해도 동작함
 
 ### Step 8: 플레이 테스트
 1. **VR Preview** 버튼 클릭 (또는 Alt+P)
@@ -1088,6 +1120,49 @@ SessionManager의 WarningFeedback 컴포넌트에서:
 | WarningFeedback.CollisionSFX | **자동 탐색 없음** | **Yes** — 에셋 지정 필요 |
 | WarningFeedback.CollisionImpactFX | **자동 탐색 없음** | Optional |
 | WarningFeedback.WarningPulseFX | **자동 탐색 없음** | Optional |
+| CalibrationComp.CountdownSFX | **자동 탐색 없음** | Optional — 4개 음성 에셋 (Feature H) |
+| OperatorController.OperatorViewActor | `GetAllActorsOfClass()` 자동 탐색 | No — 자동 탐색됨 (Feature I) |
+
+---
+
+## 8. BP_VTC_OperatorViewActor (운영자 탑다운 뷰 — Feature I)
+
+운영자 모니터(Companion Screen / Spectator Screen)에 탑다운 뷰를 실시간으로 전송하는 Actor입니다.
+VR 사용자는 HMD를 쓰고, 운영자는 외부 모니터에서 세션 장면을 탑뷰로 확인합니다.
+
+### 생성 방법
+1. Blueprint Class → **All Classes** → `VTC_OperatorViewActor` 검색
+2. 이름: `BP_VTC_OperatorViewActor`
+
+### Level 2에 배치
+- 차량 위 상공에 배치 (Z = 차량 루프 높이 + 200~300 cm 권장)
+- `BP_VTC_OperatorViewActor`를 드래그 앤 드롭
+- 모든 프로퍼티를 비워두면 자동 동작 (RenderTarget은 BeginPlay에서 자동 생성)
+
+### Details 패널 설정
+
+| 카테고리 | 프로퍼티 | 기본값 | 설명 |
+|---------|---------|-------|------|
+| VTC\|OperatorView | CaptureWidth | `1280` | RenderTarget 가로 해상도 |
+| VTC\|OperatorView | CaptureHeight | `720` | RenderTarget 세로 해상도 |
+| VTC\|OperatorView | CaptureOrthoWidth | `500` | 직교 투영 캡처 너비 (cm, 클수록 넓은 영역) |
+| VTC\|OperatorView | bOrthographic | `true` | true=직교 투영(탑다운), false=원근 투영 |
+| VTC\|OperatorView | RenderTarget | *비워두기* | BeginPlay에서 자동 생성 |
+
+### 자동 동작 원리
+- **BeginPlay**: RenderTarget 자동 생성 → SceneCaptureComponent2D에 연결 → `SetupSpectatorScreen()` 호출
+- **Spectator Screen 연결**: `GEngine->XRSystem->GetHMDDevice()->GetSpectatorScreenController()` 경로로 HMD의 Companion Screen에 RenderTarget 출력
+- **VR 장비 없음**: XRSystem 없으면 자동으로 RenderTarget만 활성화 (데스크탑에서 UMG Image로 연결 가능)
+- **OperatorController**: BeginPlay에서 `GetAllActorsOfClass(VTC_OperatorViewActor)`로 자동 탐색
+
+### 데스크탑 모드 대체 (VR 장비 없이 테스트 시)
+RenderTarget을 UMG Image 위젯에 직접 연결하면 화면에 탑다운 뷰를 표시할 수 있습니다:
+
+```
+WBP_OperatorMonitor (새 위젯 생성)
+  └─ Image 위젯
+       └─ Brush → Texture = BP_VTC_OperatorViewActor.RenderTarget
+```
 
 ---
 
