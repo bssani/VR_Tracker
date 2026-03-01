@@ -85,11 +85,13 @@ void AVTC_OperatorController::Tick(float DeltaTime)
 {
   Super::Tick(DeltaTime);
 
+  // StatusActor 없으면 타이머 자체를 돌릴 필요 없음
+  if (!StatusActor) return;
+
   TrackerStatusTimer += DeltaTime;
   if (TrackerStatusTimer < TrackerStatusInterval) return;
   TrackerStatusTimer = 0.0f;
 
-  if (!StatusActor) return;
   UVTC_StatusWidget* W = StatusActor->GetStatusWidget();
   if (!W) return;
 
@@ -154,6 +156,20 @@ void AVTC_OperatorController::ReturnToSetupLevel()
     GI->OpenSetupLevel();
 }
 
+void AVTC_OperatorController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+  // 동적으로 스폰한 ReferencePoint를 명시적으로 제거.
+  // 레벨 전환 시 GC로도 제거되지만, CollisionDetector 배열에 남아
+  // 다음 BeginPlay 전에 stale 포인터가 생기는 것을 방지한다.
+  if (SpawnedHipRefPoint)
+  {
+    SpawnedHipRefPoint->Destroy();
+    SpawnedHipRefPoint = nullptr;
+  }
+
+  Super::EndPlay(EndPlayReason);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  단축키 핸들러
 // ─────────────────────────────────────────────────────────────────────────────
@@ -208,7 +224,9 @@ void AVTC_OperatorController::ApplyGameInstanceConfig()
   // (AutoFindReferencePoints가 BeginPlay에서 이미 실행된 이후이므로 수동 등록 필요)
   if (!C.VehicleHipPosition.IsNearlyZero())
   {
-    if (!SpawnedHipRefPoint)
+    const bool bFirstSpawn = !SpawnedHipRefPoint;
+
+    if (bFirstSpawn)
     {
       FActorSpawnParameters Params;
       Params.Name = TEXT("VTC_HipRefPoint_Dynamic");
@@ -223,19 +241,26 @@ void AVTC_OperatorController::ApplyGameInstanceConfig()
     if (SpawnedHipRefPoint)
     {
       SpawnedHipRefPoint->SetActorLocation(C.VehicleHipPosition);
-      SpawnedHipRefPoint->PartName         = TEXT("Vehicle_Hip");
+      SpawnedHipRefPoint->PartName          = TEXT("Vehicle_Hip");
       SpawnedHipRefPoint->RelevantBodyParts = { EVTCTrackerRole::Waist };
 
-      // CollisionDetector에 직접 추가 (중복 방지: AddUnique)
-      for (TActorIterator<AVTC_SessionManager> It(GetWorld()); It; ++It)
+      // 처음 스폰될 때만 CollisionDetector에 등록.
+      // 이미 존재하는 경우는 위치 업데이트만으로 충분하다.
+      if (bFirstSpawn)
       {
-        if (UVTC_CollisionDetector* CD = (*It)->CollisionDetector)
-          CD->ReferencePoints.AddUnique(SpawnedHipRefPoint);
-        break;
+        if (SessionManager && SessionManager->CollisionDetector)
+        {
+          SessionManager->CollisionDetector->ReferencePoints.AddUnique(SpawnedHipRefPoint);
+          UE_LOG(LogTemp, Log, TEXT("[VTC] VehicleHipPosition ReferencePoint 등록: %s"),
+                 *C.VehicleHipPosition.ToString());
+        }
+        else
+        {
+          UE_LOG(LogTemp, Warning,
+                 TEXT("[VTC] VehicleHipPosition: CollisionDetector 없음 — 등록 실패."
+                      " SessionManager를 먼저 탐색했는지 확인하세요."));
+        }
       }
-
-      UE_LOG(LogTemp, Log, TEXT("[VTC] VehicleHipPosition ReferencePoint 등록: %s"),
-             *C.VehicleHipPosition.ToString());
     }
   }
 }

@@ -73,6 +73,7 @@ protected:
   virtual void BeginPlay() override;
   virtual void Tick(float DeltaTime) override;
   virtual void SetupInputComponent() override;
+  virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
   // Pawn이 possess된 직후 호출 — BeginPlay에서 GetPawn()이 null일 경우 여기서 설정 적용
   virtual void OnPossess(APawn* InPawn) override;
