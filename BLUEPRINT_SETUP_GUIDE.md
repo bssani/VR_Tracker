@@ -1142,12 +1142,20 @@ SessionManager 내 CollisionDetector 컴포넌트에서:
 - 파일 쓰기 권한 확인
 
 **Q: CSV에 어떤 데이터가 저장되나요?**
-- `ExportAndEnd()` / `ExportToCSV()` → `*_summary.csv` (세션당 1행, Human Factors용)
-  - 키(Height_cm), 허리→무릎, 무릎→발, 허리→발 길이, Hip 평균 위치
-  - Hip/무릎별 최소 클리어런스, 최악 순간의 Hip 위치
-  - 전체 상태: GREEN / YELLOW / RED, 충돌 횟수
+- `ExportAndEnd()` / `ExportToCSV()` → `*_summary.csv` (세션당 1행, Human Factors 분석용)
+  - 피실험자: SubjectID, Date, Height_cm
+  - 신체 측정: WaistToKnee L/R, KneeToFoot L/R, WaistToFoot L/R (cm)
+  - Hip 평균 위치: HipPos_avg_X/Y/Z (cm)
+  - 최소 클리어런스: HipDist_to_Ref_min, LKnee/RKnee_to_Ref_min (cm)
+  - 전체 최악: MinClearance_cm + NearestBodyPart + NearestRefPoint
+  - 최악 시점: MinClearance_Timestamp (밀리초 정밀도)
+  - 최악 위치: HipX/Y/Z_atMinClearance
+  - 상태 요약: OverallStatus (GREEN/YELLOW/RED), CollisionCount, WarningFrames, TotalFrames
+  - 시간 분석: TestingStartTime, TestingEndTime, TestingDuration_sec
+  - 노출 시간: WarningDuration_sec (Warning 이상 누적), CollisionDuration_sec (Collision만 누적)
 - `DataLogger → ExportFrameDataCSV()` → `*_frames.csv` (10Hz 원시 데이터, 연구자용)
-  - 모든 기준점별 거리 전체 포함 (기존 버그 수정됨)
+  - 5개 신체 부위 위치 (X, Y, Z) + 모든 기준점별 거리 전체 포함
+  - 충돌 발생 여부 및 부품명
 
 **Q: 키(Height)가 CSV에 0으로 저장돼요**
 - `WBP_VTC_SubjectInfo`에서 키를 입력하고 시작했는지 확인
