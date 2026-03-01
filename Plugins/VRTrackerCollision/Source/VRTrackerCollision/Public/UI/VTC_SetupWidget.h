@@ -19,6 +19,14 @@
 //   가시성:
 //     CB_ShowCollisionSpheres   CheckBox
 //     CB_ShowTrackerMesh        CheckBox
+//   거리 임계값 슬라이더 (Feature A):
+//     Slider_Warning        Slider         (Warning 임계값, 범위 3~50 cm, 기본 10)
+//     Slider_Collision      Slider         (Collision 임계값, 범위 1~20 cm, 기본 3)
+//     Txt_WarningVal        TextBlock      (슬라이더 현재값 표시, 예: "10 cm")
+//     Txt_CollisionVal      TextBlock      (슬라이더 현재값 표시, 예: "3 cm")
+//   차종 프리셋 (Feature B):
+//     Combo_VehiclePreset   ComboBoxString (Saved/VTCPresets/*.json 목록 자동 로드)
+//     Btn_SavePreset        Button         (현재 설정을 프리셋으로 저장)
 //   버튼:
 //     Btn_SaveConfig            Button
 //     Btn_LoadConfig            Button
