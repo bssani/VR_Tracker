@@ -74,6 +74,18 @@ AVTC_BodyActor::AVTC_BodyActor() {
   VisualSphere_LeftFoot  = MakeVisualSphere(TEXT("VisualSphere_LFoot"));
   VisualSphere_RightFoot = MakeVisualSphere(TEXT("VisualSphere_RFoot"));
 
+  // ── Vehicle Hip Reference 마커 ──
+  // 차량 설계 기준 Hip 위치를 VR에서 시각적으로 표시하는 구체.
+  // 반경 5cm (작은 크로스마커 역할), 다른 머티리얼로 구분 가능.
+  VehicleHipMarker = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VehicleHipMarker"));
+  VehicleHipMarker->SetupAttachment(Root);
+  VehicleHipMarker->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  VehicleHipMarker->SetCastShadow(false);
+  if (SphereMeshAsset.Succeeded())
+    VehicleHipMarker->SetStaticMesh(SphereMeshAsset.Object);
+  // 반경 5cm → scale = 5/50
+  VehicleHipMarker->SetRelativeScale3D(FVector(5.0f / 50.0f));
+
   // ── 캘리브레이션 컴포넌트 ──
   CalibrationComp = CreateDefaultSubobject<UVTC_CalibrationComponent>(
       TEXT("CalibrationComp"));
@@ -224,6 +236,40 @@ FVector AVTC_BodyActor::GetMountOffsetForRole(EVTCTrackerRole TrackerRole) const
   case EVTCTrackerRole::RightFoot: return MountOffset_RightFoot;
   }
   return FVector::ZeroVector;
+}
+
+void AVTC_BodyActor::ApplySessionConfig(const FVTCSessionConfig& Config)
+{
+  // Mount Offsets 적용
+  MountOffset_Waist      = Config.MountOffset_Waist;
+  MountOffset_LeftKnee   = Config.MountOffset_LeftKnee;
+  MountOffset_RightKnee  = Config.MountOffset_RightKnee;
+  MountOffset_LeftFoot   = Config.MountOffset_LeftFoot;
+  MountOffset_RightFoot  = Config.MountOffset_RightFoot;
+
+  // Vehicle Hip Reference Position 적용 및 마커 이동
+  VehicleHipPosition = Config.VehicleHipPosition;
+  if (VehicleHipMarker)
+    VehicleHipMarker->SetWorldLocation(Config.VehicleHipPosition);
+
+  // Collision/Visual Sphere 가시성 적용
+  auto SetSphereGroupVisible = [&](USphereComponent* S, UStaticMeshComponent* V, bool bShow)
+  {
+    if (S)
+    {
+      S->SetVisibility(bShow);
+      S->SetCollisionEnabled(bShow ? ECollisionEnabled::QueryAndPhysics
+                                   : ECollisionEnabled::NoCollision);
+    }
+    if (V) V->SetVisibility(bShow);
+  };
+  SetSphereGroupVisible(Sphere_Hip,       VisualSphere_Hip,       Config.bShowCollisionSpheres);
+  SetSphereGroupVisible(Sphere_LeftKnee,  VisualSphere_LeftKnee,  Config.bShowCollisionSpheres);
+  SetSphereGroupVisible(Sphere_RightKnee, VisualSphere_RightKnee, Config.bShowCollisionSpheres);
+  SetSphereGroupVisible(Sphere_LeftFoot,  VisualSphere_LeftFoot,  Config.bShowCollisionSpheres);
+  SetSphereGroupVisible(Sphere_RightFoot, VisualSphere_RightFoot, Config.bShowCollisionSpheres);
+
+  UE_LOG(LogTemp, Log, TEXT("[VTC] BodyActor: SessionConfig 적용 완료."));
 }
 
 void AVTC_BodyActor::OnCalibrationComplete(

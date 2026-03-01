@@ -129,6 +129,13 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "VTC|Tracker|Events")
 	FOnVTCAllTrackersUpdated OnAllTrackersUpdated;
 
+	// ─── Tracker Mesh 가시성 ────────────────────────────────────────────────
+
+	// Vive Tracker 하드웨어 3D 메시(DeviceModel) 표시 여부.
+	// Level 2 시작 시 GameInstance 설정에 따라 자동 적용된다.
+	UFUNCTION(BlueprintCallable, Category = "VTC|Trackers")
+	void SetTrackerMeshVisible(bool bVisible);
+
 	// ─── Debug ──────────────────────────────────────────────────────────────
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Debug")

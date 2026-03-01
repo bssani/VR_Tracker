@@ -4,6 +4,7 @@
 #pragma once
 
 #include "Body/VTC_BodySegmentComponent.h"
+#include "VTC_SessionConfig.h"
 #include "Body/VTC_CalibrationComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -141,6 +142,24 @@ public:
             Category = "VTC|Body|Mount Offset",
             meta = (DisplayName = "Right Foot Mount Offset (Tracker Local, cm)"))
   FVector MountOffset_RightFoot = FVector::ZeroVector;
+
+  // ─── Vehicle Hip Reference Position ──────────────────────────────────────
+  // 차량 설계 기준 Hip 위치 (월드 좌표, cm).
+  // GameInstance에서 불러온 값이 적용된다.
+  // 레벨에 시각적 마커(작은 구체)로도 표시됨.
+  UPROPERTY(EditAnywhere, BlueprintReadWrite,
+            Category = "VTC|Body|Vehicle",
+            meta = (DisplayName = "Vehicle Hip Reference Position (World, cm)"))
+  FVector VehicleHipPosition = FVector::ZeroVector;
+
+  // VehicleHipPosition을 시각적으로 표시하는 구체 메시
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Vehicle")
+  TObjectPtr<UStaticMeshComponent> VehicleHipMarker;
+
+  // GameInstance에서 읽어온 설정을 이 Actor에 일괄 적용
+  // OperatorController::BeginPlay에서 호출
+  UFUNCTION(BlueprintCallable, Category = "VTC|Body")
+  void ApplySessionConfig(const FVTCSessionConfig& Config);
 
   // ─── 함수 ────────────────────────────────────────────────────────────────
 

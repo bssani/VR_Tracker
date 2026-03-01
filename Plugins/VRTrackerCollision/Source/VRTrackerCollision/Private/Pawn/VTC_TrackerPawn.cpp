@@ -390,6 +390,21 @@ void AVTC_TrackerPawn::SimMoveUp(const FInputActionValue& Value)
 	if (!FMath::IsNearlyZero(UpVal)) AddMovementInput(FVector::UpVector, UpVal);
 }
 
+// ─── Tracker Mesh 가시성 ─────────────────────────────────────────────────────
+
+void AVTC_TrackerPawn::SetTrackerMeshVisible(bool bVisible)
+{
+	// UMotionControllerComponent::SetShowDeviceModel()로
+	// SteamVR/OpenXR이 표시하는 트래커 하드웨어 3D 메시를 토글한다.
+	TArray<UMotionControllerComponent*> MCs = {
+		MC_Waist, MC_LeftKnee, MC_RightKnee, MC_LeftFoot, MC_RightFoot
+	};
+	for (UMotionControllerComponent* MC : MCs)
+	{
+		if (MC) MC->SetShowDeviceModel(bVisible);
+	}
+}
+
 // ─── HMD 감지 ────────────────────────────────────────────────────────────────
 
 bool AVTC_TrackerPawn::DetectHMDPresence() const
