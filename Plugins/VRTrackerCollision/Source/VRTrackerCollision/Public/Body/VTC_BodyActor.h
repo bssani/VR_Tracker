@@ -189,6 +189,9 @@ public:
 private:
   void SyncSpherePositions();
 
+  // ApplySessionConfig에서 설정된 가시성 상태 (Tick에서 덮어쓰기 방지)
+  bool bShowCollisionSpheres = true;
+
   // 역할에 해당하는 마운트 오프셋 반환 (트래커 로컬 공간)
   FVector GetMountOffsetForRole(EVTCTrackerRole TrackerRole) const;
 

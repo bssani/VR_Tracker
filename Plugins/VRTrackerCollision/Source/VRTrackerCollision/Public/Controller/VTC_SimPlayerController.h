@@ -17,7 +17,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/PlayerController.h"
+#include "Controller/VTC_OperatorController.h"
 #include "InputActionValue.h"
 #include "InputMappingContext.h"
 #include "InputAction.h"
@@ -26,7 +26,7 @@
 class AVTC_TrackerPawn;
 
 UCLASS(BlueprintType, Blueprintable, meta=(DisplayName="VTC Sim Player Controller"))
-class VRTRACKERCOLLISION_API AVTC_SimPlayerController : public APlayerController
+class VRTRACKERCOLLISION_API AVTC_SimPlayerController : public AVTC_OperatorController
 {
 	GENERATED_BODY()
 

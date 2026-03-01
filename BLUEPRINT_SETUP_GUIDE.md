@@ -39,10 +39,11 @@ C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**�
          ├─ 피실험자 정보 표시
          ├─ 트래커 연결 수 표시
          └─ 키 안내 메시지: F1 캘리브레이션 / F2 테스트 시작 / F3 종료+CSV
-  레벨 내 F키 입력
-    ├─ F1 → 캘리브레이션 시작
-    ├─ F2 → 테스트 직접 시작 (캘리브레이션 건너뜀)
-    └─ F3 → 종료 + CSV 내보내기
+  레벨 내 키 입력 (BP_VTC_SimPlayerController가 F키 + Escape 모두 처리)
+    ├─ F1     → 캘리브레이션 시작
+    ├─ F2     → 테스트 직접 시작 (캘리브레이션 건너뜀)
+    ├─ F3     → 종료 + CSV 내보내기
+    └─ Escape → Level 1(Setup)으로 복귀
 ```
 
 ### 데이터 흐름
@@ -55,10 +56,12 @@ GameInstance.SessionConfig (레벨 전환 간 유지)
 Level 2 로드 → OperatorController::BeginPlay → ApplyGameInstanceConfig()
     ├─ TrackerPawn.bSimulationMode = (RunMode == Simulation)
     ├─ TrackerPawn.SetTrackerMeshVisible(bShowTrackerMesh)
-    └─ BodyActor.ApplySessionConfig(Config)
-         ├─ MountOffset 5개 적용
-         ├─ VehicleHipPosition → CollisionDetector ReferencePoint 등록
-         └─ bShowCollisionSpheres 적용
+    ├─ BodyActor.ApplySessionConfig(Config)
+    │    ├─ MountOffset 5개 적용
+    │    └─ bShowCollisionSpheres 적용 (Tick이 덮어쓰지 않도록 멤버 변수 저장)
+    └─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰
+         └─ CollisionDetector.ReferencePoints.AddUnique(SpawnedHipRefPoint)
+              (AutoFindReferencePoints는 BeginPlay에서 이미 실행됐으므로 수동 등록)
 ```
 
 ### INI 설정 파일
@@ -293,11 +296,11 @@ Level 2 GameMode에 OperatorController를 추가해야 합니다.
 | Default Pawn Class | `BP_VTC_TrackerPawn` |
 | Player Controller Class | `BP_VTC_SimPlayerController` |
 
-> **VTC_OperatorController vs VTC_SimPlayerController:**
-> - `VTC_OperatorController` — F1/F2/F3 세션 제어 + GameInstance 설정 적용 담당
-> - `VTC_SimPlayerController` — WASD/마우스 시뮬레이션 이동 담당
-> - 현재 C++ 구조상 두 역할이 분리되어 있음. BP_VTC_SimPlayerController가 OperatorController 역할도 겸하도록 BP에서 구성하거나, GameMode에서 OperatorController를 별도로 BeginPlay에 스폰하는 방식 가능.
-> - 가장 간단한 방법: `VTC_OperatorController`를 기반으로 **BP_VTC_OperatorController**를 생성하고 Player Controller Class로 지정.
+> **BP_VTC_SimPlayerController가 두 역할을 모두 담당합니다:**
+> - `VTC_SimPlayerController`가 `VTC_OperatorController`를 상속하도록 C++에서 변경됨
+> - F1/F2/F3/Escape 세션 제어 + GameInstance 설정 적용 → OperatorController(부모)가 처리
+> - WASD/마우스 시뮬레이션 이동 + Enhanced Input 등록 → SimPlayerController(자식)가 처리
+> - **BP_VTC_SimPlayerController 하나만 Player Controller Class로 지정하면 됩니다**
 
 ---
 

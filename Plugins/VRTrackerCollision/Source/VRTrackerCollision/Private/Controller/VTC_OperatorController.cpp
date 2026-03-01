@@ -7,26 +7,30 @@
 #include "Data/VTC_SessionManager.h"
 #include "Body/VTC_BodyActor.h"
 #include "Pawn/VTC_TrackerPawn.h"
+#include "Collision/VTC_CollisionDetector.h"
+#include "Vehicle/VTC_ReferencePoint.h"
 #include "VTC_GameInstance.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/InputComponent.h"
 #include "EngineUtils.h"   // TActorIterator
 
+AVTC_OperatorController::AVTC_OperatorController()
+{
+  // Tick 활성화 — TrackerStatus 주기적 갱신에 필요
+  PrimaryActorTick.bCanEverTick = true;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-//  BeginPlay — GameInstance 설정 적용 → SessionManager/StatusActor 탐색
+//  BeginPlay — 탐색 + Delegate 바인딩 + 초기 상태 표시
 // ─────────────────────────────────────────────────────────────────────────────
 void AVTC_OperatorController::BeginPlay()
 {
   Super::BeginPlay();
 
   // Level 2에서는 마우스 커서 불필요 (키만 사용).
-  // 단, 예외 상황을 위해 GameAndUI 모드는 유지.
   bShowMouseCursor = false;
   FInputModeGameOnly InputMode;
   SetInputMode(InputMode);
-
-  // ── GameInstance에서 설정 읽어 각 Actor에 적용 ────────────────────────────
-  ApplyGameInstanceConfig();
 
   // ── 레벨에서 필요한 Actor 자동 탐색 ──────────────────────────────────────
   if (!SessionManager) AutoFindSessionManager();
@@ -39,7 +43,16 @@ void AVTC_OperatorController::BeginPlay()
         this, &AVTC_OperatorController::OnSessionStateChanged);
   }
 
-  // 초기 상태 표시
+  // ── GameInstance → 각 Actor에 설정 적용 ──────────────────────────────────
+  // BeginPlay 시점에 Pawn이 이미 possess되어 있으면 즉시 적용.
+  // Pawn이 없으면 OnPossess()에서 처리된다.
+  if (GetPawn())
+  {
+    ApplyGameInstanceConfig();
+    bConfigApplied = true;
+  }
+
+  // ── 초기 상태 StatusWidget 표시 ───────────────────────────────────────────
   if (StatusActor)
   {
     if (UVTC_StatusWidget* W = StatusActor->GetStatusWidget())
@@ -52,20 +65,54 @@ void AVTC_OperatorController::BeginPlay()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  단축키 바인딩 — F1 / F2 / F3
+//  OnPossess — Pawn이 BeginPlay 이후에 possess될 때 설정 적용
+// ─────────────────────────────────────────────────────────────────────────────
+void AVTC_OperatorController::OnPossess(APawn* InPawn)
+{
+  Super::OnPossess(InPawn);
+
+  if (!bConfigApplied)
+  {
+    ApplyGameInstanceConfig();
+    bConfigApplied = true;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Tick — TrackerStatus 1초마다 갱신
+// ─────────────────────────────────────────────────────────────────────────────
+void AVTC_OperatorController::Tick(float DeltaTime)
+{
+  Super::Tick(DeltaTime);
+
+  TrackerStatusTimer += DeltaTime;
+  if (TrackerStatusTimer < TrackerStatusInterval) return;
+  TrackerStatusTimer = 0.0f;
+
+  if (!StatusActor) return;
+  UVTC_StatusWidget* W = StatusActor->GetStatusWidget();
+  if (!W) return;
+
+  if (AVTC_TrackerPawn* TP = Cast<AVTC_TrackerPawn>(GetPawn()))
+    W->UpdateTrackerStatus(TP->GetActiveTrackerCount(), 5);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  단축키 바인딩 — F1 / F2 / F3 / Escape
 // ─────────────────────────────────────────────────────────────────────────────
 void AVTC_OperatorController::SetupInputComponent()
 {
   Super::SetupInputComponent();
   if (!InputComponent) return;
 
-  InputComponent->BindKey(EKeys::F1, IE_Pressed, this, &AVTC_OperatorController::Input_F1);
-  InputComponent->BindKey(EKeys::F2, IE_Pressed, this, &AVTC_OperatorController::Input_F2);
-  InputComponent->BindKey(EKeys::F3, IE_Pressed, this, &AVTC_OperatorController::Input_F3);
+  InputComponent->BindKey(EKeys::F1,     IE_Pressed, this, &AVTC_OperatorController::Input_F1);
+  InputComponent->BindKey(EKeys::F2,     IE_Pressed, this, &AVTC_OperatorController::Input_F2);
+  InputComponent->BindKey(EKeys::F3,     IE_Pressed, this, &AVTC_OperatorController::Input_F3);
+  InputComponent->BindKey(EKeys::Escape, IE_Pressed, this, &AVTC_OperatorController::Input_Escape);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  위젯 표시 / 숨기기 (Level 2에서는 거의 사용 안 함)
+//  위젯 표시 / 숨기기
 // ─────────────────────────────────────────────────────────────────────────────
 void AVTC_OperatorController::ShowSubjectInfoWidget()
 {
@@ -86,8 +133,8 @@ void AVTC_OperatorController::StartCalibration_Implementation()
 {
   if (!SessionManager) return;
   UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
-  const FString SubjectID  = GI ? GI->SessionConfig.SubjectID  : TEXT("Unknown");
-  const float   Height_cm  = GI ? GI->SessionConfig.Height_cm  : 170.0f;
+  const FString SubjectID = GI ? GI->SessionConfig.SubjectID : TEXT("Unknown");
+  const float   Height_cm = GI ? GI->SessionConfig.Height_cm : 170.0f;
   SessionManager->StartSessionWithHeight(SubjectID, Height_cm);
 }
 
@@ -101,12 +148,19 @@ void AVTC_OperatorController::StopAndExport_Implementation()
   if (SessionManager) SessionManager->ExportAndEnd();
 }
 
+void AVTC_OperatorController::ReturnToSetupLevel()
+{
+  if (UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>())
+    GI->OpenSetupLevel();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  단축키 핸들러
 // ─────────────────────────────────────────────────────────────────────────────
-void AVTC_OperatorController::Input_F1() { StartCalibration(); }
-void AVTC_OperatorController::Input_F2() { StartTest(); }
-void AVTC_OperatorController::Input_F3() { StopAndExport(); }
+void AVTC_OperatorController::Input_F1()     { StartCalibration(); }
+void AVTC_OperatorController::Input_F2()     { StartTest(); }
+void AVTC_OperatorController::Input_F3()     { StopAndExport(); }
+void AVTC_OperatorController::Input_Escape() { ReturnToSetupLevel(); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  세션 상태 변경 → StatusWidget 갱신
@@ -119,10 +173,9 @@ void AVTC_OperatorController::OnSessionStateChanged(EVTCSessionState OldState,
   {
     W->UpdateState(NewState);
 
-    // 트래커 연결 상태도 함께 갱신
-    if (APawn* P = GetPawn())
-      if (AVTC_TrackerPawn* TP = Cast<AVTC_TrackerPawn>(P))
-        W->UpdateTrackerStatus(TP->GetActiveTrackerCount(), 5);
+    // 상태 변경 시 TrackerStatus도 즉시 갱신
+    if (AVTC_TrackerPawn* TP = Cast<AVTC_TrackerPawn>(GetPawn()))
+      W->UpdateTrackerStatus(TP->GetActiveTrackerCount(), 5);
   }
 }
 
@@ -135,21 +188,55 @@ void AVTC_OperatorController::ApplyGameInstanceConfig()
   if (!GI) return;
   const FVTCSessionConfig& C = GI->SessionConfig;
 
-  // TrackerPawn: 시뮬레이션 모드 + 트래커 메시 가시성
-  if (APawn* P = GetPawn())
+  // ── TrackerPawn: 시뮬레이션 모드 + 트래커 메시 가시성 ───────────────────
+  if (AVTC_TrackerPawn* TP = Cast<AVTC_TrackerPawn>(GetPawn()))
   {
-    if (AVTC_TrackerPawn* TP = Cast<AVTC_TrackerPawn>(P))
-    {
-      TP->bSimulationMode = (C.RunMode == EVTCRunMode::Simulation);
-      TP->SetTrackerMeshVisible(C.bShowTrackerMesh);
-    }
+    TP->bSimulationMode = (C.RunMode == EVTCRunMode::Simulation);
+    TP->SetTrackerMeshVisible(C.bShowTrackerMesh);
   }
 
-  // BodyActor: Mount Offset + Hip Reference + Sphere 가시성
+  // ── BodyActor: Mount Offset + Sphere 가시성 적용 ───────────────────────
   for (TActorIterator<AVTC_BodyActor> It(GetWorld()); It; ++It)
   {
     (*It)->ApplySessionConfig(C);
     break;
+  }
+
+  // ── VehicleHipPosition → CollisionDetector용 ReferencePoint 동적 스폰 ──
+  // VehicleHipPosition이 설정되어 있으면 레벨에 ReferencePoint를 스폰하고
+  // SessionManager의 CollisionDetector에 직접 추가한다.
+  // (AutoFindReferencePoints가 BeginPlay에서 이미 실행된 이후이므로 수동 등록 필요)
+  if (!C.VehicleHipPosition.IsNearlyZero())
+  {
+    if (!SpawnedHipRefPoint)
+    {
+      FActorSpawnParameters Params;
+      Params.Name = TEXT("VTC_HipRefPoint_Dynamic");
+      Params.SpawnCollisionHandlingOverride =
+          ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+      SpawnedHipRefPoint = GetWorld()->SpawnActor<AVTC_ReferencePoint>(
+          AVTC_ReferencePoint::StaticClass(),
+          C.VehicleHipPosition, FRotator::ZeroRotator, Params);
+    }
+
+    if (SpawnedHipRefPoint)
+    {
+      SpawnedHipRefPoint->SetActorLocation(C.VehicleHipPosition);
+      SpawnedHipRefPoint->PartName         = TEXT("Vehicle_Hip");
+      SpawnedHipRefPoint->RelevantBodyParts = { EVTCTrackerRole::Waist };
+
+      // CollisionDetector에 직접 추가 (중복 방지: AddUnique)
+      for (TActorIterator<AVTC_SessionManager> It(GetWorld()); It; ++It)
+      {
+        if (UVTC_CollisionDetector* CD = (*It)->CollisionDetector)
+          CD->ReferencePoints.AddUnique(SpawnedHipRefPoint);
+        break;
+      }
+
+      UE_LOG(LogTemp, Log, TEXT("[VTC] VehicleHipPosition ReferencePoint 등록: %s"),
+             *C.VehicleHipPosition.ToString());
+    }
   }
 }
 
