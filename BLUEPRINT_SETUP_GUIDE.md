@@ -10,23 +10,315 @@
 
 C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**하고 **레벨에 배치 및 연결**하면 동작합니다.
 
-```
-만들어야 할 Blueprint:
-  1. BP_VTC_TrackerPawn         (VTC_TrackerPawn 기반)
-  2. BP_VTC_BodyActor           (VTC_BodyActor 기반)
-  3. BP_VTC_ReferencePoint      (VTC_ReferencePoint 기반)
-  4. BP_VTC_SessionManager      (VTC_SessionManager 기반)
-  5. BP_VTC_GameMode            (VTC_GameMode 기반)
-  6. BP_VTC_SimPlayerController (VTC_SimPlayerController 기반)
-  7. WBP_VTC_SubjectInfo        (VTC_SubjectInfoWidget 기반)  ← 피실험자 ID + 키 입력 위젯
-  8. WBP_VTC_HUD                (UMG Widget Blueprint)
-  9. PP_VTC_Warning             (PostProcessVolume — 레벨 배치)
+### Level 1 / Level 2 두 레벨 구조
 
-필요한 에셋:
-  - Material: M_VTC_BodySegment (+ MI_Safe, MI_Warning, MI_Collision)
-  - Niagara: NS_VTC_CollisionImpact, NS_VTC_WarningPulse
-  - Sound: SC_VTC_Warning, SC_VTC_Collision
 ```
+[Level 1 — VTC_SetupLevel]
+  GameMode: BP_VTC_SetupGameMode
+    └─ BeginPlay → WBP_SetupWidget AddToViewport + 마우스 커서 ON
+  WBP_SetupWidget (화면에 표시)
+    ├─ SubjectID, Height 입력
+    ├─ VR / Simulation 모드 선택
+    ├─ Mount Offset 5개 (Waist/LKnee/RKnee/LFoot/RFoot) X/Y/Z 입력
+    ├─ Vehicle Hip Position X/Y/Z 입력
+    ├─ Collision Sphere 표시 여부 체크박스
+    ├─ Tracker Mesh 표시 여부 체크박스
+    ├─ [Save Config] / [Load Config] 버튼
+    └─ [Start Session] 버튼
+          → GameInstance.SessionConfig 저장 + INI 저장 + OpenLevel("VTC_TestLevel")
+
+[Level 2 — VTC_TestLevel]
+  GameMode: BP_VTC_GameMode
+    └─ DefaultPawn: BP_VTC_TrackerPawn (자동 스폰)
+       PlayerController: BP_VTC_SimPlayerController
+  BP_VTC_OperatorController (또는 BP_VTC_GameMode에 설정)
+    └─ BeginPlay → GameInstance 설정 읽어서 TrackerPawn/BodyActor에 자동 적용
+  BP_VTC_StatusActor (레벨에 3D 월드 배치)
+    └─ WBP_StatusWidget (WorldSpace 3D 위젯)
+         ├─ 현재 세션 상태 표시
+         ├─ 피실험자 정보 표시
+         ├─ 트래커 연결 수 표시
+         └─ 키 안내 메시지: F1 캘리브레이션 / F2 테스트 시작 / F3 종료+CSV
+  레벨 내 F키 입력
+    ├─ F1 → 캘리브레이션 시작
+    ├─ F2 → 테스트 직접 시작 (캘리브레이션 건너뜀)
+    └─ F3 → 종료 + CSV 내보내기
+```
+
+### 데이터 흐름
+
+```
+Level 1 위젯 입력
+    ↓ [Start Session] 클릭
+GameInstance.SessionConfig (레벨 전환 간 유지)
+    ↓ OpenLevel("VTC_TestLevel")
+Level 2 로드 → OperatorController::BeginPlay → ApplyGameInstanceConfig()
+    ├─ TrackerPawn.bSimulationMode = (RunMode == Simulation)
+    ├─ TrackerPawn.SetTrackerMeshVisible(bShowTrackerMesh)
+    └─ BodyActor.ApplySessionConfig(Config)
+         ├─ MountOffset 5개 적용
+         ├─ VehicleHipPosition → CollisionDetector ReferencePoint 등록
+         └─ bShowCollisionSpheres 적용
+```
+
+### INI 설정 파일
+
+- 경로: `[프로젝트]/Config/VTCSettings.ini`
+- [Save Config] 또는 Start Session 클릭 시 자동 저장
+- Level 1 시작 시 자동 로드 (NativeConstruct에서 LoadConfigFromINI 호출)
+- **SubjectID / Height는 저장하지 않음** (매 세션마다 새로 입력)
+
+---
+
+### 만들어야 할 Blueprint 전체 목록
+
+```
+[Level 1 전용]
+  BP_VTC_SetupGameMode    (VTC_SetupGameMode 기반)   ← C++ 신규 추가됨
+  WBP_SetupWidget         (VTC_SetupWidget 기반)     ← C++ 신규 추가됨
+
+[Level 2 전용]
+  BP_VTC_GameMode         (VTC_GameMode 기반)
+  BP_VTC_SimPlayerController (VTC_SimPlayerController 기반)
+  BP_VTC_TrackerPawn      (VTC_TrackerPawn 기반)
+  BP_VTC_BodyActor        (VTC_BodyActor 기반)
+  BP_VTC_ReferencePoint   (VTC_ReferencePoint 기반)
+  BP_VTC_SessionManager   (VTC_SessionManager 기반)
+  BP_VTC_StatusActor      (VTC_StatusActor 기반)
+  WBP_StatusWidget        (VTC_StatusWidget 기반)
+
+[공통]
+  BP_VTC_GameInstance     (VTC_GameInstance 기반)
+  PP_VTC_Warning          (PostProcessVolume — 레벨 배치)
+
+[에셋]
+  Material: M_VTC_BodySegment (+ MI_Safe, MI_Warning, MI_Collision)
+  Niagara: NS_VTC_CollisionImpact, NS_VTC_WarningPulse
+  Sound: SC_VTC_Warning, SC_VTC_Collision
+```
+
+---
+
+## [Level 1 설정] BP_VTC_SetupGameMode + WBP_SetupWidget
+
+### Step 1: BP_VTC_GameInstance 생성 (레벨 이름 지정)
+
+1. Content Browser → Blueprint Class → **All Classes** → `VTC_GameInstance` 검색
+2. 이름: `BP_VTC_GameInstance`
+3. Details 패널:
+
+| 프로퍼티 | 값 |
+|---------|-----|
+| Test Level Name | `VTC_TestLevel` ← Level 2 레벨 파일 이름과 일치시킬 것 |
+| Setup Level Name | `VTC_SetupLevel` ← Level 1 레벨 파일 이름과 일치시킬 것 |
+
+4. **Project Settings → Maps & Modes → Game Instance Class = `BP_VTC_GameInstance`**
+
+---
+
+### Step 2: WBP_SetupWidget 생성 (Level 1 UI)
+
+1. Content Browser → 우클릭 → **User Interface → Widget Blueprint**
+2. Parent Class: **All Classes** → `VTC_SetupWidget` 검색 후 선택
+3. 이름: `WBP_SetupWidget`
+
+#### 필수 BindWidget 목록
+
+아래 이름을 **정확히** 맞춰야 합니다 (대소문자 포함). 이름이 틀리면 컴파일 오류 발생.
+
+| 위젯 타입 | 이름 | 내용 |
+|---------|------|------|
+| EditableTextBox | `TB_SubjectID` | 피실험자 ID |
+| EditableTextBox | `TB_Height` | 키(cm) |
+| CheckBox | `CB_ModeVR` | VR 모드 선택 |
+| CheckBox | `CB_ModeSimulation` | 시뮬레이션 모드 선택 |
+| EditableTextBox | `TB_Offset_Waist_X` | Waist 트래커 오프셋 X |
+| EditableTextBox | `TB_Offset_Waist_Y` | Waist 트래커 오프셋 Y |
+| EditableTextBox | `TB_Offset_Waist_Z` | Waist 트래커 오프셋 Z |
+| EditableTextBox | `TB_Offset_LKnee_X` | 왼무릎 트래커 오프셋 X |
+| EditableTextBox | `TB_Offset_LKnee_Y` | 왼무릎 트래커 오프셋 Y |
+| EditableTextBox | `TB_Offset_LKnee_Z` | 왼무릎 트래커 오프셋 Z |
+| EditableTextBox | `TB_Offset_RKnee_X` | 오른무릎 트래커 오프셋 X |
+| EditableTextBox | `TB_Offset_RKnee_Y` | 오른무릎 트래커 오프셋 Y |
+| EditableTextBox | `TB_Offset_RKnee_Z` | 오른무릎 트래커 오프셋 Z |
+| EditableTextBox | `TB_Offset_LFoot_X` | 왼발 트래커 오프셋 X |
+| EditableTextBox | `TB_Offset_LFoot_Y` | 왼발 트래커 오프셋 Y |
+| EditableTextBox | `TB_Offset_LFoot_Z` | 왼발 트래커 오프셋 Z |
+| EditableTextBox | `TB_Offset_RFoot_X` | 오른발 트래커 오프셋 X |
+| EditableTextBox | `TB_Offset_RFoot_Y` | 오른발 트래커 오프셋 Y |
+| EditableTextBox | `TB_Offset_RFoot_Z` | 오른발 트래커 오프셋 Z |
+| EditableTextBox | `TB_HipRef_X` | 차량 Hip 기준점 X |
+| EditableTextBox | `TB_HipRef_Y` | 차량 Hip 기준점 Y |
+| EditableTextBox | `TB_HipRef_Z` | 차량 Hip 기준점 Z |
+| CheckBox | `CB_ShowCollisionSpheres` | 충돌 구 표시 여부 |
+| CheckBox | `CB_ShowTrackerMesh` | Tracker 하드웨어 메시 표시 여부 |
+| Button | `Btn_SaveConfig` | 설정 저장 버튼 |
+| Button | `Btn_LoadConfig` | 설정 불러오기 버튼 |
+| Button | `Btn_StartSession` | 세션 시작 버튼 |
+
+#### 권장 Designer 레이아웃
+
+```
+[ScrollBox] (전체 감싸기 — 항목이 많아서 스크롤 필요)
+  └─ [Vertical Box]
+       │
+       ├─ [Section] 피실험자 정보
+       │    ├─ TextBlock "Subject ID"
+       │    ├─ EditableTextBox TB_SubjectID    (힌트: "P001")
+       │    ├─ TextBlock "Height (cm)"
+       │    └─ EditableTextBox TB_Height       (힌트: "175")
+       │
+       ├─ [Section] 실행 모드
+       │    ├─ CheckBox CB_ModeVR          "VR (HMD + Trackers)"
+       │    └─ CheckBox CB_ModeSimulation  "Simulation (Desktop Only)"
+       │
+       ├─ [Section] Mount Offsets (트래커 → 실제 신체 접촉점 보정)
+       │    ├─ TextBlock "Waist Offset (X / Y / Z cm)"
+       │    ├─ HorizontalBox
+       │    │    ├─ EditableTextBox TB_Offset_Waist_X  (힌트: "0")
+       │    │    ├─ EditableTextBox TB_Offset_Waist_Y  (힌트: "0")
+       │    │    └─ EditableTextBox TB_Offset_Waist_Z  (힌트: "0")
+       │    ├─ (Left Knee / Right Knee / Left Foot / Right Foot 동일 패턴)
+       │    └─ ...
+       │
+       ├─ [Section] Vehicle Hip Reference Position
+       │    ├─ TextBlock "차량 Hip 기준점 (월드 좌표, cm)"
+       │    └─ HorizontalBox
+       │         ├─ EditableTextBox TB_HipRef_X
+       │         ├─ EditableTextBox TB_HipRef_Y
+       │         └─ EditableTextBox TB_HipRef_Z
+       │
+       ├─ [Section] 가시성
+       │    ├─ CheckBox CB_ShowCollisionSpheres "충돌 구 표시"
+       │    └─ CheckBox CB_ShowTrackerMesh      "Tracker 하드웨어 메시 표시"
+       │
+       └─ [Section] 버튼
+            ├─ Button Btn_LoadConfig   "Load Config"
+            ├─ Button Btn_SaveConfig   "Save Config"
+            └─ Button Btn_StartSession "▶ Start Session"
+```
+
+> **동작 원리 (C++에서 자동 처리):**
+> - `NativeConstruct()`: 시작 시 INI 자동 로드 → 화면에 반영
+> - `[Save Config]`: 입력값 → INI 파일 저장
+> - `[Load Config]`: INI 파일 → 화면에 반영
+> - `[Start Session]`: SubjectID·Height 유효성 검사 → GameInstance에 저장 → INI 저장 → Level 2 로드
+> - CB_ModeVR ↔ CB_ModeSimulation은 자동으로 상호 배타 처리됨
+
+---
+
+### Step 3: BP_VTC_SetupGameMode 생성
+
+1. Content Browser → Blueprint Class → **All Classes** → `VTC_SetupGameMode` 검색
+2. 이름: `BP_VTC_SetupGameMode`
+3. Details 패널:
+
+| 프로퍼티 | 값 |
+|---------|-----|
+| Setup Widget Class | `WBP_SetupWidget` |
+
+---
+
+### Step 4: Level 1 맵 파일 생성
+
+1. Content Browser → 우클릭 → **Level**
+2. 이름: `VTC_SetupLevel` ← BP_VTC_GameInstance의 SetupLevelName과 일치
+3. `VTC_SetupLevel` 열기 → **World Settings → GameMode Override = `BP_VTC_SetupGameMode`**
+4. 플레이하면 SetupWidget이 자동으로 화면에 표시되고 마우스 커서가 켜집니다.
+
+> **기본 맵 설정 (선택):** Project Settings → Maps & Modes → Editor Startup Map = `VTC_SetupLevel`
+
+---
+
+## [Level 2 설정] WBP_StatusWidget + BP_VTC_StatusActor
+
+### Step 1: WBP_StatusWidget 생성 (3D 월드 배치 위젯)
+
+1. Content Browser → **User Interface → Widget Blueprint**
+2. Parent Class: `VTC_StatusWidget`
+3. 이름: `WBP_StatusWidget`
+
+#### 필수 BindWidget 목록
+
+| 위젯 타입 | 이름 | 표시 내용 |
+|---------|------|---------|
+| TextBlock | `Txt_State` | 현재 상태 ("● IDLE" 등) |
+| TextBlock | `Txt_Prompt` | 키 안내 ("F1 — Start Calibration" 등) |
+| TextBlock | `Txt_SubjectInfo` | "Subject: P001 \| Height: 175 cm" |
+| TextBlock | `Txt_TrackerStatus` | "Trackers: 5 / 5 Connected" |
+
+#### 권장 Designer 레이아웃 (3D 월드 배치 기준 — 800×400)
+
+```
+[Canvas Panel]  크기: 800 × 400
+  └─ [Border] 반투명 검은 배경 (Opacity 0.7)
+       └─ [Vertical Box]
+            ├─ TextBlock Txt_State        폰트 크기 36, Bold, 가운데 정렬
+            │                              예) "● TESTING"
+            ├─ Separator (Spacer)
+            ├─ TextBlock Txt_Prompt       폰트 크기 24, 줄간격 넉넉히
+            │                              예) "F3  —  Stop & Export CSV"
+            ├─ Separator (Spacer)
+            ├─ TextBlock Txt_SubjectInfo  폰트 크기 18, 회색
+            └─ TextBlock Txt_TrackerStatus 폰트 크기 18, 회색
+```
+
+> **3D Widget 주의사항:**
+> - 배경을 불투명하게 하면 레벨 반사광의 영향을 덜 받음
+> - 폰트 크기는 3D 월드에서 볼 때 기준으로 설정 (작으면 VR에서 안 보임)
+
+---
+
+### Step 2: BP_VTC_StatusActor 생성
+
+1. Content Browser → Blueprint Class → `VTC_StatusActor`
+2. 이름: `BP_VTC_StatusActor`
+3. Details 패널:
+
+| 프로퍼티 | 값 |
+|---------|-----|
+| Status Widget Class | `WBP_StatusWidget` |
+
+---
+
+### Step 3: BP_VTC_GameMode 설정 (Level 2용)
+
+Level 2 GameMode에 OperatorController를 추가해야 합니다.
+
+1. `BP_VTC_GameMode` 열기 (또는 새로 생성: `VTC_GameMode` 기반)
+2. Details 패널:
+
+| 프로퍼티 | 값 |
+|---------|-----|
+| Default Pawn Class | `BP_VTC_TrackerPawn` |
+| Player Controller Class | `BP_VTC_SimPlayerController` |
+
+> **VTC_OperatorController vs VTC_SimPlayerController:**
+> - `VTC_OperatorController` — F1/F2/F3 세션 제어 + GameInstance 설정 적용 담당
+> - `VTC_SimPlayerController` — WASD/마우스 시뮬레이션 이동 담당
+> - 현재 C++ 구조상 두 역할이 분리되어 있음. BP_VTC_SimPlayerController가 OperatorController 역할도 겸하도록 BP에서 구성하거나, GameMode에서 OperatorController를 별도로 BeginPlay에 스폰하는 방식 가능.
+> - 가장 간단한 방법: `VTC_OperatorController`를 기반으로 **BP_VTC_OperatorController**를 생성하고 Player Controller Class로 지정.
+
+---
+
+### Step 4: Level 2 맵 파일 생성 및 Actor 배치
+
+1. Content Browser → Level → 이름: `VTC_TestLevel`
+2. `VTC_TestLevel` 열기 → **World Settings → GameMode Override = `BP_VTC_GameMode`**
+3. 다음 Actor들을 레벨에 배치:
+
+| Actor | 수량 | 위치 |
+|-------|------|------|
+| `BP_VTC_BodyActor` | 1 | (0, 0, 0) |
+| `BP_VTC_SessionManager` | 1 | (0, 0, 0) |
+| `BP_VTC_StatusActor` | 1 | 운전석 옆 또는 대시보드 위 |
+| `BP_VTC_ReferencePoint` | N개 | 차량 측정 지점마다 |
+| PostProcessVolume (Infinite) | 1 | 어디든 |
+
+4. **BP_VTC_StatusActor 배치 팁:**
+   - 차량 운전석 정면 (대시보드 위) 권장
+   - Transform Rotation으로 운전자를 향하도록 조정
+   - Scale은 0.01~0.02 범위 (DrawSize 800×400이 cm 단위로 월드에 배치됨)
 
 ---
 
