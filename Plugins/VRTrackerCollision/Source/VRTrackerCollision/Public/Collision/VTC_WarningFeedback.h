@@ -13,7 +13,7 @@
 class UPostProcessComponent;
 class UAudioComponent;
 
-UCLASS(BlueprintType, Blueprintable, meta=(BlueprintSpawnableComponent, DisplayName="VKC Warning Feedback"))
+UCLASS(BlueprintType, Blueprintable, meta=(BlueprintSpawnableComponent, DisplayName="VTC Warning Feedback"))
 class VRTRACKERCOLLISION_API UVTC_WarningFeedback : public UActorComponent
 {
 	GENERATED_BODY()
@@ -26,50 +26,50 @@ public:
 	// ─── 설정 — PostProcess (화면 테두리 빨간색 효과) ──────────────────────
 
 	// VR 레벨에 있는 PostProcessVolume 참조
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Feedback|PostProcess")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Feedback|PostProcess")
 	TObjectPtr<AActor> PostProcessVolume;
 
 	// 경고 시 Vignette 강도
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Feedback|PostProcess",
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Feedback|PostProcess",
 		meta=(ClampMin=0.0f, ClampMax=1.0f))
 	float WarningVignetteIntensity = 0.5f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Feedback|PostProcess",
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Feedback|PostProcess",
 		meta=(ClampMin=0.0f, ClampMax=1.0f))
 	float CollisionVignetteIntensity = 1.0f;
 
 	// ─── 설정 — 사운드 ────────────────────────────────────────────────────
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Feedback|Sound")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Feedback|Sound")
 	TObjectPtr<USoundBase> WarningSFX;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Feedback|Sound")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Feedback|Sound")
 	TObjectPtr<USoundBase> CollisionSFX;
 
 	// ─── 설정 — Niagara 이펙트 ──────────────────────────────────────────
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Feedback|FX")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Feedback|FX")
 	TObjectPtr<UNiagaraSystem> CollisionImpactFX;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Feedback|FX")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Feedback|FX")
 	TObjectPtr<UNiagaraSystem> WarningPulseFX;
 
 	// ─── 함수 ────────────────────────────────────────────────────────────────
 
 	// 경고 레벨 변경 시 호출 (CollisionDetector의 Delegate에 연결)
-	UFUNCTION(BlueprintCallable, Category = "VKC|Feedback")
+	UFUNCTION(BlueprintCallable, Category = "VTC|Feedback")
 	void OnWarningLevelChanged(EVTCTrackerRole BodyPart, FString PartName, EVTCWarningLevel NewLevel);
 
 	// 특정 위치에 충돌 이펙트 스폰
-	UFUNCTION(BlueprintCallable, Category = "VKC|Feedback")
+	UFUNCTION(BlueprintCallable, Category = "VTC|Feedback")
 	void SpawnCollisionFX(FVector Location);
 
 	// 모든 피드백 초기화 (Safe 상태로)
-	UFUNCTION(BlueprintCallable, Category = "VKC|Feedback")
+	UFUNCTION(BlueprintCallable, Category = "VTC|Feedback")
 	void ResetFeedback();
 
 	// 현재 레벨
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VKC|Feedback")
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VTC|Feedback")
 	EVTCWarningLevel CurrentLevel = EVTCWarningLevel::Safe;
 
 private:

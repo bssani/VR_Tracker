@@ -95,8 +95,8 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
       CurrentDistanceResults.Add(Result);
 
       // 최소 거리 갱신
-      if (Distance < SessionMinDistance)
-        SessionMinDistance = Distance;
+      if (SafeDistanceResult < SessionMinDistance)
+        SessionMinDistance = SafeDistanceResult;
 
       // 전체 경고 레벨 갱신 (더 심각한 쪽으로)
       if ((int32)Level > (int32)NewOverallLevel)

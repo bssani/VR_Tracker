@@ -15,12 +15,12 @@ class UVTC_WarningFeedback;
 class UVTC_DataLogger;
 
 // 세션 상태 변경 시 브로드캐스트
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVKCSessionStateChanged,
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVTCSessionStateChanged,
 	EVTCSessionState, OldState, EVTCSessionState, NewState);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnVKCSessionExported, const FString&, FilePath);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnVTCSessionExported, const FString&, FilePath);
 
-UCLASS(BlueprintType, Blueprintable, meta=(DisplayName="VKC Session Manager"))
+UCLASS(BlueprintType, Blueprintable, meta=(DisplayName="VTC Session Manager"))
 class VRTRACKERCOLLISION_API AVTC_SessionManager : public AActor
 {
 	GENERATED_BODY()
@@ -36,74 +36,82 @@ public:
 	// ─── 시스템 컴포넌트 참조 ─────────────────────────────────────────────────
 
 	// Tracker 공급자 — 비워두면 BeginPlay에서 TrackerPawn을 자동 탐색
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Session|Systems")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Session|Systems")
 	TScriptInterface<IVTC_TrackerInterface> TrackerSource;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Session|Systems")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Session|Systems")
 	TObjectPtr<AVTC_BodyActor> BodyActor;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Session|Systems")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Session|Systems")
 	TObjectPtr<UVTC_CollisionDetector> CollisionDetector;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Session|Systems")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Session|Systems")
 	TObjectPtr<UVTC_WarningFeedback> WarningFeedback;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Session|Systems")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Session|Systems")
 	TObjectPtr<UVTC_DataLogger> DataLogger;
 
 	// ─── 상태 ────────────────────────────────────────────────────────────────
 
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VKC|Session")
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VTC|Session")
 	EVTCSessionState CurrentState = EVTCSessionState::Idle;
 
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VKC|Session")
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VTC|Session")
 	FString CurrentSubjectID;
 
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VKC|Session")
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VTC|Session")
 	float SessionElapsedTime = 0.0f;
 
 	// ─── 세션 제어 함수 ──────────────────────────────────────────────────────
 
-	UFUNCTION(BlueprintCallable, Category = "VKC|Session")
+	// 피실험자 ID만으로 시작 (키는 HMD 높이에서 자동 추정)
+	UFUNCTION(BlueprintCallable, Category = "VTC|Session")
 	void StartSession(const FString& SubjectID);
 
-	UFUNCTION(BlueprintCallable, Category = "VKC|Session")
+	// WBP_VTC_SubjectInfo 위젯에서 직접 입력한 키와 함께 세션 시작 (권장)
+	UFUNCTION(BlueprintCallable, Category = "VTC|Session")
+	void StartSessionWithHeight(const FString& SubjectID, float ManualHeight_cm);
+
+	UFUNCTION(BlueprintCallable, Category = "VTC|Session")
 	void StartTestingDirectly();
 
-	UFUNCTION(BlueprintCallable, Category = "VKC|Session")
+	UFUNCTION(BlueprintCallable, Category = "VTC|Session")
 	void StopSession();
 
-	UFUNCTION(BlueprintCallable, Category = "VKC|Session")
+	UFUNCTION(BlueprintCallable, Category = "VTC|Session")
 	void RequestReCalibration();
 
-	UFUNCTION(BlueprintCallable, Category = "VKC|Session")
+	UFUNCTION(BlueprintCallable, Category = "VTC|Session")
 	FString ExportAndEnd();
 
 	// ─── 상태 조회 ───────────────────────────────────────────────────────────
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Session")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Session")
 	bool IsTesting() const;
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Session")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Session")
 	bool IsCalibrating() const;
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Session")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Session")
 	FVTCBodyMeasurements GetCurrentBodyMeasurements() const;
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Session")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Session")
 	float GetSessionMinDistance() const;
 
 	// ─── Delegates ──────────────────────────────────────────────────────────
 
-	UPROPERTY(BlueprintAssignable, Category = "VKC|Session|Events")
-	FOnVKCSessionStateChanged OnSessionStateChanged;
+	UPROPERTY(BlueprintAssignable, Category = "VTC|Session|Events")
+	FOnVTCSessionStateChanged OnSessionStateChanged;
 
-	UPROPERTY(BlueprintAssignable, Category = "VKC|Session|Events")
-	FOnVKCSessionExported OnSessionExported;
+	UPROPERTY(BlueprintAssignable, Category = "VTC|Session|Events")
+	FOnVTCSessionExported OnSessionExported;
 
 private:
 	void TransitionToState(EVTCSessionState NewState);
 	void AutoFindSystems();
+
+	// 위젯에서 입력된 키 — 0이면 HMD 추정값 사용 (OnCalibrationComplete에서 Measurements에 주입)
+	float PendingManualHeight_cm = 0.0f;
 
 	float LogTimer = 0.0f;
 

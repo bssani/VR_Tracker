@@ -10,7 +10,7 @@
 #include "Tracker/VTC_TrackerInterface.h"
 #include "VTC_BodySegmentComponent.generated.h"
 
-UCLASS(BlueprintType, Blueprintable, meta=(BlueprintSpawnableComponent, DisplayName="VKC Body Segment"))
+UCLASS(BlueprintType, Blueprintable, meta=(BlueprintSpawnableComponent, DisplayName="VTC Body Segment"))
 class VRTRACKERCOLLISION_API UVTC_BodySegmentComponent : public USceneComponent
 {
 	GENERATED_BODY()
@@ -24,44 +24,44 @@ public:
 	// ─── 설정 ────────────────────────────────────────────────────────────────
 
 	// 이 세그먼트의 시작점 Tracker 역할 (예: Waist)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Body Segment")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Body Segment")
 	EVTCTrackerRole RoleStart = EVTCTrackerRole::Waist;
 
 	// 이 세그먼트의 끝점 Tracker 역할 (예: LeftKnee)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Body Segment")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Body Segment")
 	EVTCTrackerRole RoleEnd = EVTCTrackerRole::LeftKnee;
 
 	// Cylinder 반경 (cm) — 체형에 따라 조절 가능
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Body Segment",
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Body Segment",
 		meta=(ClampMin=1.0f, ClampMax=30.0f, UIMin=1.0f, UIMax=30.0f))
 	float SegmentRadius = 8.0f;
 
 	// Tracker 공급자 (TrackerPawn)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VKC|Body Segment")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Body Segment")
 	TScriptInterface<IVTC_TrackerInterface> TrackerSource;
 
 	// ─── 읽기 전용 정보 ───────────────────────────────────────────────────────
 
 	// 현재 프레임의 세그먼트 길이 (cm)
-	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VKC|Body Segment")
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VTC|Body Segment")
 	float CurrentLength = 0.0f;
 
 	// 시각화용 Cylinder Mesh (엔진 기본 Cylinder 사용, 높이 기준 100cm)
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VKC|Body Segment")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body Segment")
 	TObjectPtr<UStaticMeshComponent> SegmentMesh;
 
 	// ─── 함수 ────────────────────────────────────────────────────────────────
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Body Segment")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Body Segment")
 	bool IsSegmentActive() const;
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Body Segment")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Body Segment")
 	FVector GetStartLocation() const;
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VKC|Body Segment")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Body Segment")
 	FVector GetEndLocation() const;
 
-	UFUNCTION(BlueprintCallable, Category = "VKC|Body Segment")
+	UFUNCTION(BlueprintCallable, Category = "VTC|Body Segment")
 	void SetSegmentColor(FLinearColor Color);
 
 private:

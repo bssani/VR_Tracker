@@ -12,13 +12,15 @@ C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**�
 
 ```
 만들어야 할 Blueprint:
-  1. BP_VTC_TrackerPawn      (VTC_TrackerPawn 기반)
-  2. BP_VTC_BodyActor        (VTC_BodyActor 기반)
-  3. BP_VTC_ReferencePoint   (VTC_ReferencePoint 기반)
-  4. BP_VTC_SessionManager   (VTC_SessionManager 기반)
-  5. BP_VTC_GameMode         (VTC_GameMode 기반)
-  6. WBP_VTC_HUD             (UMG Widget Blueprint)
-  7. PP_VTC_Warning          (PostProcessVolume — 레벨 배치)
+  1. BP_VTC_TrackerPawn         (VTC_TrackerPawn 기반)
+  2. BP_VTC_BodyActor           (VTC_BodyActor 기반)
+  3. BP_VTC_ReferencePoint      (VTC_ReferencePoint 기반)
+  4. BP_VTC_SessionManager      (VTC_SessionManager 기반)
+  5. BP_VTC_GameMode            (VTC_GameMode 기반)
+  6. BP_VTC_SimPlayerController (VTC_SimPlayerController 기반)
+  7. WBP_VTC_SubjectInfo        (VTC_SubjectInfoWidget 기반)  ← 피실험자 ID + 키 입력 위젯
+  8. WBP_VTC_HUD                (UMG Widget Blueprint)
+  9. PP_VTC_Warning             (PostProcessVolume — 레벨 배치)
 
 필요한 에셋:
   - Material: M_VTC_BodySegment (+ MI_Safe, MI_Warning, MI_Collision)
@@ -40,13 +42,98 @@ C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**�
 
 | 카테고리 | 프로퍼티 | 값 | 설명 |
 |---------|---------|-----|------|
-| VKC\|Tracker Config | MotionSource_Waist | `Special_1` | Vive Tracker 0 (골반) |
-| VKC\|Tracker Config | MotionSource_LeftKnee | `Special_2` | Vive Tracker 1 (왼쪽 무릎) |
-| VKC\|Tracker Config | MotionSource_RightKnee | `Special_3` | Vive Tracker 2 (오른쪽 무릎) |
-| VKC\|Tracker Config | MotionSource_LeftFoot | `Special_4` | Vive Tracker 3 (왼발) |
-| VKC\|Tracker Config | MotionSource_RightFoot | `Special_5` | Vive Tracker 4 (오른발) |
-| VKC\|Debug | bShowDebugSpheres | `true` (개발 중) | 디버그 구 표시 |
-| VKC\|Debug | DebugSphereRadius | `5.0` | 디버그 구 반지름(cm) |
+| VTC\|Tracker Config | MotionSource_Waist | `Special_1` | Vive Tracker 0 (골반) |
+| VTC\|Tracker Config | MotionSource_LeftKnee | `Special_2` | Vive Tracker 1 (왼쪽 무릎) |
+| VTC\|Tracker Config | MotionSource_RightKnee | `Special_3` | Vive Tracker 2 (오른쪽 무릎) |
+| VTC\|Tracker Config | MotionSource_LeftFoot | `Special_4` | Vive Tracker 3 (왼발) |
+| VTC\|Tracker Config | MotionSource_RightFoot | `Special_5` | Vive Tracker 4 (오른발) |
+| VTC\|Debug | bShowDebugSpheres | `true` (개발 중) | 디버그 구 표시 |
+| VTC\|Debug | DebugSphereRadius | `5.0` | 디버그 구 반지름(cm) |
+| VTC\|Simulation | bAutoDetectSimulation | `true` | HMD 미감지 시 자동으로 시뮬레이션 모드 전환 |
+| VTC\|Simulation | bSimulationMode | `false` | 강제 시뮬레이션 모드 (HMD 없이 에디터에서 테스트) |
+| VTC\|Simulation | SimMoveSpeed | `300.0` | WASD 이동 속도 (cm/s) |
+| VTC\|Simulation | SimMouseSensitivity | `1.0` | 마우스 룩 감도 |
+| VTC\|Simulation | SimOffset_LeftKnee | `(0, -30, -50)` | 착석 시 왼쪽 무릎 오프셋 (cm, 카메라 로컬) |
+| VTC\|Simulation | SimOffset_RightKnee | `(0, 30, -50)` | 착석 시 오른쪽 무릎 오프셋 (cm, 카메라 로컬) |
+
+> **시뮬레이션 모드 단축키:**
+> - **Backspace** — VR ↔ 시뮬레이션 모드 토글 *(F8은 UE PIE "Eject from Pawn"과 충돌)*
+> - **Q / E** — Pawn 위 / 아래 이동
+> - **R** — 무릎 오프셋 초기화
+> - **NumPad 4/6** — 왼쪽 무릎 좌(4)/우(6), **NumPad 8/2** — 왼쪽 무릎 위(8)/아래(2)
+> - **Arrow Left/Right** — 오른쪽 무릎 좌/우, **Arrow Up/Down** — 오른쪽 무릎 위/아래
+
+### Enhanced Input 에셋 생성 및 연결 (필수)
+
+시뮬레이션 모드 키 입력이 동작하려면 **Enhanced Input 에셋을 반드시 생성**하고 BP_VTC_TrackerPawn에 연결해야 합니다.
+
+#### Step A — Input Action 에셋 7개 생성
+
+Content Browser 우클릭 → **Input → Input Action**
+
+| 에셋 이름 | Value Type | 설명 |
+|----------|-----------|------|
+| `IA_VTC_Move` | **Axis2D (Vector2D)** | 수평 이동 (W/S = 전후 X, A/D = 좌우 Y) |
+| `IA_VTC_MoveUp` | **Axis1D (float)** | 수직 이동 (Q=위, E=아래) |
+| `IA_VTC_Look` | **Axis2D (Vector2D)** | 마우스 룩 (X=Yaw, Y=Pitch) |
+| `IA_VTC_ToggleSim` | **Digital (bool)** | 시뮬레이션 모드 토글 |
+| `IA_VTC_ResetKnees` | **Digital (bool)** | 무릎 오프셋 초기화 |
+| `IA_VTC_AdjustLeftKnee` | **Axis2D (Vector2D)** | 왼쪽 무릎 조절 (X입력→Y축 좌우, Y입력→Z축 위아래) |
+| `IA_VTC_AdjustRightKnee` | **Axis2D (Vector2D)** | 오른쪽 무릎 조절 (X입력→Y축 좌우, Y입력→Z축 위아래) |
+
+#### Step B — Input Mapping Context 에셋 1개 생성
+
+Content Browser 우클릭 → **Input → Input Mapping Context** → 이름: `IMC_VTC_Simulation`
+
+IMC 에셋을 열어 키 매핑 추가:
+
+| Action | Key | Modifier | 설명 |
+|--------|-----|----------|------|
+| `IA_VTC_Move` | W | *(없음)* | X=+1 (전진) |
+| `IA_VTC_Move` | S | **Negate** | X=-1 (후진) |
+| `IA_VTC_Move` | D | **Swizzle YXZ** | Y=+1 (우) |
+| `IA_VTC_Move` | A | **Swizzle YXZ + Negate** | Y=-1 (좌) |
+| `IA_VTC_MoveUp` | Q | *(없음)* | +1 (위) |
+| `IA_VTC_MoveUp` | E | **Negate** | -1 (아래) |
+| `IA_VTC_Look` | Mouse X | *(없음)* | X=Yaw |
+| `IA_VTC_Look` | Mouse Y | **Negate** | Y=Pitch (반전) |
+| `IA_VTC_ToggleSim` | Backspace | *(없음)* | 모드 토글 |
+| `IA_VTC_ResetKnees` | R | *(없음)* | 무릎 초기화 |
+| `IA_VTC_AdjustLeftKnee` | NumPad6 | *(없음)* | 왼무릎 좌우 X=+1 (오른쪽) |
+| `IA_VTC_AdjustLeftKnee` | NumPad4 | **Negate** | 왼무릎 좌우 X=-1 (왼쪽) |
+| `IA_VTC_AdjustLeftKnee` | NumPad8 | **Swizzle YXZ** | 왼무릎 위아래 Y=+1 (위) |
+| `IA_VTC_AdjustLeftKnee` | NumPad2 | **Swizzle YXZ + Negate** | 왼무릎 위아래 Y=-1 (아래) |
+| `IA_VTC_AdjustRightKnee` | Right | *(없음)* | 오른무릎 좌우 X=+1 (오른쪽) |
+| `IA_VTC_AdjustRightKnee` | Left | **Negate** | 오른무릎 좌우 X=-1 (왼쪽) |
+| `IA_VTC_AdjustRightKnee` | Up | **Swizzle YXZ** | 오른무릎 위아래 Y=+1 (위) |
+| `IA_VTC_AdjustRightKnee` | Down | **Swizzle YXZ + Negate** | 오른무릎 위아래 Y=-1 (아래) |
+
+> **Swizzle YXZ Modifier**: X 값을 Y 채널로 보내는 역할. Axis2D에서 두 번째 키를 Y에 매핑할 때 사용.
+
+#### Step C — BP_VTC_SimPlayerController에 에셋 연결
+
+> **주의:** 입력 에셋은 **BP_VTC_TrackerPawn이 아니라 BP_VTC_SimPlayerController**에 연결합니다.
+> C++ 아키텍처상 Enhanced Input 등록은 PlayerController::BeginPlay()에서 처리됩니다.
+
+1. Content Browser → Blueprint Class → `VTC_SimPlayerController` 기반
+2. 이름: `BP_VTC_SimPlayerController`
+3. BP_VTC_GameMode → **Player Controller Class** = `BP_VTC_SimPlayerController`
+
+BP_VTC_SimPlayerController 열기 → Details 패널 → **VTC|Input**:
+
+| 프로퍼티 | 연결할 에셋 |
+|---------|-----------|
+| Sim Input Mapping Context | `IMC_VTC_Simulation` |
+| IA Move | `IA_VTC_Move` |
+| IA Move Up | `IA_VTC_MoveUp` |
+| IA Look | `IA_VTC_Look` |
+| IA Toggle Sim | `IA_VTC_ToggleSim` |
+| IA Reset Knees | `IA_VTC_ResetKnees` |
+| IA Adjust Left Knee | `IA_VTC_AdjustLeftKnee` |
+| IA Adjust Right Knee | `IA_VTC_AdjustRightKnee` |
+
+> **Project Settings 확인**: Engine → Input → Default Input Component Class = `EnhancedInputComponent`
+> Default Player Input Class = `EnhancedPlayerInput`
 
 ### MotionSource 매핑 확인
 SteamVR → Settings → Controllers → **Manage Trackers**에서:
@@ -90,10 +177,20 @@ BP_VTC_TrackerPawn (Root: DefaultSceneRoot)
 
 | 카테고리 | 프로퍼티 | 기본값 | 설명 |
 |---------|---------|-------|------|
-| VKC\|Body | TrackerSource | *비워두기* | BeginPlay에서 자동 탐색 |
-| VKC\|Body\|Collision Radius | HipSphereRadius | `12.0` | 골반 충돌 구 반지름(cm) |
-| VKC\|Body\|Collision Radius | KneeSphereRadius | `8.0` | 무릎 충돌 구 반지름(cm) |
-| VKC\|Body\|Collision Radius | FootSphereRadius | `10.0` | 발 충돌 구 반지름(cm) |
+| VTC\|Body | TrackerSource | *비워두기* | BeginPlay에서 자동 탐색 |
+| VTC\|Body\|Collision Radius | HipSphereRadius | `12.0` | 골반 충돌 구 반지름(cm) |
+| VTC\|Body\|Collision Radius | KneeSphereRadius | `8.0` | 무릎 충돌 구 반지름(cm) |
+| VTC\|Body\|Collision Radius | FootSphereRadius | `10.0` | 발 충돌 구 반지름(cm) |
+| VTC\|Body\|Mount Offset | MountOffset_Waist | `(0,0,0)` | 골반 트래커 마운트 오프셋 (트래커 로컬, cm) |
+| VTC\|Body\|Mount Offset | MountOffset_LeftKnee | `(0,0,0)` | 왼쪽 무릎 트래커 마운트 오프셋 |
+| VTC\|Body\|Mount Offset | MountOffset_RightKnee | `(0,0,0)` | 오른쪽 무릎 트래커 마운트 오프셋 |
+| VTC\|Body\|Mount Offset | MountOffset_LeftFoot | `(0,0,0)` | 왼발 트래커 마운트 오프셋 |
+| VTC\|Body\|Mount Offset | MountOffset_RightFoot | `(0,0,0)` | 오른발 트래커 마운트 오프셋 |
+
+> **마운트 오프셋 사용법:**
+> Vive Tracker가 무릎 앞으로 2cm 돌출된 경우 (트래커 X축 = 앞 방향):
+> `MountOffset_LeftKnee = (2.0, 0.0, 0.0)`
+> 트래커 방향이 바뀌어도 자동으로 올바른 월드 위치로 변환됩니다.
 
 ### 자동 동작 원리
 - **BeginPlay**에서 `TrackerSource`가 비어있으면 `GetAllActorsWithInterface(IVTC_TrackerInterface)`로 **자동 탐색**합니다.
@@ -150,11 +247,11 @@ OnWarningLevelChanged →
 
 | 카테고리 | 프로퍼티 | 예시 값 | 설명 |
 |---------|---------|--------|------|
-| VKC\|Reference Point | PartName | `"Dashboard"` | 차량 부품 이름 |
-| VKC\|Reference Point | RelevantBodyParts | `[LeftKnee, RightKnee]` | 거리 측정 대상 신체 부위 |
-| VKC\|Reference Point | bActive | `true` | 활성 상태 |
-| VKC\|Reference Point | MarkerRadius | `5.0` | 마커 구 크기(cm) |
-| VKC\|Reference Point | MarkerColor | `Orange (1,0.5,0,1)` | 마커 기본 색상 |
+| VTC\|Reference Point | PartName | `"Dashboard"` | 차량 부품 이름 |
+| VTC\|Reference Point | RelevantBodyParts | `[LeftKnee, RightKnee]` | 거리 측정 대상 신체 부위 |
+| VTC\|Reference Point | bActive | `true` | 활성 상태 |
+| VTC\|Reference Point | MarkerRadius | `5.0` | 마커 구 크기(cm) |
+| VTC\|Reference Point | MarkerColor | `Orange (1,0.5,0,1)` | 마커 기본 색상 |
 
 ### 차량별 배치 예시
 
@@ -183,11 +280,11 @@ OnWarningLevelChanged →
 
 | 카테고리 | 프로퍼티 | 설정 방법 | 설명 |
 |---------|---------|----------|------|
-| VKC\|Session\|Systems | TrackerSource | *비워두기* | BeginPlay 자동 탐색 |
-| VKC\|Session\|Systems | BodyActor | *비워두기* | BeginPlay 자동 탐색 |
-| VKC\|Session\|Systems | CollisionDetector | *자기 자신의 컴포넌트* | 아래 설명 참조 |
-| VKC\|Session\|Systems | WarningFeedback | *자기 자신의 컴포넌트* | 아래 설명 참조 |
-| VKC\|Session\|Systems | DataLogger | *자기 자신의 컴포넌트* | 아래 설명 참조 |
+| VTC\|Session\|Systems | TrackerSource | *비워두기* | BeginPlay 자동 탐색 |
+| VTC\|Session\|Systems | BodyActor | *비워두기* | BeginPlay 자동 탐색 |
+| VTC\|Session\|Systems | CollisionDetector | *자기 자신의 컴포넌트* | 아래 설명 참조 |
+| VTC\|Session\|Systems | WarningFeedback | *자기 자신의 컴포넌트* | 아래 설명 참조 |
+| VTC\|Session\|Systems | DataLogger | *자기 자신의 컴포넌트* | 아래 설명 참조 |
 
 ### 중요: 컴포넌트 연결 방식
 
@@ -211,11 +308,12 @@ SessionManager의 `BeginPlay`에서 레벨 내 액터/컴포넌트를 자동으�
 C++ 코드 분석 결과, SessionManager는 자체적으로 `CollisionDetector`, `WarningFeedback`, `DataLogger`를 **소유하는 Actor**입니다. 이 3개는 SessionManager Actor의 컴포넌트로 자동 생성됩니다.
 
 ### 사용 가능한 함수 (HUD에서 호출)
-- `StartSession("SubjectID")` — 세션 시작 → Calibrating 상태로 전환
+- `StartSessionWithHeight("SubjectID", Height_cm)` — **(권장)** 세션 시작, 직접 입력한 키 포함
+- `StartSession("SubjectID")` — 키 없이 시작 (HMD 높이에서 자동 추정)
 - `StartTestingDirectly()` — 캘리브레이션 건너뛰고 바로 테스트
 - `StopSession()` — 테스트 종료 → Reviewing 상태
 - `RequestReCalibration()` — 재캘리브레이션 요청
-- `ExportAndEnd()` → FString (CSV 경로 반환)
+- `ExportAndEnd()` → FString (요약 CSV 경로 반환)
 - `IsTesting()`, `IsCalibrating()` → bool
 - `GetCurrentBodyMeasurements()` → FVTCBodyMeasurements
 - `GetSessionMinDistance()` → float (최소 거리 cm)
@@ -238,92 +336,325 @@ C++ 코드 분석 결과, SessionManager는 자체적으로 `CollisionDetector`,
 |---------|-----|
 | Default Pawn Class | `BP_VTC_TrackerPawn` |
 | HUD Class | `None` (또는 커스텀 HUD) |
-| Player Controller Class | `PlayerController` (기본) |
+| Player Controller Class | `BP_VTC_SimPlayerController` |
 
-> **중요:** C++ `VTC_GameMode`는 이미 DefaultPawnClass를 `AVTC_TrackerPawn`으로 설정합니다. 하지만 Blueprint 버전(BP_VTC_TrackerPawn)을 사용하려면 **반드시 BP_VTC_GameMode에서 Default Pawn Class를 `BP_VTC_TrackerPawn`으로 오버라이드**해야 합니다.
+> **중요:** C++ `VTC_GameMode`는 이미 DefaultPawnClass를 `AVTC_TrackerPawn`으로 설정합니다. 하지만 Blueprint 버전을 사용하려면 **두 항목 모두 반드시 오버라이드**해야 합니다.
+> - Default Pawn Class → `BP_VTC_TrackerPawn`
+> - Player Controller Class → `BP_VTC_SimPlayerController` (Enhanced Input 등록이 이 컨트롤러에서 처리됨)
 
 ---
 
-## 6. WBP_VTC_HUD (UMG Widget)
+## 6. WBP_VTC_SubjectInfo (피실험자 정보 입력 위젯)
+
+### 생성 방법
+1. Content Browser → 우클릭 → **User Interface → Widget Blueprint**
+2. **Parent Class**: `VTC_SubjectInfoWidget` *(검색 후 선택)*
+3. 이름: `WBP_VTC_SubjectInfo`
+
+### 필수: BindWidget 위젯 배치
+
+C++ 코드에서 `meta=(BindWidget)` 으로 선언된 위젯 이름을 **정확히** 맞춰야 합니다.
+이름이 하나라도 다르면 컴파일 에러가 발생합니다.
+
+| 위젯 타입 | 이름 (대소문자 정확히) | 내용 |
+|---------|-------------------|------|
+| EditableTextBox | `TB_SubjectID` | 피실험자 ID 입력 |
+| EditableTextBox | `TB_Height` | 키(cm) 숫자 입력 (예: `175`) |
+| Button | `Btn_StartSession` | 시작 버튼 |
+
+**Designer 탭 예시 레이아웃:**
+```
+[Vertical Box]
+  ├─ TextBlock  "피실험자 ID"
+  ├─ EditableTextBox  TB_SubjectID    (힌트: "P001")
+  ├─ TextBlock  "키 (cm)"
+  ├─ EditableTextBox  TB_Height       (힌트: "175")
+  │     → KeyboardType: NumberPad (숫자 입력 강제)
+  └─ Button  Btn_StartSession  "시작"
+```
+
+> **`TB_Height` 설정 팁:**
+> - Input Method Type → `Number` 로 설정하면 숫자만 입력 가능
+> - Hint Text → `"키 입력 (cm), 예: 175"` 설정 권장
+
+### 연결 방법 (Level Blueprint 또는 WBP_VTC_HUD에서)
+
+```
+Event BeginPlay
+  │
+  └─ SubjectInfoWidgetRef → Bind Event to OnSessionStartRequested
+       └─ Custom Event HandleSessionStart (SubjectID: String, Height_cm: float)
+               └─ SessionManagerRef → StartSessionWithHeight (SubjectID, Height_cm)
+```
+
+> **참고:** `OnSessionStartRequested`는 버튼 클릭 시 자동으로 발동합니다.
+> C++ `NativeConstruct()`에서 버튼 바인딩이 완료되어 있습니다.
+> IsInputValid() 검사도 C++ 안에서 자동으로 처리됩니다 (SubjectID 비어있거나 Height ≤ 0이면 브로드캐스트 안 함).
+
+---
+
+## 7. WBP_VTC_HUD (UMG Widget)
 
 ### 생성 방법
 1. Content Browser → 우클릭 → **User Interface → Widget Blueprint**
 2. 이름: `WBP_VTC_HUD`
 
-### 디자인 레이아웃 (Designer 탭)
+---
+
+### Designer 탭 — 전체 위젯 트리
+
+HUD는 **항상 표시되는 상단 바** + **세션 상태별로 바뀌는 4개 패널**로 구성됩니다.
 
 ```
-┌─────────────────────────────────────────────┐
-│ [상단 바]                                     │
-│  세션 상태: TESTING    경과: 00:02:35         │
-│  피험자: SUBJECT_001                          │
-├─────────────────────────────────────────────┤
-│                                             │
-│  [왼쪽 패널 - 거리 모니터]                     │
-│   Left Knee ↔ Dashboard:   8.2cm  ⚠️ Warning │
-│   Right Knee ↔ Dashboard:  12.5cm ✅ Safe     │
-│   Left Knee ↔ Door Panel:  5.1cm  ⚠️ Warning │
-│   Right Foot ↔ Pedal:      15.3cm ✅ Safe     │
-│                                             │
-│  [최소 거리]: 3.8cm                           │
-│                                             │
-├─────────────────────────────────────────────┤
-│ [하단 버튼 바]                                │
-│  [Start Session] [Stop] [Re-Calibrate] [Export]│
-└─────────────────────────────────────────────┘
+[Canvas Panel]  (루트)
+  │
+  ├─ [Vertical Box]  (전체 레이아웃)
+  │    │
+  │    ├─ ── 상단 상태 바 (항상 표시) ──────────────────────
+  │    │   HorizontalBox
+  │    │     ├─ TextBlock  TB_SessionState   "IDLE"
+  │    │     ├─ TextBlock  TB_ElapsedTime    "00:00:00"
+  │    │     └─ TextBlock  TB_SubjectID      ""
+  │    │
+  │    ├─ ── Panel_Idle (Overlay) ────────────────────────
+  │    │   VerticalBox  [이름: Panel_Idle]
+  │    │     └─ [WBP_VTC_SubjectInfo]  SubjectInfoWidget
+  │    │          (피실험자 ID + 키 입력 + 시작 버튼 — 모두 내장)
+  │    │
+  │    ├─ ── Panel_Calibrating (Overlay) ─────────────────
+  │    │   VerticalBox  [이름: Panel_Calibrating]
+  │    │     ├─ TextBlock  "T-Pose를 취하고 있으세요"
+  │    │     ├─ TextBlock  TB_CalibCountdown  "3"  (카운트다운)
+  │    │     └─ Button  BTN_SkipCalib  "Skip (Direct Test)"
+  │    │
+  │    ├─ ── Panel_Testing (Overlay) ──────────────────────
+  │    │   VerticalBox  [이름: Panel_Testing]
+  │    │     ├─ VerticalBox  VB_DistanceList  (동적 행 생성)
+  │    │     ├─ TextBlock  TB_MinDistance  "Min: -- cm"
+  │    │     └─ HorizontalBox
+  │    │          ├─ Button  BTN_Stop         "Stop"
+  │    │          └─ Button  BTN_ReCalibrate  "Re-Calibrate"
+  │    │
+  │    └─ ── Panel_Reviewing (Overlay) ───────────────────
+  │        VerticalBox  [이름: Panel_Reviewing]
+  │          ├─ TextBlock  "세션 완료"
+  │          ├─ TextBlock  TB_FinalMinDist  "최소 거리: -- cm"
+  │          ├─ Button  BTN_Export   "Export CSV"
+  │          └─ Button  BTN_NewSession  "New Session"
 ```
 
-### 주요 위젯 구성
+> **중요:** Panel_Idle / Panel_Calibrating / Panel_Testing / Panel_Reviewing 는
+> UMG에서 **Is Variable = true** 로 체크해야 Event Graph에서 참조할 수 있습니다.
 
-- **TextBlock** `TB_SessionState` — 현재 상태 표시
-- **TextBlock** `TB_ElapsedTime` — 경과 시간
-- **TextBlock** `TB_SubjectID` — 피험자 ID
-- **VerticalBox** `VB_DistanceList` — 거리 결과 리스트 (동적 생성)
-- **TextBlock** `TB_MinDistance` — 세션 최소 거리
-- **Button** `BTN_StartSession` → StartSession 호출
-- **Button** `BTN_Stop` → StopSession 호출
-- **Button** `BTN_ReCalibrate` → RequestReCalibration 호출
-- **Button** `BTN_Export` → ExportAndEnd 호출
-- **EditableTextBox** `ETB_SubjectID` — 피험자 ID 입력
+---
+
+### 각 패널이 하는 일 요약
+
+| 패널 이름 | 표시 조건 (SessionState) | 내용 |
+|----------|------------------------|------|
+| **Panel_Idle** | `Idle` | 피험자 ID 입력 + Start 버튼. 세션 시작 전 대기 화면 |
+| **Panel_Calibrating** | `Calibrating` | "T-Pose 취하세요" 안내 + 카운트다운. 캘리브레이션 진행 중 |
+| **Panel_Testing** | `Testing` | VB_DistanceList (실시간 거리 목록) + 최소거리 + Stop 버튼 |
+| **Panel_Reviewing** | `Reviewing` | 세션 종료 후 최종 결과 + Export + New Session 버튼 |
+
+---
 
 ### Event Graph 연결 (Blueprint)
 
+#### [1] BeginPlay — 참조 취득 + 델리게이트 바인딩
+
 ```
-=== BeginPlay ===
-
-1. Get All Actors Of Class (VTC_SessionManager)
-   → Get (index 0) → Promote to Variable: "SessionManagerRef"
-
-2. SessionManagerRef → OnSessionStateChanged → Bind Event
-   → Custom Event "HandleStateChanged(OldState, NewState)"
-     → Switch on EVTCSessionState (NewState):
-        Idle        → TB_SessionState.SetText("IDLE"), 버튼 활성화 변경
-        Calibrating → TB_SessionState.SetText("CALIBRATING")
-        Testing     → TB_SessionState.SetText("TESTING")
-        Reviewing   → TB_SessionState.SetText("REVIEWING")
-
-=== Tick (또는 Timer) ===
-
-3. SessionManagerRef → IsTesting?
-   → true:
-     → GetSessionMinDistance → TB_MinDistance.SetText(Format "Min: {0} cm")
-     → SessionElapsedTime → TB_ElapsedTime.SetText(FormatTime)
-
-=== Button Clicks ===
-
-4. BTN_StartSession.OnClicked
-   → SessionManagerRef → StartSession(ETB_SubjectID.GetText())
-
-5. BTN_Stop.OnClicked
-   → SessionManagerRef → StopSession()
-
-6. BTN_ReCalibrate.OnClicked
-   → SessionManagerRef → RequestReCalibration()
-
-7. BTN_Export.OnClicked
-   → SessionManagerRef → ExportAndEnd()
-   → OnSessionExported 바인딩으로 파일 경로 표시
+Event BeginPlay
+  │
+  ├─ Get All Actors Of Class → BP_VTC_SessionManager
+  │    └─ [0] → Set SessionManagerRef (변수)
+  │
+  ├─ SessionManagerRef → CollisionDetector
+  │    └─ Set CollisionDetectorRef (변수)
+  │
+  ├─ Panel_Idle 안의 WBP_VTC_SubjectInfo → Get (Is Variable = true 로 설정)
+  │    └─ Set SubjectInfoWidgetRef (변수)
+  │         └─ Bind Event to OnSessionStartRequested
+  │              └─ Custom Event HandleSessionStart (SubjectID, Height_cm: float)
+  │                       └─ SessionManagerRef → StartSessionWithHeight (SubjectID, Height_cm)
+  │
+  ├─ Bind Event to OnSessionStateChanged (Target: SessionManagerRef)
+  │    └─ Event: Custom Event [HandleStateChanged]
+  │
+  ├─ Bind Event to OnDistanceUpdated (Target: CollisionDetectorRef)
+  │    └─ Event: Custom Event [HandleDistanceUpdated]
+  │
+  └─ Call HandleStateChanged (OldState: Idle, NewState: Idle)
+       ← 시작 시 Idle 패널을 즉시 표시하기 위해 1회 수동 호출
 ```
+
+---
+
+#### [2] HandleStateChanged — 패널 전환
+
+```
+Custom Event HandleStateChanged (OldState, NewState: EVTCSessionState)
+  │
+  ├─ Panel_Idle        → SetVisibility (Collapsed)
+  ├─ Panel_Calibrating → SetVisibility (Collapsed)
+  ├─ Panel_Testing     → SetVisibility (Collapsed)
+  └─ Panel_Reviewing   → SetVisibility (Collapsed)
+         (일단 전부 숨기고)
+  │
+  └─ Switch on EVTCSessionState (NewState)
+       │
+       ├─ Idle        → Panel_Idle        SetVisibility (Visible)
+       │
+       ├─ Calibrating → Panel_Calibrating SetVisibility (Visible)
+       │
+       ├─ Testing     → Panel_Testing     SetVisibility (Visible)
+       │                VB_DistanceList   ClearChildren  ← 이전 행 제거
+       │                DistanceWidgetMap Clear          ← Map 초기화
+       │
+       └─ Reviewing   → Panel_Reviewing   SetVisibility (Visible)
+                        TB_FinalMinDist   SetText ( SessionManagerRef → GetSessionMinDistance )
+```
+
+> **왜 전부 Collapsed 후 하나만 Visible?**
+> 상태가 바뀔 때마다 어떤 패널이 켜져있는지 추적할 필요 없이
+> "전부 끄고 해당하는 것만 켠다" 패턴이 가장 안전합니다.
+
+---
+
+#### [3] HandleDistanceUpdated — VB_DistanceList Row 관리 (Map 방식)
+
+`OnDistanceUpdated`는 30Hz로 발동하며 **매번 (BodyPart 1개, VehiclePart 1개) 쌍**을 전달합니다.
+ClearChildren + 재생성하면 30Hz × Row 수만큼 Widget이 생성/삭제되어 성능 낭비입니다.
+대신 **Map으로 Row를 재사용**합니다.
+
+**변수 추가 (WBP_VTC_HUD Variables):**
+```
+DistanceWidgetMap : Map <EVTCTrackerRole, WBP_Distance>
+  (Variable Type: Map, Key: EVTCTrackerRole Enum, Value: WBP_Distance Object Reference)
+```
+
+**HandleDistanceUpdated 흐름:**
+```
+Custom Event HandleDistanceUpdated (Result: FVTCDistanceResult)
+  │
+  ├─ Break FVTCDistanceResult → BodyPart, VehiclePartName, Distance, WarningLevel
+  │
+  └─ Map Contains? DistanceWidgetMap[BodyPart]
+       │                          │
+      YES                         NO
+       │                          │
+       ▼                          ▼
+  Map Find                   Create Widget (WBP_Distance)
+  DistanceWidgetMap[BodyPart]      │
+       │                    VB_DistanceList → Add Child
+       │                    Map Add (BodyPart → 새 위젯)
+       │                          │
+       └──────────────────────────┘
+                    │
+                    ▼
+          [WBP_Distance 위젯 ref]
+                    │
+                    ▼
+          Call Function: UpdateRow(Result)
+          (WBP_Distance 안에 만드는 함수 — 아래 [4] 참조)
+```
+
+> **핵심:** BodyPart 하나당 Row 하나입니다. Waist, LeftKnee, RightKnee, LeftFoot, RightFoot 최대 5개.
+> 한번 생성된 Row는 UpdateRow()로 값만 바꾸고 재사용합니다.
+
+---
+
+#### [4] WBP_Distance — Row 위젯 (이미 만드셨죠)
+
+Content Browser → Widget Blueprint → `WBP_Distance`
+
+**Designer 레이아웃:**
+```
+HorizontalBox
+  ├─ TextBlock  TB_BodyPart     Width: 100   예) "Left Knee"
+  ├─ TextBlock  TB_VehiclePart  Width: 140   예) "Dashboard"
+  ├─ TextBlock  TB_Distance     Width: 80    예) "8.2 cm"
+  └─ Border     BDR_Status      Width: 16    (배경색으로 경고 단계 표시)
+```
+
+**Function: UpdateRow (Result: FVTCDistanceResult)**
+```
+Break FVTCDistanceResult (Result)
+  │
+  ├─ BodyPart → Switch on EVTCTrackerRole
+  │               Waist      → TB_BodyPart SetText "Waist"
+  │               LeftKnee   → TB_BodyPart SetText "Left Knee"
+  │               RightKnee  → TB_BodyPart SetText "Right Knee"
+  │               LeftFoot   → TB_BodyPart SetText "Left Foot"
+  │               RightFoot  → TB_BodyPart SetText "Right Foot"
+  │
+  ├─ VehiclePartName → TB_VehiclePart SetText
+  │
+  ├─ Distance → Float To Text (최대소수점 1자리) → Append " cm" → TB_Distance SetText
+  │
+  └─ WarningLevel → Switch on EVTCWarningLevel
+                      Safe      → BDR_Status SetBrushColor (0, 0.8, 0, 1)  초록
+                      Warning   → BDR_Status SetBrushColor (1, 0.9, 0, 1)  노랑
+                      Collision → BDR_Status SetBrushColor (1, 0.1, 0, 1)  빨강
+```
+
+---
+
+#### [5] Panel_Calibrating — 카운트다운 연결
+
+캘리브레이션 카운트다운은 **CalibrationComponent의 OnCalibrationCountdown** 델리게이트를 이용합니다.
+SessionManager → BodyActor → CalibrationComp 경로로 접근합니다.
+
+```
+BeginPlay (추가)
+  │
+  └─ SessionManagerRef → BodyActor → CalibrationComp
+       └─ Bind Event to OnCalibrationCountdown
+            └─ Custom Event HandleCalibCountdown (SecondsRemaining: int)
+                    └─ TB_CalibCountdown SetText (SecondsRemaining → To Text)
+```
+
+BTN_SkipCalib.OnClicked → SessionManagerRef → StartTestingDirectly()
+
+---
+
+#### [6] Tick — 경과 시간 + 최소 거리 갱신
+
+```
+Event Tick (DeltaTime)
+  │
+  └─ SessionManagerRef → IsTesting?
+       true →
+         ├─ SessionManagerRef → SessionElapsedTime
+         │    └─ TB_ElapsedTime SetText ( 초 → "MM:SS" 포맷 )
+         │
+         └─ CollisionDetectorRef → CurrentDistanceResults → Length > 0?
+              true → SessionManagerRef → GetSessionMinDistance
+                       └─ TB_MinDistance SetText ( Format "Min: {0} cm" )
+```
+
+> **MM:SS 포맷 팁:** `Floor(Time / 60)` → 분, `Fmod(Time, 60)` → 초, 각각 두자리로 포맷
+
+---
+
+#### [7] 버튼 클릭
+
+```
+[Panel_Idle 시작 버튼]
+  WBP_VTC_SubjectInfo.OnSessionStartRequested → HandleSessionStart (BeginPlay에서 바인딩)
+    └─ SessionManagerRef → StartSessionWithHeight (SubjectID, Height_cm)
+       ← SubjectID 비어있거나 Height ≤ 0이면 C++ 내부에서 자동으로 차단됨
+
+[Testing / Reviewing 패널 버튼]
+BTN_Stop.OnClicked          → SessionManagerRef → StopSession()
+BTN_ReCalibrate.OnClicked   → SessionManagerRef → RequestReCalibration()
+BTN_Export.OnClicked        → SessionManagerRef → ExportAndEnd()
+                               (반환: summary CSV 경로 — Print String으로 확인 가능)
+BTN_NewSession.OnClicked    → SessionManagerRef → StopSession()
+                               (Idle로 돌아가면 HandleStateChanged가 Panel_Idle 표시)
+```
+
+---
 
 ### HUD를 VR에서 표시하는 방법
 
@@ -512,5 +843,18 @@ SessionManager 내 CollisionDetector 컴포넌트에서:
 - SessionManager → WarningFeedback → PostProcessVolume 레퍼런스가 연결되었는지 확인
 
 **Q: CSV가 저장되지 않아요**
-- DataLogger의 LogDirectory가 비어있으면 `Saved/VKCLogs/`에 자동 저장
+- DataLogger의 LogDirectory가 비어있으면 `Saved/VTCLogs/`에 자동 저장
 - 파일 쓰기 권한 확인
+
+**Q: CSV에 어떤 데이터가 저장되나요?**
+- `ExportAndEnd()` / `ExportToCSV()` → `*_summary.csv` (세션당 1행, Human Factors용)
+  - 키(Height_cm), 허리→무릎, 무릎→발, 허리→발 길이, Hip 평균 위치
+  - Hip/무릎별 최소 클리어런스, 최악 순간의 Hip 위치
+  - 전체 상태: GREEN / YELLOW / RED, 충돌 횟수
+- `DataLogger → ExportFrameDataCSV()` → `*_frames.csv` (10Hz 원시 데이터, 연구자용)
+  - 모든 기준점별 거리 전체 포함 (기존 버그 수정됨)
+
+**Q: 키(Height)가 CSV에 0으로 저장돼요**
+- `WBP_VTC_SubjectInfo`에서 키를 입력하고 시작했는지 확인
+- `StartSessionWithHeight(SubjectID, Height_cm)` 호출 여부 확인
+- HMD만으로 세션을 시작하면 `EstimatedHeight`(자동 추정, ±5cm 오차)가 사용됨

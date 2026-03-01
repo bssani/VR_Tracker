@@ -2,6 +2,7 @@
 
 #include "Body/VTC_BodyActor.h"
 #include "Kismet/GameplayStatics.h"
+#include "UObject/ConstructorHelpers.h"
 
 AVTC_BodyActor::AVTC_BodyActor() {
   PrimaryActorTick.bCanEverTick = true;
@@ -49,6 +50,41 @@ AVTC_BodyActor::AVTC_BodyActor() {
   Sphere_RightKnee = MakeSphere(TEXT("Sphere_RKnee"));
   Sphere_LeftFoot = MakeSphere(TEXT("Sphere_LFoot"));
   Sphere_RightFoot = MakeSphere(TEXT("Sphere_RFoot"));
+
+  // ── 시각화용 Sphere 메시 5개 생성 (VR에서 관절 위치 표시) ────────────────
+  // USphereComponent는 메시가 없으므로 별도 StaticMesh로 렌더링.
+  // 엔진 기본 Sphere(반경 50cm)를 사용하며 스케일로 실제 반경에 맞춤.
+  static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMeshAsset(
+      TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+
+  auto MakeVisualSphere = [&](const TCHAR* Name) -> UStaticMeshComponent*
+  {
+    UStaticMeshComponent* M = CreateDefaultSubobject<UStaticMeshComponent>(Name);
+    M->SetupAttachment(Root);
+    M->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    M->SetCastShadow(false);
+    if (SphereMeshAsset.Succeeded())
+      M->SetStaticMesh(SphereMeshAsset.Object);
+    return M;
+  };
+
+  VisualSphere_Hip       = MakeVisualSphere(TEXT("VisualSphere_Hip"));
+  VisualSphere_LeftKnee  = MakeVisualSphere(TEXT("VisualSphere_LKnee"));
+  VisualSphere_RightKnee = MakeVisualSphere(TEXT("VisualSphere_RKnee"));
+  VisualSphere_LeftFoot  = MakeVisualSphere(TEXT("VisualSphere_LFoot"));
+  VisualSphere_RightFoot = MakeVisualSphere(TEXT("VisualSphere_RFoot"));
+
+  // ── Vehicle Hip Reference 마커 ──
+  // 차량 설계 기준 Hip 위치를 VR에서 시각적으로 표시하는 구체.
+  // 반경 5cm (작은 크로스마커 역할), 다른 머티리얼로 구분 가능.
+  VehicleHipMarker = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VehicleHipMarker"));
+  VehicleHipMarker->SetupAttachment(Root);
+  VehicleHipMarker->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+  VehicleHipMarker->SetCastShadow(false);
+  if (SphereMeshAsset.Succeeded())
+    VehicleHipMarker->SetStaticMesh(SphereMeshAsset.Object);
+  // 반경 5cm → scale = 5/50
+  VehicleHipMarker->SetRelativeScale3D(FVector(5.0f / 50.0f));
 
   // ── 캘리브레이션 컴포넌트 ──
   CalibrationComp = CreateDefaultSubobject<UVTC_CalibrationComponent>(
@@ -102,19 +138,40 @@ void AVTC_BodyActor::SyncSpherePositions() {
   if (!TrackerSource)
     return;
 
-  auto SyncSphere = [&](USphereComponent *S, EVTCTrackerRole TrackerRole) {
-    if (!S)
-      return;
+  auto SyncSphere = [&](USphereComponent* S, UStaticMeshComponent* Visual,
+                        EVTCTrackerRole TrackerRole)
+  {
+    if (!S) return;
     const FVTCTrackerData Data = TrackerSource->GetTrackerData(TrackerRole);
-    S->SetWorldLocation(Data.WorldLocation);
+
+    // 마운트 오프셋 보정: 트래커 로컬 오프셋을 트래커 회전에 맞춰 월드로 변환
+    const FVector Offset = GetMountOffsetForRole(TrackerRole);
+    const FVector EffectiveLocation = Offset.IsNearlyZero()
+        ? Data.WorldLocation
+        : Data.WorldLocation + FQuat(Data.WorldRotation).RotateVector(Offset);
+
+    S->SetWorldLocation(EffectiveLocation);
     S->SetVisibility(Data.bIsTracked);
+    // 미연결 트래커는 충돌도 비활성화.
+    // SetVisibility(false)는 렌더링만 끄고 충돌 판정은 유지하므로
+    // 위치가 (0,0,0)에 고정된 sphere가 phantom overlap을 일으키는 것을 방지.
+    S->SetCollisionEnabled(Data.bIsTracked
+        ? ECollisionEnabled::QueryAndPhysics
+        : ECollisionEnabled::NoCollision);
+
+    // 시각화 메시도 동일 위치/가시성으로 동기화 (VR 렌더링용)
+    if (Visual)
+    {
+      Visual->SetWorldLocation(EffectiveLocation);
+      Visual->SetVisibility(Data.bIsTracked);
+    }
   };
 
-  SyncSphere(Sphere_Hip, EVTCTrackerRole::Waist);
-  SyncSphere(Sphere_LeftKnee, EVTCTrackerRole::LeftKnee);
-  SyncSphere(Sphere_RightKnee, EVTCTrackerRole::RightKnee);
-  SyncSphere(Sphere_LeftFoot, EVTCTrackerRole::LeftFoot);
-  SyncSphere(Sphere_RightFoot, EVTCTrackerRole::RightFoot);
+  SyncSphere(Sphere_Hip,       VisualSphere_Hip,       EVTCTrackerRole::Waist);
+  SyncSphere(Sphere_LeftKnee,  VisualSphere_LeftKnee,  EVTCTrackerRole::LeftKnee);
+  SyncSphere(Sphere_RightKnee, VisualSphere_RightKnee, EVTCTrackerRole::RightKnee);
+  SyncSphere(Sphere_LeftFoot,  VisualSphere_LeftFoot,  EVTCTrackerRole::LeftFoot);
+  SyncSphere(Sphere_RightFoot, VisualSphere_RightFoot, EVTCTrackerRole::RightFoot);
 }
 
 void AVTC_BodyActor::OnSphereOverlapBegin(UPrimitiveComponent *OverlappedComp,
@@ -170,6 +227,51 @@ float AVTC_BodyActor::GetSphereRadiusForRole(
   return 10.0f; // Default fallback
 }
 
+FVector AVTC_BodyActor::GetMountOffsetForRole(EVTCTrackerRole TrackerRole) const {
+  switch (TrackerRole) {
+  case EVTCTrackerRole::Waist:     return MountOffset_Waist;
+  case EVTCTrackerRole::LeftKnee:  return MountOffset_LeftKnee;
+  case EVTCTrackerRole::RightKnee: return MountOffset_RightKnee;
+  case EVTCTrackerRole::LeftFoot:  return MountOffset_LeftFoot;
+  case EVTCTrackerRole::RightFoot: return MountOffset_RightFoot;
+  }
+  return FVector::ZeroVector;
+}
+
+void AVTC_BodyActor::ApplySessionConfig(const FVTCSessionConfig& Config)
+{
+  // Mount Offsets 적용
+  MountOffset_Waist      = Config.MountOffset_Waist;
+  MountOffset_LeftKnee   = Config.MountOffset_LeftKnee;
+  MountOffset_RightKnee  = Config.MountOffset_RightKnee;
+  MountOffset_LeftFoot   = Config.MountOffset_LeftFoot;
+  MountOffset_RightFoot  = Config.MountOffset_RightFoot;
+
+  // Vehicle Hip Reference Position 적용 및 마커 이동
+  VehicleHipPosition = Config.VehicleHipPosition;
+  if (VehicleHipMarker)
+    VehicleHipMarker->SetWorldLocation(Config.VehicleHipPosition);
+
+  // Collision/Visual Sphere 가시성 적용
+  auto SetSphereGroupVisible = [&](USphereComponent* S, UStaticMeshComponent* V, bool bShow)
+  {
+    if (S)
+    {
+      S->SetVisibility(bShow);
+      S->SetCollisionEnabled(bShow ? ECollisionEnabled::QueryAndPhysics
+                                   : ECollisionEnabled::NoCollision);
+    }
+    if (V) V->SetVisibility(bShow);
+  };
+  SetSphereGroupVisible(Sphere_Hip,       VisualSphere_Hip,       Config.bShowCollisionSpheres);
+  SetSphereGroupVisible(Sphere_LeftKnee,  VisualSphere_LeftKnee,  Config.bShowCollisionSpheres);
+  SetSphereGroupVisible(Sphere_RightKnee, VisualSphere_RightKnee, Config.bShowCollisionSpheres);
+  SetSphereGroupVisible(Sphere_LeftFoot,  VisualSphere_LeftFoot,  Config.bShowCollisionSpheres);
+  SetSphereGroupVisible(Sphere_RightFoot, VisualSphere_RightFoot, Config.bShowCollisionSpheres);
+
+  UE_LOG(LogTemp, Log, TEXT("[VTC] BodyActor: SessionConfig 적용 완료."));
+}
+
 void AVTC_BodyActor::OnCalibrationComplete(
     const FVTCBodyMeasurements &Measurements) {
   UE_LOG(LogTemp, Log,
@@ -191,7 +293,14 @@ FVTCBodyMeasurements AVTC_BodyActor::GetBodyMeasurements() const {
 FVector AVTC_BodyActor::GetBodyPartLocation(EVTCTrackerRole TrackerRole) const {
   if (!TrackerSource)
     return FVector::ZeroVector;
-  return TrackerSource->GetTrackerLocation(TrackerRole);
+
+  const FVector Offset = GetMountOffsetForRole(TrackerRole);
+  if (Offset.IsNearlyZero())
+    return TrackerSource->GetTrackerLocation(TrackerRole);
+
+  // 오프셋이 있으면 트래커 회전을 포함해 월드 위치 보정
+  const FVTCTrackerData Data = TrackerSource->GetTrackerData(TrackerRole);
+  return Data.WorldLocation + FQuat(Data.WorldRotation).RotateVector(Offset);
 }
 
 void AVTC_BodyActor::UpdateSphereRadii() {
@@ -205,6 +314,21 @@ void AVTC_BodyActor::UpdateSphereRadii() {
     Sphere_LeftFoot->SetSphereRadius(FootSphereRadius);
   if (Sphere_RightFoot)
     Sphere_RightFoot->SetSphereRadius(FootSphereRadius);
+
+  // 엔진 기본 Sphere는 반경 50cm → 실제 반경에 맞게 균등 스케일 적용
+  auto SetVisualScale = [](UStaticMeshComponent* M, float Radius)
+  {
+    if (M)
+    {
+      const float S = Radius / 50.0f;
+      M->SetRelativeScale3D(FVector(S));
+    }
+  };
+  SetVisualScale(VisualSphere_Hip,       HipSphereRadius);
+  SetVisualScale(VisualSphere_LeftKnee,  KneeSphereRadius);
+  SetVisualScale(VisualSphere_RightKnee, KneeSphereRadius);
+  SetVisualScale(VisualSphere_LeftFoot,  FootSphereRadius);
+  SetVisualScale(VisualSphere_RightFoot, FootSphereRadius);
 }
 
 void AVTC_BodyActor::FindTrackerSource() {

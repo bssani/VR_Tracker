@@ -5,9 +5,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "Controller/VTC_SimPlayerController.h"
 #include "VTC_GameMode.generated.h"
 
-UCLASS(BlueprintType, Blueprintable, meta=(DisplayName="VKC Game Mode"))
+UCLASS(BlueprintType, Blueprintable, meta=(DisplayName="VTC Game Mode"))
 class VRTRACKERCOLLISION_API AVTC_GameMode : public AGameModeBase
 {
 	GENERATED_BODY()

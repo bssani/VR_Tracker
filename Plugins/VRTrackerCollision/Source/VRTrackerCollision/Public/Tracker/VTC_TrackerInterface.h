@@ -11,7 +11,7 @@
 #include "Tracker/VTC_TrackerTypes.h"
 #include "VTC_TrackerInterface.generated.h"
 
-UINTERFACE(BlueprintType, MinimalAPI, meta=(DisplayName="VKC Tracker Interface"))
+UINTERFACE(BlueprintType, MinimalAPI, meta=(DisplayName="VTC Tracker Interface"))
 class UVTC_TrackerInterface : public UInterface
 {
 	GENERATED_BODY()
