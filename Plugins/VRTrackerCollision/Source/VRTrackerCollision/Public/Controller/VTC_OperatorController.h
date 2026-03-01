@@ -101,7 +101,7 @@ private:
   TArray<TObjectPtr<AVTC_ReferencePoint>> SpawnedPresetRefPoints;
 
   // Operator View Actor 참조 (Feature I)
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Operator|View")
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Operator|View" , meta = (AllowPrivateAccess = "true"))
   TObjectPtr<AVTC_OperatorViewActor> OperatorViewActor;
 
   // TrackerStatus 갱신 타이머 (1초마다 업데이트)
