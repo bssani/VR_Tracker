@@ -26,6 +26,7 @@
 
 class UVTC_SubjectInfoWidget;
 class AVTC_StatusActor;
+class AVTC_OperatorViewActor;
 
 UCLASS(BlueprintType, Blueprintable, meta = (DisplayName = "VTC Operator Controller"))
 class VRTRACKERCOLLISION_API AVTC_OperatorController : public APlayerController
@@ -89,11 +90,19 @@ private:
 
   void AutoFindSessionManager();
   void AutoFindStatusActor();
+  void AutoFindOperatorViewActor();
 
   // VehicleHipPosition을 위해 동적 스폰한 ReferencePoint
-  // ApplyGameInstanceConfig에서 생성, BeginDestroy 시 자동 제거
   UPROPERTY()
   TObjectPtr<AVTC_ReferencePoint> SpawnedHipRefPoint;
+
+  // 차종 프리셋에서 스폰한 추가 ReferencePoint 목록 (Feature B)
+  UPROPERTY()
+  TArray<TObjectPtr<AVTC_ReferencePoint>> SpawnedPresetRefPoints;
+
+  // Operator View Actor 참조 (Feature I)
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Operator|View")
+  TObjectPtr<AVTC_OperatorViewActor> OperatorViewActor;
 
   // TrackerStatus 갱신 타이머 (1초마다 업데이트)
   float TrackerStatusTimer = 0.0f;

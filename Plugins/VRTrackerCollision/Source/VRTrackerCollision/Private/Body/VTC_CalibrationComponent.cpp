@@ -28,12 +28,13 @@ void UVTC_CalibrationComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 		OnCalibrationCountdown.Broadcast(SecondsRemaining);
 
 		// 음성 카운트다운 (Feature H)
+		// 예: HoldTime=3.0 → TotalTicks=3, 3초→idx0, 2초→idx1, 1초→idx2
 		if (SecondsRemaining > 0 && CountdownSFX.Num() > 0)
 		{
-			// CalibrationHoldTime(3초) 기준: SecondsRemaining 3→인덱스0, 2→1, 1→2
-			const int32 SFXIndex =
-				FMath::CeilToInt(CalibrationHoldTime) - SecondsRemaining;
-			if (CountdownSFX.IsValidIndex(SFXIndex) && CountdownSFX[SFXIndex])
+			const int32 TotalTicks = FMath::CeilToInt(CalibrationHoldTime);
+			const int32 SFXIndex = TotalTicks - SecondsRemaining;
+			if (SFXIndex >= 0 && CountdownSFX.IsValidIndex(SFXIndex)
+				&& CountdownSFX[SFXIndex])
 			{
 				UGameplayStatics::PlaySound2D(this, CountdownSFX[SFXIndex],
 											  VoiceVolume);

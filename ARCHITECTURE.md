@@ -56,6 +56,8 @@
 │    ├─ VR / Simulation 모드 선택                                         │
 │    ├─ Mount Offset 5개 (Waist/LKnee/RKnee/LFoot/RFoot) X/Y/Z         │
 │    ├─ Vehicle Hip Position X/Y/Z 입력                                  │
+│    ├─ [NEW] Warning / Collision 임계값 슬라이더 (Feature A)             │
+│    ├─ [NEW] 차종 프리셋 ComboBox + [Save Preset] 버튼 (Feature B)      │
 │    ├─ Collision Sphere / Tracker Mesh 가시성 토글                       │
 │    ├─ [Save Config] / [Load Config] → INI 파일                         │
 │    └─ [Start Session] → GameInstance.SessionConfig 저장 → Level 2 로드 │
@@ -84,6 +86,7 @@
 │    │    └─ VTC_DataLogger (컴포넌트)                                     │
 │    ├─ VTC_StatusActor (3D 월드 위젯 — 상태/키 안내)                     │
 │    ├─ VTC_ReferencePoint × N (차량 기준점)                              │
+│    ├─ [NEW] VTC_OperatorViewActor (SceneCapture → Spectator Screen)    │
 │    └─ PostProcessVolume (Vignette 피드백용)                             │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -103,7 +106,10 @@ Level 2 로드 → OperatorController::BeginPlay / OnPossess
          ├─ BodyActor.ApplySessionConfig(Config)
          │    ├─ MountOffset 5개 적용
          │    └─ bShowCollisionSpheres → 멤버 변수 저장 (Tick 덮어쓰기 방지)
-         └─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰
+         ├─ CollisionDetector.WarningThreshold/CollisionThreshold 적용  [NEW]
+         ├─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰
+         │    └─ CollisionDetector.ReferencePoints.AddUnique()
+         └─ 차종 프리셋 JSON → 추가 ReferencePoint 스폰  [NEW]
               └─ CollisionDetector.ReferencePoints.AddUnique()
 ```
 
@@ -282,7 +288,7 @@ Plugins/
             └── WBP_VTC_HUD.uasset
 ```
 
-> 총 **22개 헤더 + 19개 구현** = 41개 C++ 파일
+> 총 **24개 헤더 + 21개 구현** = 45개 C++ 파일 (4개 신규 추가)
 
 ---
 
@@ -353,6 +359,7 @@ enum class EVTCTrackerRole : uint8
 enum class EVTCWarningLevel : uint8
 { Safe, Warning, Collision }
 // Safe: > 10cm | Warning: 3~10cm | Collision: ≤ 3cm 또는 Overlap
+// 임계값은 Level 1에서 슬라이더로 설정 → FVTCSessionConfig에 저장 [NEW]
 
 // 세션 상태
 enum class EVTCSessionState : uint8
@@ -362,12 +369,22 @@ enum class EVTCSessionState : uint8
 enum class EVTCRunMode : uint8
 { VR, Simulation }
 
+// [NEW] 이동 단계 (VTC_TrackerTypes.h)
+enum class EVTCMovementPhase : uint8
+{ Unknown, Stationary, Entering, Seated, Exiting }
+// Hip Z 속도로 자동 감지. DataLogger의 Phase별 최소 클리어런스 추적에 사용.
+
 // 주요 Struct
 FVTCSessionConfig     — Level 1↔Level 2 설정 전달 (SubjectID, Height, Offsets, 모드 등)
+                        [NEW] WarningThreshold_cm, CollisionThreshold_cm
+                        [NEW] bUseVehiclePreset, SelectedPresetName, LoadedPresetJson
 FVTCTrackerData       — 단일 Tracker 위치/회전/추적여부
+                        [NEW] bIsInterpolated (dropout 보간 중 여부)
 FVTCBodyMeasurements  — 캘리브레이션 결과 (세그먼트 길이, 키)
 FVTCDistanceResult    — 신체부위 ↔ 기준점 거리 측정 결과
 FVTCCollisionEvent    — 충돌 이벤트 기록 (시간, 부위, 부품명, 거리, 밀리초 정밀도)
+FVTCVehiclePreset     — [NEW] 차종 프리셋 (PresetName + ReferencePoint 배열)
+FVTCPresetRefPoint    — [NEW] 프리셋 내 단일 ReferencePoint 데이터
 ```
 
 ---
@@ -380,9 +397,11 @@ FVTCCollisionEvent    — 충돌 이벤트 기록 (시간, 부위, 부품명, �
 ├─ [1] VTC_TrackerPawn::Tick()
 │       └─ UpdateAllTrackers()
 │           ├─ 5개 MotionControllerComponent.IsTracked() 확인
-│           ├─ TrackerDataMap 갱신 (WorldLocation, WorldRotation)
-│           ├─ Debug Sphere 표시 (bShowDebugSpheres = true)
-│           └─ OnTrackerUpdated / OnAllTrackersUpdated Delegate 브로드캐스트
+│           ├─ [NEW] Dropout 보간: 추적 실패 시 최근 2프레임 선형 외삽 (MaxDropoutFrames=5)
+│           ├─ TrackerDataMap 갱신 (WorldLocation, WorldRotation, bIsInterpolated)
+│           ├─ Debug Sphere 표시 (bShowDebugSpheres = true, 보간 중은 얇게)
+│           ├─ [NEW] DetectMovementPhase(): Hip Z 속도 → EVTCMovementPhase 업데이트
+│           └─ OnTrackerUpdated / OnAllTrackersUpdated / OnPhaseChanged Delegate 브로드캐스트
 │
 ├─ [2] VTC_BodySegmentComponent::TickComponent() × 4개
 │       └─ UpdateSegmentTransform()
@@ -605,3 +624,44 @@ CollisionOccurred, CollisionPartName
 | Niagara FX 설정 (CollisionImpact, WarningPulse) | 낮음 |
 | Sound Cue 설정 | 낮음 |
 | WBP_VTC_HUD (실시간 거리/상태 표시) | 중간 |
+| BP_VTC_OperatorViewActor (SceneCapture 설정) | 중간 [NEW] |
+| WBP_SetupWidget에 슬라이더/콤보박스 추가 | 높음 [NEW] |
+| 카운트다운 사운드 에셋 4개 (CountdownSFX 배열) | 중간 [NEW] |
+
+---
+
+## 8. 신규 기능 요약 (v2.0)
+
+| Feature | 구현 위치 | 설명 |
+|---------|----------|------|
+| **A** 임계값 슬라이더 | SetupWidget ↔ SessionConfig | Level 1에서 Warning/Collision 거리(cm) 슬라이더로 설정 |
+| **B** 차종 프리셋 JSON | VTC_VehiclePreset + OperatorController | 차종별 ReferencePoint 배치를 JSON으로 저장/로드 |
+| **C** Dropout 보간 | VTC_TrackerPawn | 추적 실패 시 최근 2프레임 선형 외삽으로 최대 5프레임 유지 |
+| **D** 캘리브레이션 검증 강화 | VTC_CalibrationComponent | 좌우 비대칭 25% 초과, 다리 길이 범위, 대퇴/하퇴 비율 검증 |
+| **E** 이동 단계 자동 감지 | VTC_TrackerPawn + DataLogger | Hip Z 속도 기반 Entering/Seated/Exiting 상태 전환 + 단계별 MinClearance |
+| **F** 자동 스크린샷 | VTC_CollisionDetector | 세션 최악 클리어런스 갱신 시 PNG 자동 저장 (Saved/VTCLogs/Screenshots/) |
+| **G** VR 거리 라인 라벨 | VTC_CollisionDetector | DrawDebugLine + DrawDebugString으로 신체↔기준점 거리(cm) VR에서 실시간 표시 |
+| **H** 음성 카운트다운 | VTC_CalibrationComponent | USoundBase 배열로 3초 카운트다운 + 완료 음성 재생 |
+| **I** Operator View | VTC_OperatorViewActor | SceneCapture2D(탑다운) → TextureRenderTarget2D → UE5 Spectator Screen |
+
+### Operator View 연결 구조
+
+```
+VTC_OperatorViewActor
+  │
+  ├─ SceneCaptureComponent2D (탑다운 직교, -90° Pitch)
+  │   └─ TextureRenderTarget2D (1280×720 기본)
+  │
+  └─ BeginPlay → SetupSpectatorScreen()
+       └─ ISpectatorScreenController::SetSpectatorScreenTexture(RenderTarget)
+            └─ 운영자 모니터(Companion Screen)에 실시간 전시 장면 표시
+```
+
+### CSV 출력 변경사항 (v2.0 추가 컬럼)
+
+| 추가 컬럼 | 출력 위치 | 내용 |
+|-----------|----------|------|
+| `Phase_Entering_MinClearance` | _summary.csv | Entering 단계 최소 클리어런스 |
+| `Phase_Seated_MinClearance` | _summary.csv | Seated 단계 최소 클리어런스 |
+| `Phase_Exiting_MinClearance` | _summary.csv | Exiting 단계 최소 클리어런스 |
+| `WorstClearanceScreenshot` | _summary.csv | 최악 순간 스크린샷 파일 경로 |

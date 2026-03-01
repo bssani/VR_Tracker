@@ -26,6 +26,8 @@
   ├─ 피실험자 정보 입력 (SubjectID, Height)
   ├─ 실행 모드 선택 (VR / Simulation)
   ├─ Mount Offset × 5, Vehicle Hip Position 설정
+  ├─ [NEW] Warning/Collision 임계값 슬라이더 (Feature A)
+  ├─ [NEW] 차종 프리셋 저장/불러오기 ComboBox (Feature B)
   ├─ INI 파일로 설정 저장/불러오기
   └─ [Start Session] → GameInstance에 저장 → Level 2 로드
 
@@ -39,6 +41,7 @@
   │    ├─ Escape → Level 1 복귀
   │    └─ WASD + 마우스 시뮬레이션 이동
   ├─ 3D WorldSpace 위젯 (VTC_StatusActor → VTC_StatusWidget)
+  ├─ [NEW] VTC_OperatorViewActor (SceneCapture → Spectator Screen) (Feature I)
   └─ 세션 상태머신: IDLE → CALIBRATING → TESTING → REVIEWING
 ```
 
@@ -46,7 +49,10 @@
 
 - **VTC_GameInstance** (UGameInstance 상속): `FVTCSessionConfig` 보관
 - **VTC_SessionConfig.h**: 설정 구조체 (SubjectID, Height, RunMode, MountOffsets × 5, VehicleHipPosition, 가시성 등)
+  - **[NEW]** `WarningThreshold_cm`, `CollisionThreshold_cm` — 임계값 슬라이더 값
+  - **[NEW]** `bUseVehiclePreset`, `SelectedPresetName`, `LoadedPresetJson` — 프리셋 데이터
 - **INI 파일**: `Config/VTCSettings.ini` (SubjectID/Height 제외, 나머지 설정 영속 저장)
+- **[NEW] VTC_VehiclePreset**: `Saved/VTCPresets/*.json` — 차종별 ReferencePoint 배치 영속 저장
 
 ---
 

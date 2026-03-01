@@ -21,6 +21,9 @@ C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**�
     ├─ VR / Simulation 모드 선택
     ├─ Mount Offset 5개 (Waist/LKnee/RKnee/LFoot/RFoot) X/Y/Z 입력
     ├─ Vehicle Hip Position X/Y/Z 입력
+    ├─ [NEW] Slider_Warning (0~50cm) + Txt_WarningVal    ← Warning 임계값 (Feature A)
+    ├─ [NEW] Slider_Collision (0~20cm) + Txt_CollisionVal ← Collision 임계값 (Feature A)
+    ├─ [NEW] Combo_VehiclePreset + Btn_SavePreset        ← 차종 프리셋 (Feature B)
     ├─ Collision Sphere 표시 여부 체크박스
     ├─ Tracker Mesh 표시 여부 체크박스
     ├─ [Save Config] / [Load Config] 버튼
@@ -35,6 +38,8 @@ C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**�
     └─ BeginPlay → GameInstance 설정 읽어서 TrackerPawn/BodyActor에 자동 적용
   BP_VTC_StatusActor (레벨에 3D 월드 배치)
     └─ WBP_StatusWidget (WorldSpace 3D 위젯)
+  [NEW] BP_VTC_OperatorViewActor (레벨에 배치, 차량 위 상공에 위치) (Feature I)
+    └─ SceneCaptureComponent2D → RenderTarget → Spectator Screen
          ├─ 현재 세션 상태 표시
          ├─ 피실험자 정보 표시
          ├─ 트래커 연결 수 표시

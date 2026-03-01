@@ -9,6 +9,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "Tracker/VTC_TrackerTypes.h"
 #include "VTC_VehiclePreset.generated.h"
 

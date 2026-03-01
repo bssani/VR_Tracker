@@ -4,12 +4,14 @@
 #include "UI/VTC_SubjectInfoWidget.h"
 #include "UI/VTC_StatusWidget.h"
 #include "World/VTC_StatusActor.h"
+#include "World/VTC_OperatorViewActor.h"
 #include "Data/VTC_SessionManager.h"
 #include "Body/VTC_BodyActor.h"
 #include "Pawn/VTC_TrackerPawn.h"
 #include "Collision/VTC_CollisionDetector.h"
 #include "Vehicle/VTC_ReferencePoint.h"
 #include "VTC_GameInstance.h"
+#include "VTC_VehiclePreset.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/InputComponent.h"
 #include "EngineUtils.h"   // TActorIterator
@@ -35,6 +37,7 @@ void AVTC_OperatorController::BeginPlay()
   // ── 레벨에서 필요한 Actor 자동 탐색 ──────────────────────────────────────
   if (!SessionManager) AutoFindSessionManager();
   AutoFindStatusActor();
+  AutoFindOperatorViewActor();
 
   // ── SessionManager 상태 변경 시 StatusWidget 갱신 ─────────────────────────
   if (SessionManager)
@@ -159,13 +162,18 @@ void AVTC_OperatorController::ReturnToSetupLevel()
 void AVTC_OperatorController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
   // 동적으로 스폰한 ReferencePoint를 명시적으로 제거.
-  // 레벨 전환 시 GC로도 제거되지만, CollisionDetector 배열에 남아
-  // 다음 BeginPlay 전에 stale 포인터가 생기는 것을 방지한다.
   if (SpawnedHipRefPoint)
   {
     SpawnedHipRefPoint->Destroy();
     SpawnedHipRefPoint = nullptr;
   }
+
+  // 프리셋 ReferencePoint 일괄 제거 (Feature B)
+  for (TObjectPtr<AVTC_ReferencePoint>& Ref : SpawnedPresetRefPoints)
+  {
+    if (Ref) Ref->Destroy();
+  }
+  SpawnedPresetRefPoints.Empty();
 
   Super::EndPlay(EndPlayReason);
 }
@@ -218,6 +226,15 @@ void AVTC_OperatorController::ApplyGameInstanceConfig()
     break;
   }
 
+  // ── CollisionDetector: 임계값 적용 (Feature A) ──────────────────────────
+  if (SessionManager && SessionManager->CollisionDetector)
+  {
+    SessionManager->CollisionDetector->WarningThreshold   = C.WarningThreshold_cm;
+    SessionManager->CollisionDetector->CollisionThreshold = C.CollisionThreshold_cm;
+    UE_LOG(LogTemp, Log, TEXT("[VTC] Thresholds applied — Warning: %.1f cm, Collision: %.1f cm"),
+           C.WarningThreshold_cm, C.CollisionThreshold_cm);
+  }
+
   // ── VehicleHipPosition → CollisionDetector용 ReferencePoint 동적 스폰 ──
   // VehicleHipPosition이 설정되어 있으면 레벨에 ReferencePoint를 스폰하고
   // SessionManager의 CollisionDetector에 직접 추가한다.
@@ -263,6 +280,39 @@ void AVTC_OperatorController::ApplyGameInstanceConfig()
       }
     }
   }
+
+  // ── 차종 프리셋 → ReferencePoint 추가 스폰 (Feature B) ──────────────────
+  if (C.bUseVehiclePreset && !C.LoadedPresetJson.IsEmpty()
+      && SessionManager && SessionManager->CollisionDetector)
+  {
+    FVTCVehiclePreset Preset;
+    if (UVTC_VehiclePresetLibrary::JsonStringToPreset(C.LoadedPresetJson, Preset))
+    {
+      for (const FVTCPresetRefPoint& PRef : Preset.ReferencePoints)
+      {
+        // Vehicle_Hip는 위에서 이미 처리했으므로 중복 방지
+        if (PRef.PartName == TEXT("Vehicle_Hip")) continue;
+
+        FActorSpawnParameters Params;
+        Params.SpawnCollisionHandlingOverride =
+            ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+        if (AVTC_ReferencePoint* NewRef = GetWorld()->SpawnActor<AVTC_ReferencePoint>(
+                AVTC_ReferencePoint::StaticClass(),
+                PRef.Location, FRotator::ZeroRotator, Params))
+        {
+          NewRef->PartName = PRef.PartName;
+          NewRef->RelevantBodyParts = PRef.RelevantBodyParts;
+          SessionManager->CollisionDetector->ReferencePoints.AddUnique(NewRef);
+          SpawnedPresetRefPoints.Add(NewRef);
+          UE_LOG(LogTemp, Log, TEXT("[VTC] Preset ReferencePoint 스폰: %s @ %s"),
+                 *PRef.PartName, *PRef.Location.ToString());
+        }
+      }
+      UE_LOG(LogTemp, Log, TEXT("[VTC] Preset '%s' 적용 완료 (%d ref points)"),
+             *Preset.PresetName, Preset.ReferencePoints.Num());
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -290,6 +340,21 @@ void AVTC_OperatorController::AutoFindStatusActor()
     return;
   }
   UE_LOG(LogTemp, Warning, TEXT("[VTC] OperatorController: StatusActor 없음."));
+}
+
+void AVTC_OperatorController::AutoFindOperatorViewActor()
+{
+  if (OperatorViewActor) return;  // 이미 수동으로 연결된 경우
+
+  for (TActorIterator<AVTC_OperatorViewActor> It(GetWorld()); It; ++It)
+  {
+    OperatorViewActor = *It;
+    UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorController: OperatorViewActor → %s"),
+           *OperatorViewActor->GetName());
+    return;
+  }
+  // 없으면 경고만 — 필수 컴포넌트가 아님
+  UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorController: OperatorViewActor 없음 (Spectator Screen 비활성)."));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

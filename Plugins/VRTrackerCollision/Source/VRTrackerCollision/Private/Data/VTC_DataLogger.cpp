@@ -154,8 +154,10 @@ void UVTC_DataLogger::LogFrame(const FVTCBodyMeasurements& Measurements,
 		}
 
 		// Phase별 최소 클리어런스 (Feature E)
+		// FindOrAdd의 기본값(0.0f)을 Max로 초기화 — Contains로 신규 키 여부 확인
+		const bool bNewPhaseKey = !PhaseMinClearance.Contains(CurrentLogPhase);
 		float& PhaseMin = PhaseMinClearance.FindOrAdd(CurrentLogPhase);
-		if (PhaseMin == 0.0f) PhaseMin = TNumericLimits<float>::Max();
+		if (bNewPhaseKey) PhaseMin = TNumericLimits<float>::Max();
 		if (D.Distance < PhaseMin) PhaseMin = D.Distance;
 
 		// 전체 최악 경고 단계

@@ -28,6 +28,8 @@ public class VRTrackerCollision : ModuleRules
 			"HeadMountedDisplay",   // UMotionControllerComponent
 			"UMG",                  // Widget
 			"Niagara",              // Particle effects
+			"Json",                 // FJsonObject — VTC_VehiclePreset.cpp
+			"JsonUtilities",        // FJsonObjectConverter — VTC_VehiclePreset.cpp
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
