@@ -42,6 +42,9 @@ void UVTC_DataLogger::StartLogging(const FString& SubjectID)
 	TestingEndTime          = TEXT("");
 	WarningDuration_sec     = 0.0f;
 	CollisionDuration_sec   = 0.0f;
+	PhaseMinClearance.Empty();
+	WorstClearanceScreenshotPath = TEXT("");
+	CurrentLogPhase         = EVTCMovementPhase::Unknown;
 
 	UE_LOG(LogTemp, Log, TEXT("[VTC] Logging started for subject: %s"), *SubjectID);
 }
@@ -70,6 +73,7 @@ void UVTC_DataLogger::LogFrame(const FVTCBodyMeasurements& Measurements,
 	Row.LowerLeftLeg   = Measurements.LeftKnee_LeftFoot;
 	Row.LowerRightLeg  = Measurements.RightKnee_RightFoot;
 	Row.DistanceResults = DistanceResults;
+	Row.Phase              = CurrentLogPhase;
 	Row.bCollisionOccurred = false;
 
 	// 신체 부위 월드 위치 기록
@@ -149,6 +153,11 @@ void UVTC_DataLogger::LogFrame(const FVTCBodyMeasurements& Measurements,
 			MinClearance_Timestamp = Row.Timestamp;
 		}
 
+		// Phase별 최소 클리어런스 (Feature E)
+		float& PhaseMin = PhaseMinClearance.FindOrAdd(CurrentLogPhase);
+		if (PhaseMin == 0.0f) PhaseMin = TNumericLimits<float>::Max();
+		if (D.Distance < PhaseMin) PhaseMin = D.Distance;
+
 		// 전체 최악 경고 단계
 		if (static_cast<uint8>(D.WarningLevel) > static_cast<uint8>(OverallWorstStatus))
 		{
@@ -179,6 +188,18 @@ void UVTC_DataLogger::LogCollisionEvent(const FVTCCollisionEvent& Event)
 		*StaticEnum<EVTCTrackerRole>()->GetValueAsString(Event.BodyPart),
 		*Event.VehiclePartName,
 		Event.Distance);
+}
+
+// ─── Phase / Screenshot 설정 (Feature E, F) ─────────────────────────────────
+
+void UVTC_DataLogger::SetCurrentPhase(EVTCMovementPhase Phase)
+{
+	CurrentLogPhase = Phase;
+}
+
+void UVTC_DataLogger::SetWorstClearanceScreenshotPath(const FString& Path)
+{
+	WorstClearanceScreenshotPath = Path;
 }
 
 // ─── CSV 내보내기 — 요약 (메인) ──────────────────────────────────────────────
@@ -269,6 +290,9 @@ void UVTC_DataLogger::ClearLog()
 	WarningDuration_sec   = 0.0f;
 	CollisionDuration_sec = 0.0f;
 	CachedMeasurements    = FVTCBodyMeasurements();
+	PhaseMinClearance.Empty();
+	WorstClearanceScreenshotPath = TEXT("");
+	CurrentLogPhase       = EVTCMovementPhase::Unknown;
 }
 
 // ─── Summary CSV 빌더 ────────────────────────────────────────────────────────
@@ -290,7 +314,9 @@ FString UVTC_DataLogger::BuildSummaryHeader() const
 		TEXT(",HipX_atMinClearance,HipY_atMinClearance,HipZ_atMinClearance")
 		TEXT(",OverallStatus,CollisionCount,WarningFrames,TotalFrames")
 		TEXT(",TestingStartTime,TestingEndTime,TestingDuration_sec")
-		TEXT(",WarningDuration_sec,CollisionDuration_sec");
+		TEXT(",WarningDuration_sec,CollisionDuration_sec")
+		TEXT(",Phase_Entering_MinClearance,Phase_Seated_MinClearance,Phase_Exiting_MinClearance")
+		TEXT(",WorstClearanceScreenshot");
 }
 
 FString UVTC_DataLogger::BuildSummaryRow() const
@@ -312,7 +338,15 @@ FString UVTC_DataLogger::BuildSummaryRow() const
 		? static_cast<float>(LoggedRowCount) / LogHz
 		: 0.0f;
 
-	return FString::Printf(
+	// Phase별 최소 클리어런스 (Feature E)
+	auto GetPhaseMin = [&](EVTCMovementPhase P) -> FString
+	{
+		const float* Val = PhaseMinClearance.Find(P);
+		if (!Val || *Val >= TNumericLimits<float>::Max() * 0.5f) return TEXT("-1");
+		return FString::Printf(TEXT("%.1f"), *Val);
+	};
+
+	FString Row = FString::Printf(
 		TEXT("%s,%s"
 		     ",%.1f"
 		     ",%.1f,%.1f"
@@ -348,6 +382,15 @@ FString UVTC_DataLogger::BuildSummaryRow() const
 		*TestingStartTime, *TestingEndTime, TestingDuration,
 		WarningDuration_sec, CollisionDuration_sec
 	);
+
+	// Phase별 최소 클리어런스 + 스크린샷 경로 추가
+	Row += FString::Printf(TEXT(",%s,%s,%s,%s"),
+		*GetPhaseMin(EVTCMovementPhase::Entering),
+		*GetPhaseMin(EVTCMovementPhase::Seated),
+		*GetPhaseMin(EVTCMovementPhase::Exiting),
+		*WorstClearanceScreenshotPath);
+
+	return Row;
 }
 
 // ─── Frame CSV 빌더 ──────────────────────────────────────────────────────────

@@ -37,6 +37,9 @@ struct FVTCLogRow
 	// 거리 정보 (기준점별 전체)
 	UPROPERTY(BlueprintReadOnly) TArray<FVTCDistanceResult> DistanceResults;
 
+	// 현재 Movement Phase
+	UPROPERTY(BlueprintReadOnly) EVTCMovementPhase Phase;
+
 	// 충돌 발생 여부
 	UPROPERTY(BlueprintReadOnly) bool    bCollisionOccurred;
 	UPROPERTY(BlueprintReadOnly) FString CollisionPartName;
@@ -103,6 +106,14 @@ public:
 	void LogFrame(const FVTCBodyMeasurements& Measurements,
 		const TArray<FVTCDistanceResult>& DistanceResults);
 
+	// 현재 Movement Phase 설정 (TrackerPawn에서 호출)
+	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
+	void SetCurrentPhase(EVTCMovementPhase Phase);
+
+	// 최악 클리어런스 스크린샷 경로 설정 (CollisionDetector에서 호출)
+	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
+	void SetWorstClearanceScreenshotPath(const FString& Path);
+
 	// 로그 버퍼 초기화
 	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
 	void ClearLog();
@@ -138,8 +149,17 @@ private:
 	FVector HipPosAtMinClearance    = FVector::ZeroVector;  // 최악 순간의 Hip 위치
 	FString MinClearance_Timestamp;  // 최악 클리어런스 발생 시점
 
+	// Phase별 최소 클리어런스 (Feature E)
+	TMap<EVTCMovementPhase, float> PhaseMinClearance;
+
+	// 스크린샷 경로 (Feature F — CollisionDetector에서 기록)
+	FString WorstClearanceScreenshotPath;
+
 	// 전체 최악 경고 단계
 	EVTCWarningLevel OverallWorstStatus = EVTCWarningLevel::Safe;
+
+	// 현재 Movement Phase (외부에서 SetCurrentPhase로 설정)
+	EVTCMovementPhase CurrentLogPhase = EVTCMovementPhase::Unknown;
 
 	// 경고/충돌이 발생한 프레임 수
 	int32 WarningFrameCount = 0;

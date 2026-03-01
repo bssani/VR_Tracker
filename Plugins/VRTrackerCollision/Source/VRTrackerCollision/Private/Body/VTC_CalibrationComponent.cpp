@@ -21,11 +21,24 @@ void UVTC_CalibrationComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 	int32 SecondsRemaining = FMath::CeilToInt(CalibrationHoldTime - CalibrationTimer);
 	SecondsRemaining = FMath::Max(0, SecondsRemaining);
 
-	// 초 단위 카운트다운 브로드캐스트
+	// 초 단위 카운트다운 브로드캐스트 + 음성 재생
 	if (SecondsRemaining != LastBroadcastedSecond)
 	{
 		LastBroadcastedSecond = SecondsRemaining;
 		OnCalibrationCountdown.Broadcast(SecondsRemaining);
+
+		// 음성 카운트다운 (Feature H)
+		if (SecondsRemaining > 0 && CountdownSFX.Num() > 0)
+		{
+			// CalibrationHoldTime(3초) 기준: SecondsRemaining 3→인덱스0, 2→1, 1→2
+			const int32 SFXIndex =
+				FMath::CeilToInt(CalibrationHoldTime) - SecondsRemaining;
+			if (CountdownSFX.IsValidIndex(SFXIndex) && CountdownSFX[SFXIndex])
+			{
+				UGameplayStatics::PlaySound2D(this, CountdownSFX[SFXIndex],
+											  VoiceVolume);
+			}
+		}
 	}
 
 	// 지정 시간 도달 → 측정 실행
@@ -90,6 +103,17 @@ bool UVTC_CalibrationComponent::SnapCalibrate()
 	Measurements.bIsCalibrated = true;
 	LastMeasurements = Measurements;
 
+	// 완료 사운드 재생 (CountdownSFX 배열의 마지막 요소)
+	if (CountdownSFX.Num() > 0)
+	{
+		const int32 CompletionIndex = CountdownSFX.Num() - 1;
+		if (CountdownSFX[CompletionIndex])
+		{
+			UGameplayStatics::PlaySound2D(this, CountdownSFX[CompletionIndex],
+										  VoiceVolume);
+		}
+	}
+
 	OnCalibrationComplete.Broadcast(Measurements);
 
 	UE_LOG(LogTemp, Log, TEXT("[VTC] Calibration complete!\n"
@@ -148,6 +172,7 @@ FVTCBodyMeasurements UVTC_CalibrationComponent::CalculateMeasurements() const
 bool UVTC_CalibrationComponent::ValidateMeasurements(const FVTCBodyMeasurements& M,
 	FString& OutReason) const
 {
+	// ── 기본 최소값 체크 ──
 	if (M.Hip_LeftKnee < 10.0f)
 	{
 		OutReason = TEXT("Hip→LeftKnee distance too small. Check Waist or LeftKnee tracker.");
@@ -168,12 +193,64 @@ bool UVTC_CalibrationComponent::ValidateMeasurements(const FVTCBodyMeasurements&
 		OutReason = TEXT("RightKnee→RightFoot distance too small. Check RightKnee or RightFoot tracker.");
 		return false;
 	}
-	// 비현실적으로 큰 값 체크 (100cm 이상이면 Tracker 역할 잘못 설정된 것)
-	if (M.TotalLeftLeg > 150.0f || M.TotalRightLeg > 150.0f)
+
+	// ── 전체 다리 길이 범위 체크 (Feature D) ──
+	if (M.TotalLeftLeg < MinTotalLegLength || M.TotalRightLeg < MinTotalLegLength)
 	{
-		OutReason = TEXT("Leg length exceeds 150cm. Check tracker role assignments in SteamVR.");
+		OutReason = FString::Printf(
+			TEXT("Leg too short (L:%.1f / R:%.1f cm). Min: %.0f cm. Check tracker placement."),
+			M.TotalLeftLeg, M.TotalRightLeg, MinTotalLegLength);
 		return false;
 	}
+	if (M.TotalLeftLeg > MaxTotalLegLength || M.TotalRightLeg > MaxTotalLegLength)
+	{
+		OutReason = FString::Printf(
+			TEXT("Leg too long (L:%.1f / R:%.1f cm). Max: %.0f cm. Check tracker role assignments."),
+			M.TotalLeftLeg, M.TotalRightLeg, MaxTotalLegLength);
+		return false;
+	}
+
+	// ── 좌우 비대칭 체크 (Feature D) ──
+	const float AvgLeg = (M.TotalLeftLeg + M.TotalRightLeg) * 0.5f;
+	if (AvgLeg > 0.0f)
+	{
+		const float Asymmetry =
+			FMath::Abs(M.TotalLeftLeg - M.TotalRightLeg) / AvgLeg;
+		if (Asymmetry > AsymmetryWarningThreshold)
+		{
+			OutReason = FString::Printf(
+				TEXT("Left/Right leg asymmetry %.0f%% exceeds %.0f%% threshold. "
+				     "L:%.1f / R:%.1f cm. Re-check tracker positions."),
+				Asymmetry * 100.0f, AsymmetryWarningThreshold * 100.0f,
+				M.TotalLeftLeg, M.TotalRightLeg);
+			return false;
+		}
+	}
+
+	// ── 상/하 비율 체크 (대퇴 vs 하퇴 비율 0.7~1.5 범위) ──
+	auto CheckSegmentRatio = [&](float Upper, float Lower,
+								 const TCHAR* SideName) -> bool
+	{
+		if (Lower > 0.0f)
+		{
+			const float Ratio = Upper / Lower;
+			if (Ratio < 0.7f || Ratio > 1.5f)
+			{
+				OutReason = FString::Printf(
+					TEXT("%s thigh/shin ratio (%.2f) out of range [0.7–1.5]. "
+					     "Upper:%.1f / Lower:%.1f cm."),
+					SideName, Ratio, Upper, Lower);
+				return false;
+			}
+		}
+		return true;
+	};
+
+	if (!CheckSegmentRatio(M.Hip_LeftKnee, M.LeftKnee_LeftFoot, TEXT("Left")))
+		return false;
+	if (!CheckSegmentRatio(M.Hip_RightKnee, M.RightKnee_RightFoot, TEXT("Right")))
+		return false;
+
 	return true;
 }
 
