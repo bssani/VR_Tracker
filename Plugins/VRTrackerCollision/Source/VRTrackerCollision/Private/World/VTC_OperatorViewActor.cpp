@@ -4,6 +4,7 @@
 #include "Components/SceneCaptureComponent2D.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "IXRTrackingSystem.h"
+#include "IHeadMountedDisplay.h"
 #include "ISpectatorScreenController.h"
 
 AVTC_OperatorViewActor::AVTC_OperatorViewActor()
@@ -65,11 +66,15 @@ void AVTC_OperatorViewActor::SetupSpectatorScreen()
 		return;
 	}
 
-	// UE5 XR Spectator Screen API 사용
+	// UE5 XR Spectator Screen API:
+	// GetSpectatorScreenController()는 IXRTrackingSystem이 아닌 IHeadMountedDisplay에 있음.
 	if (GEngine && GEngine->XRSystem.IsValid())
 	{
-		if (ISpectatorScreenController* SpectatorController =
-			GEngine->XRSystem->GetSpectatorScreenController())
+		IHeadMountedDisplay* HMD = GEngine->XRSystem->GetHMDDevice();
+		ISpectatorScreenController* SpectatorController =
+			HMD ? HMD->GetSpectatorScreenController() : nullptr;
+
+		if (SpectatorController)
 		{
 			SpectatorController->SetSpectatorScreenMode(ESpectatorScreenMode::SingleEyeCroppedToFill);
 			SpectatorController->SetSpectatorScreenTexture(RenderTarget);
@@ -97,10 +102,14 @@ void AVTC_OperatorViewActor::DisconnectSpectatorScreen()
 
 	if (GEngine && GEngine->XRSystem.IsValid())
 	{
-		if (ISpectatorScreenController* SpectatorController =
-			GEngine->XRSystem->GetSpectatorScreenController())
+		IHeadMountedDisplay* HMD = GEngine->XRSystem->GetHMDDevice();
+		ISpectatorScreenController* SpectatorController =
+			HMD ? HMD->GetSpectatorScreenController() : nullptr;
+
+		if (SpectatorController)
 		{
-			SpectatorController->SetSpectatorScreenMode(ESpectatorScreenMode::Default);
+			// UE5에 ESpectatorScreenMode::Default 없음 → Disabled 사용
+			SpectatorController->SetSpectatorScreenMode(ESpectatorScreenMode::Disabled);
 			bSpectatorConnected = false;
 			UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorView: Spectator Screen 연결 해제."));
 		}
