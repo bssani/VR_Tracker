@@ -136,12 +136,21 @@ private:
 	FString MinClearance_BodyPart;   // 어느 신체 부위
 	FString MinClearance_RefPoint;   // 어느 기준점
 	FVector HipPosAtMinClearance    = FVector::ZeroVector;  // 최악 순간의 Hip 위치
+	FString MinClearance_Timestamp;  // 최악 클리어런스 발생 시점
 
 	// 전체 최악 경고 단계
 	EVTCWarningLevel OverallWorstStatus = EVTCWarningLevel::Safe;
 
 	// 경고/충돌이 발생한 프레임 수
 	int32 WarningFrameCount = 0;
+
+	// ─── 세션 타이밍 (Human Factors 분석용) ────────────────────────────────
+	FString TestingStartTime;   // 테스트 시작 시각 (밀리초)
+	FString TestingEndTime;     // 테스트 종료 시각 (밀리초)
+
+	// 경고/충돌 누적 지속시간 (초) — 프레임 간격 기반 추정
+	float WarningDuration_sec   = 0.0f;   // Warning 이상 (Warning + Collision)
+	float CollisionDuration_sec = 0.0f;   // Collision만
 
 	// ─── 내부 빌더 함수 ──────────────────────────────────────────────────────
 

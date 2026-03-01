@@ -43,3 +43,15 @@ void AVTC_SetupGameMode::BeginPlay()
 			     "BP_VTC_SetupGameMode > SetupWidgetClass = WBP_SetupWidget 로 설정하세요."));
 	}
 }
+
+void AVTC_SetupGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Level 2로 전환 시 SetupWidget을 명시적으로 정리.
+	// RemoveFromParent()는 Viewport에서 제거 + GC 가능 상태로 만든다.
+	if (SetupWidget)
+	{
+		SetupWidget->RemoveFromParent();
+		SetupWidget = nullptr;
+	}
+	Super::EndPlay(EndPlayReason);
+}
