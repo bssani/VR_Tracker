@@ -481,7 +481,7 @@ void AVTC_TrackerPawn::SetTrackerMeshVisible(bool bVisible)
 	};
 	for (UMotionControllerComponent* MC : MCs)
 	{
-		if (MC) MC->SetShowDeviceModel(bVisible);
+		if (MC) MC->SetVisibility(bVisible, true);
 	}
 }
 
