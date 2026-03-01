@@ -206,6 +206,7 @@ Plugins/
     │       │   ├── VTC_SetupGameMode.h         ← Level 1 GameMode (SetupWidget 생성)
     │       │   ├── VTC_GameInstance.h           ← 레벨 간 설정 전달 + INI
     │       │   ├── VTC_SessionConfig.h          ← FVTCSessionConfig 구조체
+    │       │   ├── VTC_VehiclePreset.h          ← JSON 차종 프리셋 구조체 + Manager (Feature B)
     │       │   │
     │       │   ├── Tracker/
     │       │   │   ├── VTC_TrackerTypes.h       ← 공통 Enum/Struct
@@ -240,13 +241,15 @@ Plugins/
     │       │   │   └── VTC_SubjectInfoWidget.h  ← 피실험자 입력 위젯
     │       │   │
     │       │   └── World/
-    │       │       └── VTC_StatusActor.h        ← 3D 월드 위젯 Actor
+    │       │       ├── VTC_StatusActor.h        ← 3D 월드 위젯 Actor
+    │       │       └── VTC_OperatorViewActor.h  ← SceneCapture → Spectator Screen (Feature I)
     │       │
     │       └── Private/
     │           ├── VRTrackerCollisionModule.cpp
     │           ├── VTC_GameMode.cpp
     │           ├── VTC_SetupGameMode.cpp
     │           ├── VTC_GameInstance.cpp
+    │           ├── VTC_VehiclePreset.cpp
     │           │
     │           ├── Pawn/VTC_TrackerPawn.cpp
     │           ├── Controller/
@@ -268,7 +271,8 @@ Plugins/
     │           │   ├── VTC_StatusWidget.cpp
     │           │   └── VTC_SubjectInfoWidget.cpp
     │           └── World/
-    │               └── VTC_StatusActor.cpp
+    │               ├── VTC_StatusActor.cpp
+    │               └── VTC_OperatorViewActor.cpp
     │
     └── Content/                          ← Blueprint/Asset은 여기서 제작 예정
         ├── Blueprints/
@@ -605,6 +609,8 @@ CollisionOccurred, CollisionPartName
 | VTC_StatusWidget | UI | Level 2 상태 표시 위젯 |
 | VTC_SubjectInfoWidget | UI | 피실험자 입력 위젯 |
 | VTC_StatusActor | World | 3D 월드 위젯 Actor |
+| VTC_VehiclePreset | Core | JSON 차종 프리셋 구조체 + 파일 I/O Manager (Feature B) |
+| VTC_OperatorViewActor | World | SceneCapture2D → TextureRenderTarget → Spectator Screen (Feature I) |
 
 ### Blueprint / Asset 작업 필요
 

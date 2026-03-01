@@ -304,7 +304,7 @@ IDLE → CALIBRATING → TESTING → REVIEWING → IDLE
 
 ---
 
-## C++ Source Structure (22 Headers + 19 Sources = 41 files)
+## C++ Source Structure (24 Headers + 21 Sources = 45 files)
 
 ```
 Plugins/VRTrackerCollision/Source/VRTrackerCollision/
@@ -314,6 +314,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   ├── VTC_SetupGameMode.h         ← Level 1 GameMode
 │   ├── VTC_GameInstance.h           ← 레벨 간 설정 전달 + INI
 │   ├── VTC_SessionConfig.h          ← FVTCSessionConfig, EVTCRunMode
+│   ├── VTC_VehiclePreset.h          ← JSON 차종 프리셋 구조체 + Manager (Feature B)
 │   ├── Tracker/
 │   │   ├── VTC_TrackerTypes.h
 │   │   └── VTC_TrackerInterface.h
@@ -339,9 +340,11 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   │   ├── VTC_StatusWidget.h
 │   │   └── VTC_SubjectInfoWidget.h
 │   └── World/
-│       └── VTC_StatusActor.h
+│       ├── VTC_StatusActor.h
+│       └── VTC_OperatorViewActor.h  ← SceneCapture → Spectator Screen (Feature I)
 └── Private/
     └── (각 .cpp 파일, Public과 동일 구조)
+    └── 신규: VTC_VehiclePreset.cpp, World/VTC_OperatorViewActor.cpp
 ```
 
 ---
@@ -360,12 +363,14 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 8. **BP_VTC_StatusActor + WBP_StatusWidget** — 3D 월드 위젯
 9. **VTC_SetupLevel / VTC_TestLevel** — 맵 파일 생성 + GameMode Override
 10. **PostProcessVolume** — Infinite Extent, WarningFeedback에 연결
+11. **BP_VTC_OperatorViewActor** — Level 2에 배치, SceneCapture → Spectator Screen (Feature I)
+    - `WBP_SetupWidget`에 Slider_Warning/Collision, Combo_VehiclePreset, Btn_SavePreset BindWidget 연결 필수
 
 ### 있으면 좋음
 
-11. **WBP_VTC_HUD** — 거리, 경고 상태, 세그먼트 길이 실시간 표시
-12. **Body Segment Material** — Safe/Warning/Collision 색상 변화
-13. **Niagara FX + Sound** — 충돌 피드백 이펙트
+12. **WBP_VTC_HUD** — 거리, 경고 상태, 세그먼트 길이 실시간 표시
+13. **Body Segment Material** — Safe/Warning/Collision 색상 변화
+14. **Niagara FX + Sound** — 충돌 피드백 이펙트 + 음성 카운트다운 (CountdownSFX[0~3])
 
 ---
 
