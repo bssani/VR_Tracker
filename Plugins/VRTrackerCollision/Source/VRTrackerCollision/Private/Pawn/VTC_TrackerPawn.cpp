@@ -134,6 +134,9 @@ void AVTC_TrackerPawn::Tick(float DeltaTime)
 		UpdateAllTrackers();
 	}
 
+	// Movement Phase 감지 (Feature E)
+	DetectMovementPhase(DeltaTime);
+
 	OnAllTrackersUpdated.Broadcast();
 }
 
@@ -207,11 +210,35 @@ void AVTC_TrackerPawn::UpdateTracker(EVTCTrackerRole TrackerRole, UMotionControl
 	FVTCTrackerData& Data = TrackerDataMap.FindOrAdd(TrackerRole);
 	Data.Role       = TrackerRole;
 	Data.bIsTracked = MC->IsTracked();
+	Data.bIsInterpolated = false;
 
 	if (Data.bIsTracked)
 	{
 		Data.WorldLocation = MC->GetComponentLocation();
 		Data.WorldRotation = MC->GetComponentRotation();
+
+		// Dropout 보간: 추적 성공 시 히스토리 갱신 + 카운터 리셋
+		TArray<FVector>& History = TrackerLocationHistory.FindOrAdd(TrackerRole);
+		History.Add(Data.WorldLocation);
+		if (History.Num() > 2) History.RemoveAt(0);
+		DropoutFrameCount.FindOrAdd(TrackerRole) = 0;
+	}
+	else if (MaxDropoutFrames > 0)
+	{
+		// Dropout 보간 (Feature C): 추적 실패 시 히스토리 기반 선형 외삽
+		int32& FrameCount = DropoutFrameCount.FindOrAdd(TrackerRole);
+		const TArray<FVector>* History = TrackerLocationHistory.Find(TrackerRole);
+
+		if (History && History->Num() >= 2 && FrameCount < MaxDropoutFrames)
+		{
+			const FVector& Prev  = (*History)[History->Num() - 2];
+			const FVector& Last  = (*History)[History->Num() - 1];
+			const FVector Velocity = Last - Prev;
+			Data.WorldLocation = Last + Velocity * (FrameCount + 1);
+			Data.bIsTracked = true;  // 보간 중은 "추적 중"으로 취급
+			Data.bIsInterpolated = true;
+			FrameCount++;
+		}
 	}
 
 	if (bShowDebugSpheres && Data.bIsTracked)
@@ -225,7 +252,9 @@ void AVTC_TrackerPawn::UpdateTracker(EVTCTrackerRole TrackerRole, UMotionControl
 		case EVTCTrackerRole::LeftFoot:   Color = FColor::Cyan;   break;
 		case EVTCTrackerRole::RightFoot:  Color = FColor::Purple; break;
 		}
-		DrawDebugSphere(GetWorld(), Data.WorldLocation, DebugSphereRadius, 8, Color, false, -1.0f, 0, 1.0f);
+		// 보간 데이터는 점선 스타일로 구분 (얇은 선)
+		const float LineThickness = Data.bIsInterpolated ? 0.5f : 1.0f;
+		DrawDebugSphere(GetWorld(), Data.WorldLocation, DebugSphereRadius, 8, Color, false, -1.0f, 0, LineThickness);
 	}
 
 	OnTrackerUpdated.Broadcast(TrackerRole, Data);
@@ -241,6 +270,57 @@ UMotionControllerComponent* AVTC_TrackerPawn::GetMotionController(EVTCTrackerRol
 	case EVTCTrackerRole::LeftFoot:  return MC_LeftFoot;
 	case EVTCTrackerRole::RightFoot: return MC_RightFoot;
 	default: return nullptr;
+	}
+}
+
+// ─── Movement Phase 감지 (Feature E) ─────────────────────────────────────────
+
+void AVTC_TrackerPawn::DetectMovementPhase(float DeltaTime)
+{
+	const FVector CurrentHip = GetTrackerLocation(EVTCTrackerRole::Waist);
+	if (CurrentHip.IsZero()) return;
+
+	if (!bHasPreviousHipLocation)
+	{
+		PreviousHipLocation = CurrentHip;
+		bHasPreviousHipLocation = true;
+		return;
+	}
+
+	// Hip Z 속도 계산 (cm/s)
+	const float HipZVelocity = (DeltaTime > SMALL_NUMBER)
+		? (CurrentHip.Z - PreviousHipLocation.Z) / DeltaTime
+		: 0.0f;
+
+	PreviousHipLocation = CurrentHip;
+
+	EVTCMovementPhase NewPhase = CurrentPhase;
+
+	if (FMath::Abs(HipZVelocity) < PhaseVelocityThreshold)
+	{
+		// 수직 움직임 없음 — Stationary 또는 Seated 유지
+		if (CurrentPhase == EVTCMovementPhase::Entering)
+			NewPhase = EVTCMovementPhase::Seated;
+		else if (CurrentPhase == EVTCMovementPhase::Unknown)
+			NewPhase = EVTCMovementPhase::Stationary;
+		// Stationary, Seated, Exiting 상태는 유지
+	}
+	else if (HipZVelocity < -PhaseVelocityThreshold)
+	{
+		// 하강 중 → 진입 (앉기)
+		NewPhase = EVTCMovementPhase::Entering;
+	}
+	else if (HipZVelocity > PhaseVelocityThreshold)
+	{
+		// 상승 중 → 이탈 (일어서기)
+		NewPhase = EVTCMovementPhase::Exiting;
+	}
+
+	if (NewPhase != CurrentPhase)
+	{
+		const EVTCMovementPhase OldPhase = CurrentPhase;
+		CurrentPhase = NewPhase;
+		OnPhaseChanged.Broadcast(OldPhase, NewPhase);
 	}
 }
 

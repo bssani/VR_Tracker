@@ -197,7 +197,7 @@ void AVTC_SessionManager::OnWarningLevelChanged(EVTCTrackerRole BodyPart,
 	if (Level == EVTCWarningLevel::Collision && DataLogger && BodyActor)
 	{
 		FVTCCollisionEvent Event;
-		Event.Timestamp        = FDateTime::Now().ToString(TEXT("%Y-%m-%d %H:%M:%S"));
+		Event.Timestamp        = FDateTime::Now().ToString(TEXT("%Y-%m-%d %H:%M:%S.%s"));
 		Event.BodyPart         = BodyPart;
 		Event.VehiclePartName  = PartName;
 		Event.CollisionLocation = BodyActor->GetBodyPartLocation(BodyPart);

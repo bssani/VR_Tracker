@@ -5,6 +5,8 @@
 #include "DrawDebugHelpers.h"
 #include "Kismet/GameplayStatics.h"
 #include "Vehicle/VTC_ReferencePoint.h"
+#include "Misc/FileHelper.h"
+#include "UnrealClient.h"
 
 
 UVTC_CollisionDetector::UVTC_CollisionDetector() {
@@ -94,9 +96,30 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
       Result.ReferencePointLocation = RefPoint->GetReferenceLocation();
       CurrentDistanceResults.Add(Result);
 
-      // 최소 거리 갱신
+      // 최소 거리 갱신 + 자동 스크린샷
       if (SafeDistanceResult < SessionMinDistance)
+      {
         SessionMinDistance = SafeDistanceResult;
+
+        if (bAutoScreenshotOnWorstClearance)
+        {
+          FString Dir = ScreenshotDirectory;
+          if (Dir.IsEmpty())
+          {
+            Dir = FPaths::ProjectSavedDir() / TEXT("VTCLogs") / TEXT("Screenshots");
+          }
+          IFileManager::Get().MakeDirectory(*Dir, true);
+          const FString Filename = FString::Printf(
+              TEXT("VTC_Worst_%.1fcm_%s.png"),
+              SafeDistanceResult,
+              *FDateTime::Now().ToString(TEXT("%Y%m%d_%H%M%S")));
+          LastScreenshotPath = Dir / Filename;
+          FScreenshotRequest::RequestScreenshot(LastScreenshotPath, false, false);
+          UE_LOG(LogTemp, Log,
+                 TEXT("[VTC] Worst clearance updated: %.1f cm — screenshot: %s"),
+                 SafeDistanceResult, *LastScreenshotPath);
+        }
+      }
 
       // 전체 경고 레벨 갱신 (더 심각한 쪽으로)
       if ((int32)Level > (int32)NewOverallLevel)
@@ -124,7 +147,18 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
       if (Level == EVTCWarningLevel::Collision)
         LineColor = FColor::Red;
       DrawDebugLine(GetWorld(), BodyLocation, RefPoint->GetReferenceLocation(),
-                    LineColor, false, -1.0f, 0, 0.5f);
+                    LineColor, false, -1.0f, 0, DebugLineThickness);
+
+      // 라인 중간에 거리 수치 텍스트 표시 (VR HMD에서 가시)
+      if (bShowDistanceLabels)
+      {
+        const FVector MidPoint =
+            (BodyLocation + RefPoint->GetReferenceLocation()) * 0.5f;
+        const FString DistLabel =
+            FString::Printf(TEXT("%.1f cm"), SafeDistanceResult);
+        DrawDebugString(GetWorld(), MidPoint, DistLabel, nullptr,
+                        LineColor, -1.0f, true, 1.2f);
+      }
     }
   }
 
