@@ -21,9 +21,9 @@ C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**�
     ├─ VR / Simulation 모드 선택
     ├─ Mount Offset 5개 (Waist/LKnee/RKnee/LFoot/RFoot) X/Y/Z 입력
     ├─ Vehicle Hip Position X/Y/Z 입력
-    ├─ [NEW] Slider_Warning (0~50cm) + Txt_WarningVal    ← Warning 임계값 (Feature A)
-    ├─ [NEW] Slider_Collision (0~20cm) + Txt_CollisionVal ← Collision 임계값 (Feature A)
-    ├─ [NEW] Combo_VehiclePreset + Btn_SavePreset        ← 차종 프리셋 (Feature B)
+    ├─ Slider_Warning (3~50cm) + Txt_WarningVal    ← Warning 임계값 (Feature A ✅)
+    ├─ Slider_Collision (1~20cm) + Txt_CollisionVal ← Collision 임계값 (Feature A ✅)
+    ├─ Combo_VehiclePreset + Btn_SavePreset        ← 차종 프리셋 (Feature B ✅)
     ├─ Collision Sphere 표시 여부 체크박스
     ├─ Tracker Mesh 표시 여부 체크박스
     ├─ [Save Config] / [Load Config] 버튼
@@ -139,8 +139,7 @@ Level 2 로드 → OperatorController::BeginPlay → ApplyGameInstanceConfig()
 |---------|------|------|
 | EditableTextBox | `TB_SubjectID` | 피실험자 ID |
 | EditableTextBox | `TB_Height` | 키(cm) |
-| CheckBox | `CB_ModeVR` | VR 모드 선택 |
-| CheckBox | `CB_ModeSimulation` | 시뮬레이션 모드 선택 |
+| CheckBox | `Toggle_VRMode` | VR/Simulation 토글 (Checked=VR, Unchecked=Simulation, 기본값 Checked) |
 | EditableTextBox | `TB_Offset_Waist_X` | Waist 트래커 오프셋 X |
 | EditableTextBox | `TB_Offset_Waist_Y` | Waist 트래커 오프셋 Y |
 | EditableTextBox | `TB_Offset_Waist_Z` | Waist 트래커 오프셋 Z |
@@ -184,8 +183,7 @@ Level 2 로드 → OperatorController::BeginPlay → ApplyGameInstanceConfig()
        │    └─ EditableTextBox TB_Height       (힌트: "175")
        │
        ├─ [Section] 실행 모드
-       │    ├─ CheckBox CB_ModeVR          "VR (HMD + Trackers)"
-       │    └─ CheckBox CB_ModeSimulation  "Simulation (Desktop Only)"
+       │    └─ CheckBox Toggle_VRMode  "VR 모드 (Checked=VR / Unchecked=Simulation)"
        │
        ├─ [Section] Mount Offsets (트래커 → 실제 신체 접촉점 보정)
        │    ├─ TextBlock "Waist Offset (X / Y / Z cm)"
@@ -207,7 +205,7 @@ Level 2 로드 → OperatorController::BeginPlay → ApplyGameInstanceConfig()
        │    ├─ CheckBox CB_ShowCollisionSpheres "충돌 구 표시"
        │    └─ CheckBox CB_ShowTrackerMesh      "Tracker 하드웨어 메시 표시"
        │
-       ├─ [Section] 거리 임계값 설정 (Feature A) ←─────────────────────── NEW
+       ├─ [Section] 거리 임계값 설정 (Feature A ✅)
        │    ├─ HorizontalBox
        │    │    ├─ TextBlock "Warning 임계값"
        │    │    ├─ Slider Slider_Warning   (Min=3, Max=50, Step=1, Default=10)
@@ -218,7 +216,7 @@ Level 2 로드 → OperatorController::BeginPlay → ApplyGameInstanceConfig()
        │         └─ TextBlock Txt_CollisionVal "3 cm"
        │    > Collision 임계값은 항상 Warning 임계값보다 작게 자동 클램프됨
        │
-       ├─ [Section] 차종 프리셋 (Feature B) ←────────────────────────────── NEW
+       ├─ [Section] 차종 프리셋 (Feature B ✅)
        │    ├─ ComboBoxString Combo_VehiclePreset  "프리셋 선택..."
        │    │    (NativeConstruct에서 Saved/VTCPresets/*.json 목록 자동 채움)
        │    └─ Button Btn_SavePreset  "현재 설정 저장"
@@ -231,11 +229,11 @@ Level 2 로드 → OperatorController::BeginPlay → ApplyGameInstanceConfig()
 ```
 
 > **동작 원리 (C++에서 자동 처리):**
-> - `NativeConstruct()`: 시작 시 INI 자동 로드 → 화면에 반영
+> - `NativeConstruct()`: 시작 시 INI 자동 로드 → 화면에 반영, Toggle_VRMode 기본값 Checked(VR)
 > - `[Save Config]`: 입력값 → INI 파일 저장
 > - `[Load Config]`: INI 파일 → 화면에 반영
 > - `[Start Session]`: SubjectID·Height 유효성 검사 → GameInstance에 저장 → INI 저장 → Level 2 로드
-> - CB_ModeVR ↔ CB_ModeSimulation은 자동으로 상호 배타 처리됨
+> - `Toggle_VRMode`: Checked=VR, Unchecked=Simulation (단일 CheckBox로 모드 전환)
 
 ---
 
@@ -1170,11 +1168,21 @@ WBP_OperatorMonitor (새 위젯 생성)
 
 SessionManager 내 CollisionDetector 컴포넌트에서:
 
-| 프로퍼티 | 기본값 | 설명 |
-|---------|-------|------|
-| WarningThreshold | `10.0` cm | 이 거리 이내 → Warning |
-| CollisionThreshold | `3.0` cm | 이 거리 이내 → Collision |
-| MeasurementHz | `30.0` Hz | 거리 측정 빈도 |
+| 카테고리 | 프로퍼티 | 기본값 | 설명 |
+|---------|---------|-------|------|
+| VTC\|Collision | WarningThreshold | `10.0` cm | 이 거리 이내 → Warning |
+| VTC\|Collision | CollisionThreshold | `3.0` cm | 이 거리 이내 → Collision (≤WarningThreshold 자동 클램프) |
+| VTC\|Collision | MeasurementHz | `30.0` Hz | 거리 측정 빈도 |
+| VTC\|Debug | bShowDistanceLabels | `true` | 거리 라인 중간에 수치 텍스트 표시 (VR HMD 가시) |
+| VTC\|Debug | DebugLineThickness | `1.5` | 디버그 라인 두께 (범위 0.5~5.0, VR에서 가독성 향상) |
+| VTC\|Screenshot | bAutoScreenshotOnWorstClearance | `true` | 최악 클리어런스 갱신 시 자동 스크린샷 저장 (Feature F ✅) |
+| VTC\|Screenshot | ScreenshotDirectory | `""` | 스크린샷 저장 경로 (빈값 = `Saved/VTCLogs/Screenshots/`) |
+| VTC\|Screenshot | LastScreenshotPath | *(ReadOnly)* | 마지막 저장된 스크린샷 경로 |
+
+> **임계값 자동 클램프 (에디터 + 런타임):**
+> - Details 패널에서 WarningThreshold를 낮추면 CollisionThreshold도 자동으로 따라 내려감
+> - CollisionThreshold를 올리면 WarningThreshold도 자동으로 따라 올라감
+> - 런타임: `PerformDistanceMeasurements()` 호출마다 자동 클램프 적용
 
 ---
 
