@@ -586,31 +586,31 @@ CollisionOccurred, CollisionPartName
 
 ### C++ 구현 완료 (22개 헤더 + 19개 소스)
 
-| 파일 | 카테고리 | 내용 |
-|------|---------|------|
-| VTC_TrackerTypes.h | Tracker | 공통 Enum/Struct |
-| VTC_TrackerInterface.h | Tracker | TrackerPawn 접근 인터페이스 |
-| VTC_TrackerPawn | Pawn | HMD+5 Tracker 통합 Pawn |
-| VTC_GameMode | Core | Level 2 GameMode |
-| VTC_SetupGameMode | Core | Level 1 GameMode (위젯 생성/정리) |
-| VTC_GameInstance | Core | 레벨 간 설정 전달 + INI |
-| VTC_SessionConfig | Core | FVTCSessionConfig 구조체 |
-| VTC_OperatorController | Controller | F키 세션 제어 + 설정 적용 + 동적 스폰 |
-| VTC_SimPlayerController | Controller | WASD/마우스 시뮬레이션 (OperatorController 상속) |
-| VTC_BodyActor | Body | 가상 신체 (세그먼트+Sphere+VisualSphere) |
-| VTC_BodySegmentComponent | Body | Dynamic Cylinder |
-| VTC_CalibrationComponent | Body | T-Pose 캘리브레이션 |
-| VTC_ReferencePoint | Vehicle | 차량 기준점 Actor |
-| VTC_CollisionDetector | Collision | 거리 측정 + 충돌 감지 |
-| VTC_WarningFeedback | Collision | 시각/청각 피드백 |
-| VTC_DataLogger | Data | CSV 로깅 (summary + frames) |
-| VTC_SessionManager | Data | 세션 상태머신 |
-| VTC_SetupWidget | UI | Level 1 설정 위젯 |
-| VTC_StatusWidget | UI | Level 2 상태 표시 위젯 |
-| VTC_SubjectInfoWidget | UI | 피실험자 입력 위젯 |
-| VTC_StatusActor | World | 3D 월드 위젯 Actor |
-| VTC_VehiclePreset | Core | JSON 차종 프리셋 구조체 + 파일 I/O Manager (Feature B) |
-| VTC_OperatorViewActor | World | SceneCapture2D → TextureRenderTarget → Spectator Screen (Feature I) |
+| 파일 | 카테고리 | 내용 | 신규 기능 |
+|------|---------|------|----------|
+| VTC_TrackerTypes.h | Tracker | 공통 Enum/Struct | |
+| VTC_TrackerInterface.h | Tracker | TrackerPawn 접근 인터페이스 | |
+| VTC_TrackerPawn | Pawn | HMD+5 Tracker 통합 Pawn | |
+| VTC_GameMode | Core | Level 2 GameMode | |
+| VTC_SetupGameMode | Core | Level 1 GameMode (위젯 생성/정리) | |
+| VTC_GameInstance | Core | 레벨 간 설정 전달 + INI | |
+| VTC_SessionConfig | Core | FVTCSessionConfig 구조체 | WarningThreshold_cm, CollisionThreshold_cm, bUseVehiclePreset, SelectedPresetName, LoadedPresetJson |
+| VTC_OperatorController | Controller | F키 세션 제어 + 설정 적용 + 동적 스폰 | |
+| VTC_SimPlayerController | Controller | WASD/마우스 시뮬레이션 (OperatorController 상속) | |
+| VTC_BodyActor | Body | 가상 신체 (세그먼트+Sphere+VisualSphere) | |
+| VTC_BodySegmentComponent | Body | Dynamic Cylinder | |
+| VTC_CalibrationComponent | Body | T-Pose 캘리브레이션 | |
+| VTC_ReferencePoint | Vehicle | 차량 기준점 Actor | |
+| VTC_CollisionDetector | Collision | 거리 측정 + 충돌 감지 | **F** 자동 스크린샷 ✅ / **G** VR 거리 라벨 ✅ |
+| VTC_WarningFeedback | Collision | 시각/청각 피드백 | |
+| VTC_DataLogger | Data | CSV 로깅 (summary + frames) | |
+| VTC_SessionManager | Data | 세션 상태머신 | |
+| VTC_SetupWidget | UI | Level 1 설정 위젯 | **A** 임계값 슬라이더 ✅ / **B** 차종 프리셋 ComboBox ✅ |
+| VTC_StatusWidget | UI | Level 2 상태 표시 위젯 | |
+| VTC_SubjectInfoWidget | UI | 피실험자 입력 위젯 | |
+| VTC_StatusActor | World | 3D 월드 위젯 Actor | |
+| VTC_VehiclePreset | Core | JSON 차종 프리셋 구조체 + 파일 I/O Manager | **B** ✅ |
+| VTC_OperatorViewActor | World | SceneCapture2D → TextureRenderTarget → Spectator Screen | **I** |
 
 ### Blueprint / Asset 작업 필요
 
@@ -618,6 +618,7 @@ CollisionOccurred, CollisionPartName
 |------|---------|
 | BP_VTC_GameInstance 생성 (레벨 이름 지정) | 높음 |
 | BP_VTC_SetupGameMode + WBP_SetupWidget 생성 | 높음 |
+| WBP_SetupWidget에 슬라이더/콤보박스 BindWidget 추가 | 높음 — `Slider_Warning`, `Slider_Collision`, `Txt_WarningVal`, `Txt_CollisionVal`, `Combo_VehiclePreset`, `Btn_SavePreset` |
 | BP_VTC_TrackerPawn (MotionSource 설정) | 높음 |
 | BP_VTC_SimPlayerController (Enhanced Input 에셋 연결) | 높음 |
 | BP_VTC_BodyActor (Material 연결) | 높음 |
@@ -630,9 +631,8 @@ CollisionOccurred, CollisionPartName
 | Niagara FX 설정 (CollisionImpact, WarningPulse) | 낮음 |
 | Sound Cue 설정 | 낮음 |
 | WBP_VTC_HUD (실시간 거리/상태 표시) | 중간 |
-| BP_VTC_OperatorViewActor (SceneCapture 설정) | 중간 [NEW] |
-| WBP_SetupWidget에 슬라이더/콤보박스 추가 | 높음 [NEW] |
-| 카운트다운 사운드 에셋 4개 (CountdownSFX 배열) | 중간 [NEW] |
+| BP_VTC_OperatorViewActor (SceneCapture 설정) | 중간 |
+| 카운트다운 사운드 에셋 4개 (CountdownSFX 배열) | 중간 |
 
 ---
 

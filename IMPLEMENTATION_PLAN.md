@@ -8,19 +8,24 @@
 
 ## 전체 요약
 
-| ID | 기능 | 난이도 | 신규 파일 | 수정 파일 |
-|----|------|--------|----------|----------|
-| A | Level 1 임계값 슬라이더 | Low | - | SessionConfig, SetupWidget |
-| B | JSON 차종별 프리셋 | Mid | VTC_VehiclePreset.h/cpp | SessionConfig, SetupWidget, OperatorController |
-| C | Tracker 드롭아웃 보간 | Low | - | TrackerTypes, TrackerPawn |
-| D | 캘리브레이션 유효성 강화 | Low | - | CalibrationComponent |
-| E | 진입/이탈 단계 분류 | Mid | - | TrackerTypes, TrackerPawn, DataLogger |
-| F | 최악 순간 자동 스크린샷 | Low | - | CollisionDetector, DataLogger |
-| G | VR 거리 라인 + 수치 | Low | - | CollisionDetector |
-| H | 음성 카운트다운 | Low | - | CalibrationComponent |
-| I | Operator View (Spectator) | Mid | VTC_OperatorViewActor.h/cpp | OperatorController |
+| ID | 기능 | 난이도 | 신규 파일 | 수정 파일 | C++ 상태 |
+|----|------|--------|----------|----------|---------|
+| A | Level 1 임계값 슬라이더 | Low | - | SessionConfig, SetupWidget | ✅ 완료 |
+| B | JSON 차종별 프리셋 | Mid | VTC_VehiclePreset.h/cpp | SessionConfig, SetupWidget, OperatorController | ✅ 완료 (SetupWidget/VehiclePreset) / OperatorController 미적용 |
+| C | Tracker 드롭아웃 보간 | Low | - | TrackerTypes, TrackerPawn | 미완료 |
+| D | 캘리브레이션 유효성 강화 | Low | - | CalibrationComponent | 미완료 |
+| E | 진입/이탈 단계 분류 | Mid | - | TrackerTypes, TrackerPawn, DataLogger | 미완료 |
+| F | 최악 순간 자동 스크린샷 | Low | - | CollisionDetector, DataLogger | ✅ 완료 (CollisionDetector) |
+| G | VR 거리 라인 + 수치 | Low | - | CollisionDetector | ✅ 완료 |
+| H | 음성 카운트다운 | Low | - | CalibrationComponent | 미완료 |
+| I | Operator View (Spectator) | Mid | VTC_OperatorViewActor.h/cpp | OperatorController | 미완료 |
 
 **신규 파일 2개 / 수정 파일 10개**
+
+> **실제 구현 차이점 (계획 vs 실제)**
+> - **A**: 슬라이더 간 상호 클램프(`CollisionThreshold < WarningThreshold`) 로직은 `OnWarningSliderChanged`/`OnCollisionSliderChanged` 에 미포함 — `VTC_CollisionDetector`의 `PostEditChangeProperty` + 런타임 클램프로 대신 처리
+> - **B**: `TB_NewPresetName`, `Btn_DeletePreset` 위젯 미구현 (프리셋 이름은 SubjectID 또는 기존 선택 항목 재사용)
+> - **F**: `ScreenshotDelay` 타이머 없이 즉시 `FScreenshotRequest::RequestScreenshot()` 호출
 
 ---
 
