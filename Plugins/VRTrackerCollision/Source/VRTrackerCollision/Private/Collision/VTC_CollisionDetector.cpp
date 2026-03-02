@@ -49,6 +49,9 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
   if (!BodyActor)
     return;
 
+  // 런타임에서도 두 임계값의 논리적 순서 보장
+  CollisionThreshold = FMath::Min(CollisionThreshold, WarningThreshold);
+
   CurrentDistanceResults.Empty();
   EVTCWarningLevel NewOverallLevel = EVTCWarningLevel::Safe;
 
@@ -195,6 +198,26 @@ void UVTC_CollisionDetector::ResetSessionStats() {
       RefPoint->ResetMarkerColor();
   }
 }
+
+#if WITH_EDITOR
+void UVTC_CollisionDetector::PostEditChangeProperty(FPropertyChangedEvent& Event)
+{
+  Super::PostEditChangeProperty(Event);
+
+  const FName PropName = Event.GetPropertyName();
+
+  // WarningThreshold 낮아지면 CollisionThreshold도 같이 내려줌
+  if (PropName == GET_MEMBER_NAME_CHECKED(UVTC_CollisionDetector, WarningThreshold))
+  {
+    CollisionThreshold = FMath::Min(CollisionThreshold, WarningThreshold);
+  }
+  // CollisionThreshold 올라가면 WarningThreshold도 같이 올려줌
+  else if (PropName == GET_MEMBER_NAME_CHECKED(UVTC_CollisionDetector, CollisionThreshold))
+  {
+    WarningThreshold = FMath::Max(WarningThreshold, CollisionThreshold);
+  }
+}
+#endif
 
 void UVTC_CollisionDetector::AutoFindReferencePoints() {
   TArray<AActor *> Found;

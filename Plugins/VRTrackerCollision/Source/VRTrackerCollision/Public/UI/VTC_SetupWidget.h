@@ -6,8 +6,7 @@
 //     TB_SubjectID          EditableTextBox
 //     TB_Height             EditableTextBox
 //   모드:
-//     CB_ModeVR             CheckBox  (선택 시 Simulation 해제)
-//     CB_ModeSimulation     CheckBox  (선택 시 VR 해제)
+//     Toggle_VRMode         CheckBox  (Checked=VR / Unchecked=Simulation, 기본 Checked)
 //   Mount Offsets (트래커별 X/Y/Z):
 //     TB_Offset_Waist_X/Y/Z      EditableTextBox
 //     TB_Offset_LKnee_X/Y/Z     EditableTextBox
@@ -56,9 +55,8 @@ public:
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TB_SubjectID;
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TB_Height;
 
-  // ─── 실행 모드 (상호 배타적 CheckBox) ───────────────────────────────────
-  UPROPERTY(meta = (BindWidget)) TObjectPtr<UCheckBox> CB_ModeVR;
-  UPROPERTY(meta = (BindWidget)) TObjectPtr<UCheckBox> CB_ModeSimulation;
+  // ─── 실행 모드 (Toggle: Checked=VR, Unchecked=Simulation) ──────────────
+  UPROPERTY(meta = (BindWidget)) TObjectPtr<UCheckBox> Toggle_VRMode;
 
   // ─── Mount Offset ────────────────────────────────────────────────────────
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TB_Offset_Waist_X;
@@ -127,19 +125,6 @@ private:
   UFUNCTION() void OnSaveConfigClicked();
   UFUNCTION() void OnLoadConfigClicked();
   UFUNCTION() void OnStartSessionClicked();
-
-  // 모드 CheckBox 상호 배타 처리
-  UFUNCTION() void OnModeVRChanged(bool bIsChecked);
-  UFUNCTION() void OnModeSimulationChanged(bool bIsChecked);
-
-  // 슬라이더 변경 핸들러
-  UFUNCTION() void OnWarningSliderChanged(float Value);
-  UFUNCTION() void OnCollisionSliderChanged(float Value);
-
-  // 프리셋 핸들러
-  UFUNCTION() void OnSavePresetClicked();
-  UFUNCTION() void OnPresetSelectionChanged(FString SelectedItem, ESelectInfo::Type SelectionType);
-  void RefreshPresetComboBox();
 
   // EditableTextBox → float 파싱 (실패 시 Default 반환)
   static float ParseFloat(const UEditableTextBox* TB, float Default = 0.0f);

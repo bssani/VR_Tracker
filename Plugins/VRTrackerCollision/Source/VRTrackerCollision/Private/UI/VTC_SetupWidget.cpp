@@ -22,12 +22,8 @@ void UVTC_SetupWidget::NativeConstruct()
   if (Btn_StartSession)
     Btn_StartSession->OnClicked.AddDynamic(this, &UVTC_SetupWidget::OnStartSessionClicked);
 
-  // 모드 CheckBox 상호 배타
-  if (CB_ModeVR)
-    CB_ModeVR->OnCheckStateChanged.AddDynamic(this, &UVTC_SetupWidget::OnModeVRChanged);
-  if (CB_ModeSimulation)
-    CB_ModeSimulation->OnCheckStateChanged.AddDynamic(
-        this, &UVTC_SetupWidget::OnModeSimulationChanged);
+  // 모드 Toggle 기본값: VR
+  if (Toggle_VRMode) Toggle_VRMode->SetIsChecked(true);
 
   // 슬라이더 바인딩 (Feature A)
   if (Slider_Warning)
@@ -64,8 +60,8 @@ FVTCSessionConfig UVTC_SetupWidget::BuildConfigFromInputs() const
   if (TB_SubjectID) C.SubjectID  = TB_SubjectID->GetText().ToString().TrimStartAndEnd();
   C.Height_cm = ParseFloat(TB_Height, 170.0f);
 
-  // 모드
-  C.RunMode = (CB_ModeVR && CB_ModeVR->IsChecked())
+  // 모드 (Toggle: Checked=VR, Unchecked=Simulation)
+  C.RunMode = (Toggle_VRMode && Toggle_VRMode->IsChecked())
               ? EVTCRunMode::VR
               : EVTCRunMode::Simulation;
 
@@ -116,9 +112,7 @@ void UVTC_SetupWidget::PopulateFromConfig(const FVTCSessionConfig& C)
   if (TB_SubjectID) TB_SubjectID->SetText(FText::FromString(C.SubjectID));
   SetFloat(TB_Height, C.Height_cm);
 
-  const bool bVR = (C.RunMode == EVTCRunMode::VR);
-  if (CB_ModeVR)         CB_ModeVR->SetIsChecked(bVR);
-  if (CB_ModeSimulation) CB_ModeSimulation->SetIsChecked(!bVR);
+  if (Toggle_VRMode) Toggle_VRMode->SetIsChecked(C.RunMode == EVTCRunMode::VR);
 
   SetVector(TB_Offset_Waist_X,  TB_Offset_Waist_Y,  TB_Offset_Waist_Z,  C.MountOffset_Waist);
   SetVector(TB_Offset_LKnee_X,  TB_Offset_LKnee_Y,  TB_Offset_LKnee_Z,  C.MountOffset_LeftKnee);
@@ -189,21 +183,6 @@ void UVTC_SetupWidget::OnStartSessionClicked()
   GI->SessionConfig = BuildConfigFromInputs();
   GI->SaveConfigToINI();   // 시작 전에 항상 저장
   GI->OpenTestLevel();
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  모드 CheckBox 상호 배타
-// ─────────────────────────────────────────────────────────────────────────────
-void UVTC_SetupWidget::OnModeVRChanged(bool bIsChecked)
-{
-  if (bIsChecked && CB_ModeSimulation)
-    CB_ModeSimulation->SetIsChecked(false);
-}
-
-void UVTC_SetupWidget::OnModeSimulationChanged(bool bIsChecked)
-{
-  if (bIsChecked && CB_ModeVR)
-    CB_ModeVR->SetIsChecked(false);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
