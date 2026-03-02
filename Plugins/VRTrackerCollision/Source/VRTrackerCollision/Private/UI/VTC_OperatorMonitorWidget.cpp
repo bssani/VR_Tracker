@@ -79,7 +79,8 @@ void UVTC_OperatorMonitorWidget::UpdateDistanceRow(const FVTCDistanceResult& Res
     DistanceRowMap.Add(Key, TB);
   }
 
-  // 최솟값 갱신
+  // 거리 원본 값 저장 + 최솟값 갱신
+  DistanceValueMap.Add(Key, Result.Distance);
   UpdateMinDistanceFromMap();
 }
 
@@ -87,6 +88,19 @@ void UVTC_OperatorMonitorWidget::ClearDistanceList()
 {
   if (VB_DistanceList) VB_DistanceList->ClearChildren();
   DistanceRowMap.Empty();
+  DistanceValueMap.Empty();
+}
+
+void UVTC_OperatorMonitorWidget::UpdateMinDistanceFromMap()
+{
+  if (DistanceValueMap.Num() == 0) return;
+
+  float MinVal = TNumericLimits<float>::Max();
+  for (const auto& Pair : DistanceValueMap)
+  {
+    MinVal = FMath::Min(MinVal, Pair.Value);
+  }
+  UpdateMinDistance(MinVal);
 }
 
 void UVTC_OperatorMonitorWidget::UpdateMinDistance(float MinDist_cm)
