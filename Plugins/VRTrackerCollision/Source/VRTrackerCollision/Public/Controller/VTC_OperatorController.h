@@ -24,7 +24,6 @@
 #include "VTC_SessionConfig.h"
 #include "VTC_OperatorController.generated.h"
 
-class UVTC_SubjectInfoWidget;
 class AVTC_StatusActor;
 class AVTC_OperatorViewActor;
 
@@ -43,20 +42,7 @@ public:
   UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Operator")
   TObjectPtr<AVTC_StatusActor> StatusActor;
 
-  // Level 2에서는 사용 안 하지만 이전 호환을 위해 유지
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Operator|UI")
-  TSubclassOf<UVTC_SubjectInfoWidget> SubjectInfoWidgetClass;
-
-  UPROPERTY(BlueprintReadOnly, Category = "VTC|Operator|UI")
-  TObjectPtr<UVTC_SubjectInfoWidget> SubjectInfoWidget;
-
   // ─── Blueprint 호출 가능 ──────────────────────────────────────────────────
-  UFUNCTION(BlueprintCallable, Category = "VTC|Operator|UI")
-  void ShowSubjectInfoWidget();
-
-  UFUNCTION(BlueprintCallable, Category = "VTC|Operator|UI")
-  void HideSubjectInfoWidget();
-
   UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "VTC|Operator|Session")
   void StartCalibration();
 
@@ -115,7 +101,4 @@ private:
   UFUNCTION()
   void OnSessionStateChanged(EVTCSessionState OldState, EVTCSessionState NewState);
 
-  // (Level 1 호환용, Level 2에서는 사용 안 함)
-  UFUNCTION()
-  void OnSessionStartRequested(const FString& SubjectID, float Height_cm);
 };

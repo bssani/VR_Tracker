@@ -144,13 +144,17 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
       OnDistanceUpdated.Broadcast(Result);
 
       // Debug 라인 시각화
+      // DebugDuration: 측정 간격보다 약간 길게 유지 → 프레임 간 끊김 없음(깜빡임 방지)
+      // 텍스트는 다음 측정 전에 자동 소멸 → 누적 방지
+      const float DebugDuration = (1.0f / MeasurementHz) + 0.05f;
+
       FColor LineColor = FColor::Green;
       if (Level == EVTCWarningLevel::Warning)
         LineColor = FColor::Yellow;
       if (Level == EVTCWarningLevel::Collision)
         LineColor = FColor::Red;
       DrawDebugLine(GetWorld(), BodyLocation, RefPoint->GetReferenceLocation(),
-                    LineColor, false, -1.0f, 0, DebugLineThickness);
+                    LineColor, false, DebugDuration, 0, DebugLineThickness);
 
       // 라인 중간에 거리 수치 텍스트 표시 (VR HMD에서 가시)
       if (bShowDistanceLabels)
@@ -160,7 +164,7 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
         const FString DistLabel =
             FString::Printf(TEXT("%.1f cm"), SafeDistanceResult);
         DrawDebugString(GetWorld(), MidPoint, DistLabel, nullptr,
-                        LineColor, -1.0f, true, 1.2f);
+                        LineColor, DebugDuration, true, 1.2f);
       }
     }
   }

@@ -18,7 +18,7 @@ C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**�
     └─ BeginPlay → WBP_SetupWidget AddToViewport + 마우스 커서 ON
   WBP_SetupWidget (화면에 표시)
     ├─ SubjectID, Height 입력
-    ├─ VR / Simulation 모드 선택
+    ├─ VR / Simulation 모드 선택 (Toggle_VRMode CheckBox)
     ├─ Mount Offset 5개 (Waist/LKnee/RKnee/LFoot/RFoot) X/Y/Z 입력
     ├─ Vehicle Hip Position X/Y/Z 입력
     ├─ Slider_Warning (3~50cm) + Txt_WarningVal    ← Warning 임계값 (Feature A ✅)
@@ -34,21 +34,20 @@ C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**�
   GameMode: BP_VTC_GameMode
     └─ DefaultPawn: BP_VTC_TrackerPawn (자동 스폰)
        PlayerController: BP_VTC_SimPlayerController
-  BP_VTC_OperatorController (또는 BP_VTC_GameMode에 설정)
+  BP_VTC_SimPlayerController
     └─ BeginPlay → GameInstance 설정 읽어서 TrackerPawn/BodyActor에 자동 적용
-  BP_VTC_StatusActor (레벨에 3D 월드 배치)
+         ├─ F1     → 캘리브레이션 시작 (GameInstance의 SubjectID/Height 사용)
+         ├─ F2     → 테스트 직접 시작 (캘리브레이션 건너뜀)
+         ├─ F3     → 세션 종료 + CSV 내보내기
+         └─ Escape → Level 1(Setup)으로 복귀
+  BP_VTC_StatusActor (레벨에 3D 월드 배치 — VR 운전석 앞 대시보드 권장)
     └─ WBP_StatusWidget (WorldSpace 3D 위젯)
-  [NEW] BP_VTC_OperatorViewActor (레벨에 배치, 차량 위 상공에 위치) (Feature I)
-    └─ SceneCaptureComponent2D → RenderTarget → Spectator Screen
-         ├─ 현재 세션 상태 표시
-         ├─ 피실험자 정보 표시
-         ├─ 트래커 연결 수 표시
-         └─ 키 안내 메시지: F1 캘리브레이션 / F2 테스트 시작 / F3 종료+CSV
-  레벨 내 키 입력 (BP_VTC_SimPlayerController가 F키 + Escape 모두 처리)
-    ├─ F1     → 캘리브레이션 시작
-    ├─ F2     → 테스트 직접 시작 (캘리브레이션 건너뜀)
-    ├─ F3     → 종료 + CSV 내보내기
-    └─ Escape → Level 1(Setup)으로 복귀
+         ├─ 현재 세션 상태 표시 ("● IDLE" / "● TESTING" 등)
+         ├─ 키 안내 메시지 (상태마다 자동 변경)
+         ├─ 피실험자 정보 (Subject ID + Height)
+         └─ 트래커 연결 수 (매 1초 갱신)
+  BP_VTC_OperatorViewActor (레벨에 배치, 차량 위 상공에 위치) (Feature I)
+    └─ SceneCaptureComponent2D → RenderTarget → Spectator Screen (운영자 모니터)
 ```
 
 ### 데이터 흐름
@@ -666,331 +665,18 @@ C++ 코드 분석 결과, SessionManager는 자체적으로 `CollisionDetector`,
 
 ---
 
-## 6. WBP_VTC_SubjectInfo (피실험자 정보 입력 위젯)
+## ~~6. WBP_VTC_SubjectInfo / WBP_VTC_HUD — 제거됨~~
 
-### 생성 방법
-1. Content Browser → 우클릭 → **User Interface → Widget Blueprint**
-2. **Parent Class**: `VTC_SubjectInfoWidget` *(검색 후 선택)*
-3. 이름: `WBP_VTC_SubjectInfo`
-
-### 필수: BindWidget 위젯 배치
-
-C++ 코드에서 `meta=(BindWidget)` 으로 선언된 위젯 이름을 **정확히** 맞춰야 합니다.
-이름이 하나라도 다르면 컴파일 에러가 발생합니다.
-
-| 위젯 타입 | 이름 (대소문자 정확히) | 내용 |
-|---------|-------------------|------|
-| EditableTextBox | `TB_SubjectID` | 피실험자 ID 입력 |
-| EditableTextBox | `TB_Height` | 키(cm) 숫자 입력 (예: `175`) |
-| Button | `Btn_StartSession` | 시작 버튼 |
-
-**Designer 탭 예시 레이아웃:**
-```
-[Vertical Box]
-  ├─ TextBlock  "피실험자 ID"
-  ├─ EditableTextBox  TB_SubjectID    (힌트: "P001")
-  ├─ TextBlock  "키 (cm)"
-  ├─ EditableTextBox  TB_Height       (힌트: "175")
-  │     → KeyboardType: NumberPad (숫자 입력 강제)
-  └─ Button  Btn_StartSession  "시작"
-```
-
-> **`TB_Height` 설정 팁:**
-> - Input Method Type → `Number` 로 설정하면 숫자만 입력 가능
-> - Hint Text → `"키 입력 (cm), 예: 175"` 설정 권장
-
-### 연결 방법 (Level Blueprint 또는 WBP_VTC_HUD에서)
-
-```
-Event BeginPlay
-  │
-  └─ SubjectInfoWidgetRef → Bind Event to OnSessionStartRequested
-       └─ Custom Event HandleSessionStart (SubjectID: String, Height_cm: float)
-               └─ SessionManagerRef → StartSessionWithHeight (SubjectID, Height_cm)
-```
-
-> **참고:** `OnSessionStartRequested`는 버튼 클릭 시 자동으로 발동합니다.
-> C++ `NativeConstruct()`에서 버튼 바인딩이 완료되어 있습니다.
-> IsInputValid() 검사도 C++ 안에서 자동으로 처리됩니다 (SubjectID 비어있거나 Height ≤ 0이면 브로드캐스트 안 함).
+> **[제거됨]** Level 2의 세션 시작은 F1/F2 키(BP_VTC_SimPlayerController)로 처리되며,
+> 피실험자 정보는 Level 1 SetupWidget → GameInstance를 통해 이미 전달됩니다.
+> Screen Space HUD는 이 아키텍처에서 불필요합니다.
+> Level 2의 UI는 **BP_VTC_StatusActor (3D WorldSpace 위젯)** 가 담당합니다.
 
 ---
 
-## 7. WBP_VTC_HUD (UMG Widget)
-
-### 생성 방법
-1. Content Browser → 우클릭 → **User Interface → Widget Blueprint**
-2. 이름: `WBP_VTC_HUD`
-
 ---
 
-### Designer 탭 — 전체 위젯 트리
-
-HUD는 **항상 표시되는 상단 바** + **세션 상태별로 바뀌는 4개 패널**로 구성됩니다.
-
-```
-[Canvas Panel]  (루트)
-  │
-  ├─ [Vertical Box]  (전체 레이아웃)
-  │    │
-  │    ├─ ── 상단 상태 바 (항상 표시) ──────────────────────
-  │    │   HorizontalBox
-  │    │     ├─ TextBlock  TB_SessionState   "IDLE"
-  │    │     ├─ TextBlock  TB_ElapsedTime    "00:00:00"
-  │    │     └─ TextBlock  TB_SubjectID      ""
-  │    │
-  │    ├─ ── Panel_Idle (Overlay) ────────────────────────
-  │    │   VerticalBox  [이름: Panel_Idle]
-  │    │     └─ [WBP_VTC_SubjectInfo]  SubjectInfoWidget
-  │    │          (피실험자 ID + 키 입력 + 시작 버튼 — 모두 내장)
-  │    │
-  │    ├─ ── Panel_Calibrating (Overlay) ─────────────────
-  │    │   VerticalBox  [이름: Panel_Calibrating]
-  │    │     ├─ TextBlock  "T-Pose를 취하고 있으세요"
-  │    │     ├─ TextBlock  TB_CalibCountdown  "3"  (카운트다운)
-  │    │     └─ Button  BTN_SkipCalib  "Skip (Direct Test)"
-  │    │
-  │    ├─ ── Panel_Testing (Overlay) ──────────────────────
-  │    │   VerticalBox  [이름: Panel_Testing]
-  │    │     ├─ VerticalBox  VB_DistanceList  (동적 행 생성)
-  │    │     ├─ TextBlock  TB_MinDistance  "Min: -- cm"
-  │    │     └─ HorizontalBox
-  │    │          ├─ Button  BTN_Stop         "Stop"
-  │    │          └─ Button  BTN_ReCalibrate  "Re-Calibrate"
-  │    │
-  │    └─ ── Panel_Reviewing (Overlay) ───────────────────
-  │        VerticalBox  [이름: Panel_Reviewing]
-  │          ├─ TextBlock  "세션 완료"
-  │          ├─ TextBlock  TB_FinalMinDist  "최소 거리: -- cm"
-  │          ├─ Button  BTN_Export   "Export CSV"
-  │          └─ Button  BTN_NewSession  "New Session"
-```
-
-> **중요:** Panel_Idle / Panel_Calibrating / Panel_Testing / Panel_Reviewing 는
-> UMG에서 **Is Variable = true** 로 체크해야 Event Graph에서 참조할 수 있습니다.
-
----
-
-### 각 패널이 하는 일 요약
-
-| 패널 이름 | 표시 조건 (SessionState) | 내용 |
-|----------|------------------------|------|
-| **Panel_Idle** | `Idle` | 피험자 ID 입력 + Start 버튼. 세션 시작 전 대기 화면 |
-| **Panel_Calibrating** | `Calibrating` | "T-Pose 취하세요" 안내 + 카운트다운. 캘리브레이션 진행 중 |
-| **Panel_Testing** | `Testing` | VB_DistanceList (실시간 거리 목록) + 최소거리 + Stop 버튼 |
-| **Panel_Reviewing** | `Reviewing` | 세션 종료 후 최종 결과 + Export + New Session 버튼 |
-
----
-
-### Event Graph 연결 (Blueprint)
-
-#### [1] BeginPlay — 참조 취득 + 델리게이트 바인딩
-
-```
-Event BeginPlay
-  │
-  ├─ Get All Actors Of Class → BP_VTC_SessionManager
-  │    └─ [0] → Set SessionManagerRef (변수)
-  │
-  ├─ SessionManagerRef → CollisionDetector
-  │    └─ Set CollisionDetectorRef (변수)
-  │
-  ├─ Panel_Idle 안의 WBP_VTC_SubjectInfo → Get (Is Variable = true 로 설정)
-  │    └─ Set SubjectInfoWidgetRef (변수)
-  │         └─ Bind Event to OnSessionStartRequested
-  │              └─ Custom Event HandleSessionStart (SubjectID, Height_cm: float)
-  │                       └─ SessionManagerRef → StartSessionWithHeight (SubjectID, Height_cm)
-  │
-  ├─ Bind Event to OnSessionStateChanged (Target: SessionManagerRef)
-  │    └─ Event: Custom Event [HandleStateChanged]
-  │
-  ├─ Bind Event to OnDistanceUpdated (Target: CollisionDetectorRef)
-  │    └─ Event: Custom Event [HandleDistanceUpdated]
-  │
-  └─ Call HandleStateChanged (OldState: Idle, NewState: Idle)
-       ← 시작 시 Idle 패널을 즉시 표시하기 위해 1회 수동 호출
-```
-
----
-
-#### [2] HandleStateChanged — 패널 전환
-
-```
-Custom Event HandleStateChanged (OldState, NewState: EVTCSessionState)
-  │
-  ├─ Panel_Idle        → SetVisibility (Collapsed)
-  ├─ Panel_Calibrating → SetVisibility (Collapsed)
-  ├─ Panel_Testing     → SetVisibility (Collapsed)
-  └─ Panel_Reviewing   → SetVisibility (Collapsed)
-         (일단 전부 숨기고)
-  │
-  └─ Switch on EVTCSessionState (NewState)
-       │
-       ├─ Idle        → Panel_Idle        SetVisibility (Visible)
-       │
-       ├─ Calibrating → Panel_Calibrating SetVisibility (Visible)
-       │
-       ├─ Testing     → Panel_Testing     SetVisibility (Visible)
-       │                VB_DistanceList   ClearChildren  ← 이전 행 제거
-       │                DistanceWidgetMap Clear          ← Map 초기화
-       │
-       └─ Reviewing   → Panel_Reviewing   SetVisibility (Visible)
-                        TB_FinalMinDist   SetText ( SessionManagerRef → GetSessionMinDistance )
-```
-
-> **왜 전부 Collapsed 후 하나만 Visible?**
-> 상태가 바뀔 때마다 어떤 패널이 켜져있는지 추적할 필요 없이
-> "전부 끄고 해당하는 것만 켠다" 패턴이 가장 안전합니다.
-
----
-
-#### [3] HandleDistanceUpdated — VB_DistanceList Row 관리 (Map 방식)
-
-`OnDistanceUpdated`는 30Hz로 발동하며 **매번 (BodyPart 1개, VehiclePart 1개) 쌍**을 전달합니다.
-ClearChildren + 재생성하면 30Hz × Row 수만큼 Widget이 생성/삭제되어 성능 낭비입니다.
-대신 **Map으로 Row를 재사용**합니다.
-
-**변수 추가 (WBP_VTC_HUD Variables):**
-```
-DistanceWidgetMap : Map <EVTCTrackerRole, WBP_Distance>
-  (Variable Type: Map, Key: EVTCTrackerRole Enum, Value: WBP_Distance Object Reference)
-```
-
-**HandleDistanceUpdated 흐름:**
-```
-Custom Event HandleDistanceUpdated (Result: FVTCDistanceResult)
-  │
-  ├─ Break FVTCDistanceResult → BodyPart, VehiclePartName, Distance, WarningLevel
-  │
-  └─ Map Contains? DistanceWidgetMap[BodyPart]
-       │                          │
-      YES                         NO
-       │                          │
-       ▼                          ▼
-  Map Find                   Create Widget (WBP_Distance)
-  DistanceWidgetMap[BodyPart]      │
-       │                    VB_DistanceList → Add Child
-       │                    Map Add (BodyPart → 새 위젯)
-       │                          │
-       └──────────────────────────┘
-                    │
-                    ▼
-          [WBP_Distance 위젯 ref]
-                    │
-                    ▼
-          Call Function: UpdateRow(Result)
-          (WBP_Distance 안에 만드는 함수 — 아래 [4] 참조)
-```
-
-> **핵심:** BodyPart 하나당 Row 하나입니다. Waist, LeftKnee, RightKnee, LeftFoot, RightFoot 최대 5개.
-> 한번 생성된 Row는 UpdateRow()로 값만 바꾸고 재사용합니다.
-
----
-
-#### [4] WBP_Distance — Row 위젯 (이미 만드셨죠)
-
-Content Browser → Widget Blueprint → `WBP_Distance`
-
-**Designer 레이아웃:**
-```
-HorizontalBox
-  ├─ TextBlock  TB_BodyPart     Width: 100   예) "Left Knee"
-  ├─ TextBlock  TB_VehiclePart  Width: 140   예) "Dashboard"
-  ├─ TextBlock  TB_Distance     Width: 80    예) "8.2 cm"
-  └─ Border     BDR_Status      Width: 16    (배경색으로 경고 단계 표시)
-```
-
-**Function: UpdateRow (Result: FVTCDistanceResult)**
-```
-Break FVTCDistanceResult (Result)
-  │
-  ├─ BodyPart → Switch on EVTCTrackerRole
-  │               Waist      → TB_BodyPart SetText "Waist"
-  │               LeftKnee   → TB_BodyPart SetText "Left Knee"
-  │               RightKnee  → TB_BodyPart SetText "Right Knee"
-  │               LeftFoot   → TB_BodyPart SetText "Left Foot"
-  │               RightFoot  → TB_BodyPart SetText "Right Foot"
-  │
-  ├─ VehiclePartName → TB_VehiclePart SetText
-  │
-  ├─ Distance → Float To Text (최대소수점 1자리) → Append " cm" → TB_Distance SetText
-  │
-  └─ WarningLevel → Switch on EVTCWarningLevel
-                      Safe      → BDR_Status SetBrushColor (0, 0.8, 0, 1)  초록
-                      Warning   → BDR_Status SetBrushColor (1, 0.9, 0, 1)  노랑
-                      Collision → BDR_Status SetBrushColor (1, 0.1, 0, 1)  빨강
-```
-
----
-
-#### [5] Panel_Calibrating — 카운트다운 연결
-
-캘리브레이션 카운트다운은 **CalibrationComponent의 OnCalibrationCountdown** 델리게이트를 이용합니다.
-SessionManager → BodyActor → CalibrationComp 경로로 접근합니다.
-
-```
-BeginPlay (추가)
-  │
-  └─ SessionManagerRef → BodyActor → CalibrationComp
-       └─ Bind Event to OnCalibrationCountdown
-            └─ Custom Event HandleCalibCountdown (SecondsRemaining: int)
-                    └─ TB_CalibCountdown SetText (SecondsRemaining → To Text)
-```
-
-BTN_SkipCalib.OnClicked → SessionManagerRef → StartTestingDirectly()
-
----
-
-#### [6] Tick — 경과 시간 + 최소 거리 갱신
-
-```
-Event Tick (DeltaTime)
-  │
-  └─ SessionManagerRef → IsTesting?
-       true →
-         ├─ SessionManagerRef → SessionElapsedTime
-         │    └─ TB_ElapsedTime SetText ( 초 → "MM:SS" 포맷 )
-         │
-         └─ CollisionDetectorRef → CurrentDistanceResults → Length > 0?
-              true → SessionManagerRef → GetSessionMinDistance
-                       └─ TB_MinDistance SetText ( Format "Min: {0} cm" )
-```
-
-> **MM:SS 포맷 팁:** `Floor(Time / 60)` → 분, `Fmod(Time, 60)` → 초, 각각 두자리로 포맷
-
----
-
-#### [7] 버튼 클릭
-
-```
-[Panel_Idle 시작 버튼]
-  WBP_VTC_SubjectInfo.OnSessionStartRequested → HandleSessionStart (BeginPlay에서 바인딩)
-    └─ SessionManagerRef → StartSessionWithHeight (SubjectID, Height_cm)
-       ← SubjectID 비어있거나 Height ≤ 0이면 C++ 내부에서 자동으로 차단됨
-
-[Testing / Reviewing 패널 버튼]
-BTN_Stop.OnClicked          → SessionManagerRef → StopSession()
-BTN_ReCalibrate.OnClicked   → SessionManagerRef → RequestReCalibration()
-BTN_Export.OnClicked        → SessionManagerRef → ExportAndEnd()
-                               (반환: summary CSV 경로 — Print String으로 확인 가능)
-BTN_NewSession.OnClicked    → SessionManagerRef → StopSession()
-                               (Idle로 돌아가면 HandleStateChanged가 Panel_Idle 표시)
-```
-
----
-
-### HUD를 VR에서 표시하는 방법
-
-VR에서는 Screen Space Widget이 보이지 않으므로 **Widget Component**를 사용합니다:
-
-1. BP_VTC_TrackerPawn에 **WidgetComponent** 추가
-2. Widget Class → `WBP_VTC_HUD`
-3. Draw Size → `(800, 600)`
-4. Space → `World`
-5. Camera에 Attach (또는 고정 위치)
-
----
-
-## 7. PostProcessVolume (PP_VTC_Warning)
+## 6. PostProcessVolume (PP_VTC_Warning)
 
 ### 레벨에 배치
 
@@ -1246,6 +932,6 @@ SessionManager 내 CollisionDetector 컴포넌트에서:
   - 충돌 발생 여부 및 부품명
 
 **Q: 키(Height)가 CSV에 0으로 저장돼요**
-- `WBP_VTC_SubjectInfo`에서 키를 입력하고 시작했는지 확인
-- `StartSessionWithHeight(SubjectID, Height_cm)` 호출 여부 확인
+- Level 1 SetupWidget의 `TB_Height`에 키를 입력하고 Start Session 버튼을 눌렀는지 확인
+- `StartSessionWithHeight(SubjectID, Height_cm)` 호출 여부 확인 (F1/F2 키 → OperatorController → SessionManager)
 - HMD만으로 세션을 시작하면 `EstimatedHeight`(자동 추정, ±5cm 오차)가 사용됨
