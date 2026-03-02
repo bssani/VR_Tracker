@@ -93,6 +93,11 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "VTC|Collision|Events")
 	FOnVTCDistanceUpdated OnDistanceUpdated;
 
+#if WITH_EDITOR
+	// 에디터에서 값 변경 시 Warning/Collision 임계값 상호 클램프
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+
 private:
 	float MeasurementTimer = 0.0f;
 
