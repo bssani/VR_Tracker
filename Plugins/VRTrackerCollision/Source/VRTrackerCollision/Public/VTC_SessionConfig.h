@@ -58,6 +58,26 @@ struct VRTRACKERCOLLISION_API FVTCSessionConfig
   UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Vehicle")
   FVector VehicleHipPosition = FVector::ZeroVector;
 
+  // ── 거리 임계값 (CollisionDetector에 적용) ────────────────────────────
+  // Level 1 SetupWidget의 슬라이더로 설정.
+  UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Thresholds")
+  float WarningThreshold_cm = 10.0f;    // 이 거리 이하 → Warning
+
+  UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Thresholds")
+  float CollisionThreshold_cm = 3.0f;   // 이 거리 이하 → Collision
+
+  // ── 차종 프리셋 ──────────────────────────────────────────────────────
+  // true면 LoadedPresetJson의 ReferencePoint 데이터로 Level 2에서 스폰
+  UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Preset")
+  bool bUseVehiclePreset = false;
+
+  UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Preset")
+  FString SelectedPresetName = TEXT("");
+
+  // JSON 직렬화된 프리셋 (FVTCVehiclePreset → JsonObjectStringToUStruct 사용)
+  UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Preset")
+  FString LoadedPresetJson = TEXT("");
+
   // ── 가시성 ───────────────────────────────────────────────────────────────
   // Collision Sphere(USphereComponent) 및 VisualSphere 표시 여부
   UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Visibility")

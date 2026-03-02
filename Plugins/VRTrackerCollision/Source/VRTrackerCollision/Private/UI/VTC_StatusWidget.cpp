@@ -51,13 +51,13 @@ FString UVTC_StatusWidget::GetPromptForState(EVTCSessionState State)
   switch (State)
   {
     case EVTCSessionState::Idle:
-      return TEXT("F1  —  Start Calibration\nF2  —  Start Test (skip calibration)");
+      return TEXT("F1  —  Start Calibration\nF2  —  Start Test (skip calibration)\nESC  —  Return to Setup");
     case EVTCSessionState::Calibrating:
-      return TEXT("Stand in T-Pose and hold still.\nCalibration will complete automatically.");
+      return TEXT("Stand in T-Pose and hold still.\nCalibration will complete automatically.\nESC  —  Return to Setup");
     case EVTCSessionState::Testing:
-      return TEXT("F3  —  Stop & Export CSV\nTesting in progress...");
+      return TEXT("F3  —  Stop & Export CSV\nTesting in progress...\nESC  —  Return to Setup");
     case EVTCSessionState::Reviewing:
-      return TEXT("F3  —  Export CSV & Return to Idle");
+      return TEXT("F3  —  Export CSV & Return to Idle\nESC  —  Return to Setup");
     default:
       return TEXT("");
   }

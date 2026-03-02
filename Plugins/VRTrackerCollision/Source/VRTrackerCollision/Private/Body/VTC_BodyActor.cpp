@@ -151,19 +151,19 @@ void AVTC_BodyActor::SyncSpherePositions() {
         : Data.WorldLocation + FQuat(Data.WorldRotation).RotateVector(Offset);
 
     S->SetWorldLocation(EffectiveLocation);
-    S->SetVisibility(Data.bIsTracked);
-    // 미연결 트래커는 충돌도 비활성화.
-    // SetVisibility(false)는 렌더링만 끄고 충돌 판정은 유지하므로
-    // 위치가 (0,0,0)에 고정된 sphere가 phantom overlap을 일으키는 것을 방지.
-    S->SetCollisionEnabled(Data.bIsTracked
-        ? ECollisionEnabled::QueryAndPhysics
-        : ECollisionEnabled::NoCollision);
+
+    // bShowCollisionSpheres=false 이면 ApplySessionConfig에서 비활성화된 상태를 유지.
+    // Data.bIsTracked=false 이면 phantom overlap 방지를 위해 충돌 비활성화.
+    const bool bActive = bShowCollisionSpheres && Data.bIsTracked;
+    S->SetVisibility(bActive);
+    S->SetCollisionEnabled(bActive ? ECollisionEnabled::QueryAndPhysics
+                                   : ECollisionEnabled::NoCollision);
 
     // 시각화 메시도 동일 위치/가시성으로 동기화 (VR 렌더링용)
     if (Visual)
     {
       Visual->SetWorldLocation(EffectiveLocation);
-      Visual->SetVisibility(Data.bIsTracked);
+      Visual->SetVisibility(bActive);
     }
   };
 
@@ -251,6 +251,9 @@ void AVTC_BodyActor::ApplySessionConfig(const FVTCSessionConfig& Config)
   VehicleHipPosition = Config.VehicleHipPosition;
   if (VehicleHipMarker)
     VehicleHipMarker->SetWorldLocation(Config.VehicleHipPosition);
+
+  // 가시성 상태 저장 (SyncSpherePositions Tick이 덮어쓰지 않도록)
+  bShowCollisionSpheres = Config.bShowCollisionSpheres;
 
   // Collision/Visual Sphere 가시성 적용
   auto SetSphereGroupVisible = [&](USphereComponent* S, UStaticMeshComponent* V, bool bShow)

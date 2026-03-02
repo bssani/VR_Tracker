@@ -105,9 +105,11 @@ void UVTC_GameInstance::SaveVector(const TCHAR* Key, const FVector& V,
 FVector UVTC_GameInstance::LoadVector(const TCHAR* Key, const FVector& Default,
                                       const FString& Path) const
 {
-  FVector Result = Default;
-  GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_X")), Result.X, Path);
-  GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_Y")), Result.Y, Path);
-  GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_Z")), Result.Z, Path);
-  return Result;
+  // UE5에서 FVector::X/Y/Z는 double이므로 GetFloat(float&)에 직접 전달 불가.
+  // float 임시 변수에 읽어 FVector로 변환한다.
+  float X = (float)Default.X, Y = (float)Default.Y, Z = (float)Default.Z;
+  GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_X")), X, Path);
+  GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_Y")), Y, Path);
+  GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_Z")), Z, Path);
+  return FVector(X, Y, Z);
 }

@@ -85,6 +85,31 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VTC|Collision")
 	void AutoFindReferencePoints();
 
+	// ─── Debug 시각화 ────────────────────────────────────────────────────────
+
+	// VR 라인 중간에 거리 수치를 텍스트로 표시 (DrawDebugString)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Debug")
+	bool bShowDistanceLabels = true;
+
+	// Debug 라인 두께 (VR에서 가독성)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Debug",
+		meta=(ClampMin=0.5f, ClampMax=5.0f))
+	float DebugLineThickness = 1.5f;
+
+	// ─── 자동 스크린샷 ───────────────────────────────────────────────────────
+
+	// 최악 클리어런스 갱신 시 자동 스크린샷
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Screenshot")
+	bool bAutoScreenshotOnWorstClearance = true;
+
+	// 스크린샷 저장 경로 (비워두면 Saved/VTCLogs/Screenshots/)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Screenshot")
+	FString ScreenshotDirectory = TEXT("");
+
+	// 가장 최근 스크린샷 경로
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VTC|Screenshot")
+	FString LastScreenshotPath = TEXT("");
+
 	// ─── Delegates ──────────────────────────────────────────────────────────
 
 	UPROPERTY(BlueprintAssignable, Category = "VTC|Collision|Events")

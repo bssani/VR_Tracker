@@ -43,6 +43,19 @@ enum class EVTCSessionState : uint8
 };
 
 // ─────────────────────────────────────────────
+//  이동 단계 (진입/착석/이탈 자동 분류)
+// ─────────────────────────────────────────────
+UENUM(BlueprintType)
+enum class EVTCMovementPhase : uint8
+{
+	Unknown     UMETA(DisplayName = "Unknown"),
+	Stationary  UMETA(DisplayName = "Stationary"),   // Hip 거의 안 움직임
+	Entering    UMETA(DisplayName = "Entering"),      // Hip Z 빠르게 내려감 (탑승 중)
+	Seated      UMETA(DisplayName = "Seated"),        // Hip 안정 + 낮은 높이 (착석 완료)
+	Exiting     UMETA(DisplayName = "Exiting"),       // Hip Z 빠르게 올라감 (하차 중)
+};
+
+// ─────────────────────────────────────────────
 //  단일 Tracker 데이터
 // ─────────────────────────────────────────────
 USTRUCT(BlueprintType)
@@ -62,6 +75,10 @@ struct VRTRACKERCOLLISION_API FVTCTrackerData
 	// Tracker가 SteamVR에 연결되어 추적 중인지 여부
 	UPROPERTY(BlueprintReadOnly, Category = "VTC|Tracker")
 	bool bIsTracked = false;
+
+	// true = 실제 추적이 아닌 드롭아웃 보간값을 사용 중
+	UPROPERTY(BlueprintReadOnly, Category = "VTC|Tracker")
+	bool bIsInterpolated = false;
 };
 
 // ─────────────────────────────────────────────
@@ -120,6 +137,11 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVTCTrackerUpdated,
 	const FVTCTrackerData&, InTrackerData);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnVTCAllTrackersUpdated);
+
+// Phase 변경 델리게이트 (진입/착석/이탈 자동 감지)
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVTCPhaseChanged,
+	EVTCMovementPhase, OldPhase,
+	EVTCMovementPhase, NewPhase);
 
 // ─────────────────────────────────────────────
 //  거리 측정 결과 (단일 Knee ↔ Reference Point)

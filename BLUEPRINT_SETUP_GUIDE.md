@@ -10,23 +10,347 @@
 
 C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**하고 **레벨에 배치 및 연결**하면 동작합니다.
 
-```
-만들어야 할 Blueprint:
-  1. BP_VTC_TrackerPawn         (VTC_TrackerPawn 기반)
-  2. BP_VTC_BodyActor           (VTC_BodyActor 기반)
-  3. BP_VTC_ReferencePoint      (VTC_ReferencePoint 기반)
-  4. BP_VTC_SessionManager      (VTC_SessionManager 기반)
-  5. BP_VTC_GameMode            (VTC_GameMode 기반)
-  6. BP_VTC_SimPlayerController (VTC_SimPlayerController 기반)
-  7. WBP_VTC_SubjectInfo        (VTC_SubjectInfoWidget 기반)  ← 피실험자 ID + 키 입력 위젯
-  8. WBP_VTC_HUD                (UMG Widget Blueprint)
-  9. PP_VTC_Warning             (PostProcessVolume — 레벨 배치)
+### Level 1 / Level 2 두 레벨 구조
 
-필요한 에셋:
-  - Material: M_VTC_BodySegment (+ MI_Safe, MI_Warning, MI_Collision)
-  - Niagara: NS_VTC_CollisionImpact, NS_VTC_WarningPulse
-  - Sound: SC_VTC_Warning, SC_VTC_Collision
 ```
+[Level 1 — VTC_SetupLevel]
+  GameMode: BP_VTC_SetupGameMode
+    └─ BeginPlay → WBP_SetupWidget AddToViewport + 마우스 커서 ON
+  WBP_SetupWidget (화면에 표시)
+    ├─ SubjectID, Height 입력
+    ├─ VR / Simulation 모드 선택
+    ├─ Mount Offset 5개 (Waist/LKnee/RKnee/LFoot/RFoot) X/Y/Z 입력
+    ├─ Vehicle Hip Position X/Y/Z 입력
+    ├─ [NEW] Slider_Warning (0~50cm) + Txt_WarningVal    ← Warning 임계값 (Feature A)
+    ├─ [NEW] Slider_Collision (0~20cm) + Txt_CollisionVal ← Collision 임계값 (Feature A)
+    ├─ [NEW] Combo_VehiclePreset + Btn_SavePreset        ← 차종 프리셋 (Feature B)
+    ├─ Collision Sphere 표시 여부 체크박스
+    ├─ Tracker Mesh 표시 여부 체크박스
+    ├─ [Save Config] / [Load Config] 버튼
+    └─ [Start Session] 버튼
+          → GameInstance.SessionConfig 저장 + INI 저장 + OpenLevel("VTC_TestLevel")
+
+[Level 2 — VTC_TestLevel]
+  GameMode: BP_VTC_GameMode
+    └─ DefaultPawn: BP_VTC_TrackerPawn (자동 스폰)
+       PlayerController: BP_VTC_SimPlayerController
+  BP_VTC_OperatorController (또는 BP_VTC_GameMode에 설정)
+    └─ BeginPlay → GameInstance 설정 읽어서 TrackerPawn/BodyActor에 자동 적용
+  BP_VTC_StatusActor (레벨에 3D 월드 배치)
+    └─ WBP_StatusWidget (WorldSpace 3D 위젯)
+  [NEW] BP_VTC_OperatorViewActor (레벨에 배치, 차량 위 상공에 위치) (Feature I)
+    └─ SceneCaptureComponent2D → RenderTarget → Spectator Screen
+         ├─ 현재 세션 상태 표시
+         ├─ 피실험자 정보 표시
+         ├─ 트래커 연결 수 표시
+         └─ 키 안내 메시지: F1 캘리브레이션 / F2 테스트 시작 / F3 종료+CSV
+  레벨 내 키 입력 (BP_VTC_SimPlayerController가 F키 + Escape 모두 처리)
+    ├─ F1     → 캘리브레이션 시작
+    ├─ F2     → 테스트 직접 시작 (캘리브레이션 건너뜀)
+    ├─ F3     → 종료 + CSV 내보내기
+    └─ Escape → Level 1(Setup)으로 복귀
+```
+
+### 데이터 흐름
+
+```
+Level 1 위젯 입력
+    ↓ [Start Session] 클릭
+GameInstance.SessionConfig (레벨 전환 간 유지)
+    ↓ OpenLevel("VTC_TestLevel")
+Level 2 로드 → OperatorController::BeginPlay → ApplyGameInstanceConfig()
+    ├─ TrackerPawn.bSimulationMode = (RunMode == Simulation)
+    ├─ TrackerPawn.SetTrackerMeshVisible(bShowTrackerMesh)
+    ├─ BodyActor.ApplySessionConfig(Config)
+    │    ├─ MountOffset 5개 적용
+    │    └─ bShowCollisionSpheres 적용 (Tick이 덮어쓰지 않도록 멤버 변수 저장)
+    └─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰
+         └─ CollisionDetector.ReferencePoints.AddUnique(SpawnedHipRefPoint)
+              (AutoFindReferencePoints는 BeginPlay에서 이미 실행됐으므로 수동 등록)
+```
+
+### INI 설정 파일
+
+- 경로: `[프로젝트]/Config/VTCSettings.ini`
+- [Save Config] 또는 Start Session 클릭 시 자동 저장
+- Level 1 시작 시 자동 로드 (NativeConstruct에서 LoadConfigFromINI 호출)
+- **SubjectID / Height는 저장하지 않음** (매 세션마다 새로 입력)
+
+---
+
+### 만들어야 할 Blueprint 전체 목록
+
+```
+[Level 1 전용]
+  BP_VTC_SetupGameMode    (VTC_SetupGameMode 기반)   ← C++ 신규 추가됨
+  WBP_SetupWidget         (VTC_SetupWidget 기반)     ← C++ 신규 추가됨
+
+[Level 2 전용]
+  BP_VTC_GameMode         (VTC_GameMode 기반)
+  BP_VTC_SimPlayerController (VTC_SimPlayerController 기반)
+  BP_VTC_TrackerPawn      (VTC_TrackerPawn 기반)
+  BP_VTC_BodyActor        (VTC_BodyActor 기반)
+  BP_VTC_ReferencePoint   (VTC_ReferencePoint 기반)
+  BP_VTC_SessionManager   (VTC_SessionManager 기반)
+  BP_VTC_StatusActor      (VTC_StatusActor 기반)
+  WBP_StatusWidget        (VTC_StatusWidget 기반)
+  BP_VTC_OperatorViewActor (VTC_OperatorViewActor 기반) ← Feature I
+
+[공통]
+  BP_VTC_GameInstance     (VTC_GameInstance 기반)
+  PP_VTC_Warning          (PostProcessVolume — 레벨 배치)
+
+[에셋]
+  Material: M_VTC_BodySegment (+ MI_Safe, MI_Warning, MI_Collision)
+  Niagara: NS_VTC_CollisionImpact, NS_VTC_WarningPulse
+  Sound: SC_VTC_Warning, SC_VTC_Collision
+```
+
+---
+
+## [Level 1 설정] BP_VTC_SetupGameMode + WBP_SetupWidget
+
+### Step 1: BP_VTC_GameInstance 생성 (레벨 이름 지정)
+
+1. Content Browser → Blueprint Class → **All Classes** → `VTC_GameInstance` 검색
+2. 이름: `BP_VTC_GameInstance`
+3. Details 패널:
+
+| 프로퍼티 | 값 |
+|---------|-----|
+| Test Level Name | `VTC_TestLevel` ← Level 2 레벨 파일 이름과 일치시킬 것 |
+| Setup Level Name | `VTC_SetupLevel` ← Level 1 레벨 파일 이름과 일치시킬 것 |
+
+4. **Project Settings → Maps & Modes → Game Instance Class = `BP_VTC_GameInstance`**
+
+---
+
+### Step 2: WBP_SetupWidget 생성 (Level 1 UI)
+
+1. Content Browser → 우클릭 → **User Interface → Widget Blueprint**
+2. Parent Class: **All Classes** → `VTC_SetupWidget` 검색 후 선택
+3. 이름: `WBP_SetupWidget`
+
+#### 필수 BindWidget 목록
+
+아래 이름을 **정확히** 맞춰야 합니다 (대소문자 포함). 이름이 틀리면 컴파일 오류 발생.
+
+| 위젯 타입 | 이름 | 내용 |
+|---------|------|------|
+| EditableTextBox | `TB_SubjectID` | 피실험자 ID |
+| EditableTextBox | `TB_Height` | 키(cm) |
+| CheckBox | `CB_ModeVR` | VR 모드 선택 |
+| CheckBox | `CB_ModeSimulation` | 시뮬레이션 모드 선택 |
+| EditableTextBox | `TB_Offset_Waist_X` | Waist 트래커 오프셋 X |
+| EditableTextBox | `TB_Offset_Waist_Y` | Waist 트래커 오프셋 Y |
+| EditableTextBox | `TB_Offset_Waist_Z` | Waist 트래커 오프셋 Z |
+| EditableTextBox | `TB_Offset_LKnee_X` | 왼무릎 트래커 오프셋 X |
+| EditableTextBox | `TB_Offset_LKnee_Y` | 왼무릎 트래커 오프셋 Y |
+| EditableTextBox | `TB_Offset_LKnee_Z` | 왼무릎 트래커 오프셋 Z |
+| EditableTextBox | `TB_Offset_RKnee_X` | 오른무릎 트래커 오프셋 X |
+| EditableTextBox | `TB_Offset_RKnee_Y` | 오른무릎 트래커 오프셋 Y |
+| EditableTextBox | `TB_Offset_RKnee_Z` | 오른무릎 트래커 오프셋 Z |
+| EditableTextBox | `TB_Offset_LFoot_X` | 왼발 트래커 오프셋 X |
+| EditableTextBox | `TB_Offset_LFoot_Y` | 왼발 트래커 오프셋 Y |
+| EditableTextBox | `TB_Offset_LFoot_Z` | 왼발 트래커 오프셋 Z |
+| EditableTextBox | `TB_Offset_RFoot_X` | 오른발 트래커 오프셋 X |
+| EditableTextBox | `TB_Offset_RFoot_Y` | 오른발 트래커 오프셋 Y |
+| EditableTextBox | `TB_Offset_RFoot_Z` | 오른발 트래커 오프셋 Z |
+| EditableTextBox | `TB_HipRef_X` | 차량 Hip 기준점 X |
+| EditableTextBox | `TB_HipRef_Y` | 차량 Hip 기준점 Y |
+| EditableTextBox | `TB_HipRef_Z` | 차량 Hip 기준점 Z |
+| CheckBox | `CB_ShowCollisionSpheres` | 충돌 구 표시 여부 |
+| CheckBox | `CB_ShowTrackerMesh` | Tracker 하드웨어 메시 표시 여부 |
+| Slider | `Slider_Warning` | Warning 임계값 슬라이더 (범위 3~50 cm, 기본 10) |
+| Slider | `Slider_Collision` | Collision 임계값 슬라이더 (범위 1~20 cm, 기본 3) |
+| TextBlock | `Txt_WarningVal` | Warning 임계값 현재값 표시 ("10 cm") |
+| TextBlock | `Txt_CollisionVal` | Collision 임계값 현재값 표시 ("3 cm") |
+| ComboBoxString | `Combo_VehiclePreset` | 차종 프리셋 선택 드롭다운 |
+| Button | `Btn_SavePreset` | 현재 ReferencePoint 설정을 프리셋으로 저장 |
+| Button | `Btn_SaveConfig` | 설정 저장 버튼 |
+| Button | `Btn_LoadConfig` | 설정 불러오기 버튼 |
+| Button | `Btn_StartSession` | 세션 시작 버튼 |
+
+#### 권장 Designer 레이아웃
+
+```
+[ScrollBox] (전체 감싸기 — 항목이 많아서 스크롤 필요)
+  └─ [Vertical Box]
+       │
+       ├─ [Section] 피실험자 정보
+       │    ├─ TextBlock "Subject ID"
+       │    ├─ EditableTextBox TB_SubjectID    (힌트: "P001")
+       │    ├─ TextBlock "Height (cm)"
+       │    └─ EditableTextBox TB_Height       (힌트: "175")
+       │
+       ├─ [Section] 실행 모드
+       │    ├─ CheckBox CB_ModeVR          "VR (HMD + Trackers)"
+       │    └─ CheckBox CB_ModeSimulation  "Simulation (Desktop Only)"
+       │
+       ├─ [Section] Mount Offsets (트래커 → 실제 신체 접촉점 보정)
+       │    ├─ TextBlock "Waist Offset (X / Y / Z cm)"
+       │    ├─ HorizontalBox
+       │    │    ├─ EditableTextBox TB_Offset_Waist_X  (힌트: "0")
+       │    │    ├─ EditableTextBox TB_Offset_Waist_Y  (힌트: "0")
+       │    │    └─ EditableTextBox TB_Offset_Waist_Z  (힌트: "0")
+       │    ├─ (Left Knee / Right Knee / Left Foot / Right Foot 동일 패턴)
+       │    └─ ...
+       │
+       ├─ [Section] Vehicle Hip Reference Position
+       │    ├─ TextBlock "차량 Hip 기준점 (월드 좌표, cm)"
+       │    └─ HorizontalBox
+       │         ├─ EditableTextBox TB_HipRef_X
+       │         ├─ EditableTextBox TB_HipRef_Y
+       │         └─ EditableTextBox TB_HipRef_Z
+       │
+       ├─ [Section] 가시성
+       │    ├─ CheckBox CB_ShowCollisionSpheres "충돌 구 표시"
+       │    └─ CheckBox CB_ShowTrackerMesh      "Tracker 하드웨어 메시 표시"
+       │
+       ├─ [Section] 거리 임계값 설정 (Feature A) ←─────────────────────── NEW
+       │    ├─ HorizontalBox
+       │    │    ├─ TextBlock "Warning 임계값"
+       │    │    ├─ Slider Slider_Warning   (Min=3, Max=50, Step=1, Default=10)
+       │    │    └─ TextBlock Txt_WarningVal "10 cm"
+       │    └─ HorizontalBox
+       │         ├─ TextBlock "Collision 임계값"
+       │         ├─ Slider Slider_Collision (Min=1, Max=20, Step=1, Default=3)
+       │         └─ TextBlock Txt_CollisionVal "3 cm"
+       │    > Collision 임계값은 항상 Warning 임계값보다 작게 자동 클램프됨
+       │
+       ├─ [Section] 차종 프리셋 (Feature B) ←────────────────────────────── NEW
+       │    ├─ ComboBoxString Combo_VehiclePreset  "프리셋 선택..."
+       │    │    (NativeConstruct에서 Saved/VTCPresets/*.json 목록 자동 채움)
+       │    └─ Button Btn_SavePreset  "현재 설정 저장"
+       │         (프리셋 이름은 VehicleHipPosition + Offset 입력값으로 현재 프리셋명 사용)
+       │
+       └─ [Section] 버튼
+            ├─ Button Btn_LoadConfig   "Load Config"
+            ├─ Button Btn_SaveConfig   "Save Config"
+            └─ Button Btn_StartSession "▶ Start Session"
+```
+
+> **동작 원리 (C++에서 자동 처리):**
+> - `NativeConstruct()`: 시작 시 INI 자동 로드 → 화면에 반영
+> - `[Save Config]`: 입력값 → INI 파일 저장
+> - `[Load Config]`: INI 파일 → 화면에 반영
+> - `[Start Session]`: SubjectID·Height 유효성 검사 → GameInstance에 저장 → INI 저장 → Level 2 로드
+> - CB_ModeVR ↔ CB_ModeSimulation은 자동으로 상호 배타 처리됨
+
+---
+
+### Step 3: BP_VTC_SetupGameMode 생성
+
+1. Content Browser → Blueprint Class → **All Classes** → `VTC_SetupGameMode` 검색
+2. 이름: `BP_VTC_SetupGameMode`
+3. Details 패널:
+
+| 프로퍼티 | 값 |
+|---------|-----|
+| Setup Widget Class | `WBP_SetupWidget` |
+
+---
+
+### Step 4: Level 1 맵 파일 생성
+
+1. Content Browser → 우클릭 → **Level**
+2. 이름: `VTC_SetupLevel` ← BP_VTC_GameInstance의 SetupLevelName과 일치
+3. `VTC_SetupLevel` 열기 → **World Settings → GameMode Override = `BP_VTC_SetupGameMode`**
+4. 플레이하면 SetupWidget이 자동으로 화면에 표시되고 마우스 커서가 켜집니다.
+
+> **기본 맵 설정 (선택):** Project Settings → Maps & Modes → Editor Startup Map = `VTC_SetupLevel`
+
+---
+
+## [Level 2 설정] WBP_StatusWidget + BP_VTC_StatusActor
+
+### Step 1: WBP_StatusWidget 생성 (3D 월드 배치 위젯)
+
+1. Content Browser → **User Interface → Widget Blueprint**
+2. Parent Class: `VTC_StatusWidget`
+3. 이름: `WBP_StatusWidget`
+
+#### 필수 BindWidget 목록
+
+| 위젯 타입 | 이름 | 표시 내용 |
+|---------|------|---------|
+| TextBlock | `Txt_State` | 현재 상태 ("● IDLE" 등) |
+| TextBlock | `Txt_Prompt` | 키 안내 ("F1 — Start Calibration" 등) |
+| TextBlock | `Txt_SubjectInfo` | "Subject: P001 \| Height: 175 cm" |
+| TextBlock | `Txt_TrackerStatus` | "Trackers: 5 / 5 Connected" |
+
+#### 권장 Designer 레이아웃 (3D 월드 배치 기준 — 800×400)
+
+```
+[Canvas Panel]  크기: 800 × 400
+  └─ [Border] 반투명 검은 배경 (Opacity 0.7)
+       └─ [Vertical Box]
+            ├─ TextBlock Txt_State        폰트 크기 36, Bold, 가운데 정렬
+            │                              예) "● TESTING"
+            ├─ Separator (Spacer)
+            ├─ TextBlock Txt_Prompt       폰트 크기 24, 줄간격 넉넉히
+            │                              예) "F3  —  Stop & Export CSV"
+            ├─ Separator (Spacer)
+            ├─ TextBlock Txt_SubjectInfo  폰트 크기 18, 회색
+            └─ TextBlock Txt_TrackerStatus 폰트 크기 18, 회색
+```
+
+> **3D Widget 주의사항:**
+> - 배경을 불투명하게 하면 레벨 반사광의 영향을 덜 받음
+> - 폰트 크기는 3D 월드에서 볼 때 기준으로 설정 (작으면 VR에서 안 보임)
+
+---
+
+### Step 2: BP_VTC_StatusActor 생성
+
+1. Content Browser → Blueprint Class → `VTC_StatusActor`
+2. 이름: `BP_VTC_StatusActor`
+3. Details 패널:
+
+| 프로퍼티 | 값 |
+|---------|-----|
+| Status Widget Class | `WBP_StatusWidget` |
+
+---
+
+### Step 3: BP_VTC_GameMode 설정 (Level 2용)
+
+Level 2 GameMode에 OperatorController를 추가해야 합니다.
+
+1. `BP_VTC_GameMode` 열기 (또는 새로 생성: `VTC_GameMode` 기반)
+2. Details 패널:
+
+| 프로퍼티 | 값 |
+|---------|-----|
+| Default Pawn Class | `BP_VTC_TrackerPawn` |
+| Player Controller Class | `BP_VTC_SimPlayerController` |
+
+> **BP_VTC_SimPlayerController가 두 역할을 모두 담당합니다:**
+> - `VTC_SimPlayerController`가 `VTC_OperatorController`를 상속하도록 C++에서 변경됨
+> - F1/F2/F3/Escape 세션 제어 + GameInstance 설정 적용 → OperatorController(부모)가 처리
+> - WASD/마우스 시뮬레이션 이동 + Enhanced Input 등록 → SimPlayerController(자식)가 처리
+> - **BP_VTC_SimPlayerController 하나만 Player Controller Class로 지정하면 됩니다**
+
+---
+
+### Step 4: Level 2 맵 파일 생성 및 Actor 배치
+
+1. Content Browser → Level → 이름: `VTC_TestLevel`
+2. `VTC_TestLevel` 열기 → **World Settings → GameMode Override = `BP_VTC_GameMode`**
+3. 다음 Actor들을 레벨에 배치:
+
+| Actor | 수량 | 위치 |
+|-------|------|------|
+| `BP_VTC_BodyActor` | 1 | (0, 0, 0) |
+| `BP_VTC_SessionManager` | 1 | (0, 0, 0) |
+| `BP_VTC_StatusActor` | 1 | 운전석 옆 또는 대시보드 위 |
+| `BP_VTC_ReferencePoint` | N개 | 차량 측정 지점마다 |
+| PostProcessVolume (Infinite) | 1 | 어디든 |
+
+4. **BP_VTC_StatusActor 배치 팁:**
+   - 차량 운전석 정면 (대시보드 위) 권장
+   - Transform Rotation으로 운전자를 향하도록 조정
+   - Scale은 0.01~0.02 범위 (DrawSize 800×400이 cm 단위로 월드에 배치됨)
 
 ---
 
@@ -720,11 +1044,19 @@ VR에서는 Screen Space Widget이 보이지 않으므로 **Widget Component**�
 2. SessionManager의 WarningFeedback → PostProcessVolume 연결
 
 ### Step 7: 사운드 & FX 에셋 연결
-SessionManager의 WarningFeedback 컴포넌트에서:
+
+SessionManager의 **WarningFeedback** 컴포넌트에서:
 - `WarningSFX` → 경고 사운드 에셋
 - `CollisionSFX` → 충돌 사운드 에셋
 - `CollisionImpactFX` → Niagara 시스템 (있으면)
 - `WarningPulseFX` → Niagara 시스템 (있으면)
+
+SessionManager → BodyActor → **CalibrationComp** 컴포넌트에서 (Feature H):
+- `CountdownSFX[0]` → 카운트다운 3초 음성 (예: SC_VTC_Cal_3)
+- `CountdownSFX[1]` → 카운트다운 2초 음성 (예: SC_VTC_Cal_2)
+- `CountdownSFX[2]` → 카운트다운 1초 음성 (예: SC_VTC_Cal_1)
+- `CountdownSFX[3]` → 캘리브레이션 완료 음성 (예: SC_VTC_Cal_Complete)
+- 비워두면 무음, 일부만 연결해도 동작함
 
 ### Step 8: 플레이 테스트
 1. **VR Preview** 버튼 클릭 (또는 Alt+P)
@@ -788,6 +1120,49 @@ SessionManager의 WarningFeedback 컴포넌트에서:
 | WarningFeedback.CollisionSFX | **자동 탐색 없음** | **Yes** — 에셋 지정 필요 |
 | WarningFeedback.CollisionImpactFX | **자동 탐색 없음** | Optional |
 | WarningFeedback.WarningPulseFX | **자동 탐색 없음** | Optional |
+| CalibrationComp.CountdownSFX | **자동 탐색 없음** | Optional — 4개 음성 에셋 (Feature H) |
+| OperatorController.OperatorViewActor | `GetAllActorsOfClass()` 자동 탐색 | No — 자동 탐색됨 (Feature I) |
+
+---
+
+## 8. BP_VTC_OperatorViewActor (운영자 탑다운 뷰 — Feature I)
+
+운영자 모니터(Companion Screen / Spectator Screen)에 탑다운 뷰를 실시간으로 전송하는 Actor입니다.
+VR 사용자는 HMD를 쓰고, 운영자는 외부 모니터에서 세션 장면을 탑뷰로 확인합니다.
+
+### 생성 방법
+1. Blueprint Class → **All Classes** → `VTC_OperatorViewActor` 검색
+2. 이름: `BP_VTC_OperatorViewActor`
+
+### Level 2에 배치
+- 차량 위 상공에 배치 (Z = 차량 루프 높이 + 200~300 cm 권장)
+- `BP_VTC_OperatorViewActor`를 드래그 앤 드롭
+- 모든 프로퍼티를 비워두면 자동 동작 (RenderTarget은 BeginPlay에서 자동 생성)
+
+### Details 패널 설정
+
+| 카테고리 | 프로퍼티 | 기본값 | 설명 |
+|---------|---------|-------|------|
+| VTC\|OperatorView | CaptureWidth | `1280` | RenderTarget 가로 해상도 |
+| VTC\|OperatorView | CaptureHeight | `720` | RenderTarget 세로 해상도 |
+| VTC\|OperatorView | CaptureOrthoWidth | `500` | 직교 투영 캡처 너비 (cm, 클수록 넓은 영역) |
+| VTC\|OperatorView | bOrthographic | `true` | true=직교 투영(탑다운), false=원근 투영 |
+| VTC\|OperatorView | RenderTarget | *비워두기* | BeginPlay에서 자동 생성 |
+
+### 자동 동작 원리
+- **BeginPlay**: RenderTarget 자동 생성 → SceneCaptureComponent2D에 연결 → `SetupSpectatorScreen()` 호출
+- **Spectator Screen 연결**: `GEngine->XRSystem->GetHMDDevice()->GetSpectatorScreenController()` 경로로 HMD의 Companion Screen에 RenderTarget 출력
+- **VR 장비 없음**: XRSystem 없으면 자동으로 RenderTarget만 활성화 (데스크탑에서 UMG Image로 연결 가능)
+- **OperatorController**: BeginPlay에서 `GetAllActorsOfClass(VTC_OperatorViewActor)`로 자동 탐색
+
+### 데스크탑 모드 대체 (VR 장비 없이 테스트 시)
+RenderTarget을 UMG Image 위젯에 직접 연결하면 화면에 탑다운 뷰를 표시할 수 있습니다:
+
+```
+WBP_OperatorMonitor (새 위젯 생성)
+  └─ Image 위젯
+       └─ Brush → Texture = BP_VTC_OperatorViewActor.RenderTarget
+```
 
 ---
 
@@ -847,12 +1222,20 @@ SessionManager 내 CollisionDetector 컴포넌트에서:
 - 파일 쓰기 권한 확인
 
 **Q: CSV에 어떤 데이터가 저장되나요?**
-- `ExportAndEnd()` / `ExportToCSV()` → `*_summary.csv` (세션당 1행, Human Factors용)
-  - 키(Height_cm), 허리→무릎, 무릎→발, 허리→발 길이, Hip 평균 위치
-  - Hip/무릎별 최소 클리어런스, 최악 순간의 Hip 위치
-  - 전체 상태: GREEN / YELLOW / RED, 충돌 횟수
+- `ExportAndEnd()` / `ExportToCSV()` → `*_summary.csv` (세션당 1행, Human Factors 분석용)
+  - 피실험자: SubjectID, Date, Height_cm
+  - 신체 측정: WaistToKnee L/R, KneeToFoot L/R, WaistToFoot L/R (cm)
+  - Hip 평균 위치: HipPos_avg_X/Y/Z (cm)
+  - 최소 클리어런스: HipDist_to_Ref_min, LKnee/RKnee_to_Ref_min (cm)
+  - 전체 최악: MinClearance_cm + NearestBodyPart + NearestRefPoint
+  - 최악 시점: MinClearance_Timestamp (밀리초 정밀도)
+  - 최악 위치: HipX/Y/Z_atMinClearance
+  - 상태 요약: OverallStatus (GREEN/YELLOW/RED), CollisionCount, WarningFrames, TotalFrames
+  - 시간 분석: TestingStartTime, TestingEndTime, TestingDuration_sec
+  - 노출 시간: WarningDuration_sec (Warning 이상 누적), CollisionDuration_sec (Collision만 누적)
 - `DataLogger → ExportFrameDataCSV()` → `*_frames.csv` (10Hz 원시 데이터, 연구자용)
-  - 모든 기준점별 거리 전체 포함 (기존 버그 수정됨)
+  - 5개 신체 부위 위치 (X, Y, Z) + 모든 기준점별 거리 전체 포함
+  - 충돌 발생 여부 및 부품명
 
 **Q: 키(Height)가 CSV에 0으로 저장돼요**
 - `WBP_VTC_SubjectInfo`에서 키를 입력하고 시작했는지 확인

@@ -121,6 +121,28 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Tracker")
 	int32 BP_GetActiveTrackerCount() const;
 
+	// ─── Dropout 보간 (Feature C) ───────────────────────────────────────────
+
+	// 트래커 추적 실패(dropout) 시 보간을 유지할 최대 프레임 수
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Tracker|Dropout",
+		meta=(ClampMin=0, ClampMax=30))
+	int32 MaxDropoutFrames = 5;
+
+	// ─── Movement Phase 감지 (Feature E) ────────────────────────────────────
+
+	// Hip Z 속도 임계값 (cm/s) — 이 이상 하강하면 Entering, 상승하면 Exiting
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Tracker|Phase",
+		meta=(ClampMin=1.0f, ClampMax=50.0f))
+	float PhaseVelocityThreshold = 5.0f;
+
+	// 현재 Movement Phase
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere, Category = "VTC|Tracker|Phase")
+	EVTCMovementPhase CurrentPhase = EVTCMovementPhase::Unknown;
+
+	// Phase 변경 델리게이트
+	UPROPERTY(BlueprintAssignable, Category = "VTC|Tracker|Events")
+	FOnVTCPhaseChanged OnPhaseChanged;
+
 	// ─── Delegates ──────────────────────────────────────────────────────────
 
 	UPROPERTY(BlueprintAssignable, Category = "VTC|Tracker|Events")
@@ -259,6 +281,18 @@ public:
 private:
 	// TrackerRole → TrackerData 캐시 맵
 	TMap<EVTCTrackerRole, FVTCTrackerData> TrackerDataMap;
+
+	// ─── Dropout 보간 내부 상태 (Feature C) ─────────────────────────────────
+	// 트래커별 이전 위치 히스토리 (최근 2개)
+	TMap<EVTCTrackerRole, TArray<FVector>> TrackerLocationHistory;
+	// 트래커별 연속 dropout 프레임 카운터
+	TMap<EVTCTrackerRole, int32> DropoutFrameCount;
+
+	// ─── Phase 감지 내부 상태 (Feature E) ───────────────────────────────────
+	FVector PreviousHipLocation = FVector::ZeroVector;
+	bool bHasPreviousHipLocation = false;
+
+	void DetectMovementPhase(float DeltaTime);
 
 	// 매 Tick: 5개 트래커 데이터 갱신
 	void UpdateAllTrackers();
