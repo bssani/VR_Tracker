@@ -1,7 +1,6 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "Controller/VTC_OperatorController.h"
-#include "UI/VTC_SubjectInfoWidget.h"
 #include "UI/VTC_StatusWidget.h"
 #include "World/VTC_StatusActor.h"
 #include "World/VTC_OperatorViewActor.h"
@@ -114,21 +113,6 @@ void AVTC_OperatorController::SetupInputComponent()
   InputComponent->BindKey(EKeys::F2,     IE_Pressed, this, &AVTC_OperatorController::Input_F2);
   InputComponent->BindKey(EKeys::F3,     IE_Pressed, this, &AVTC_OperatorController::Input_F3);
   InputComponent->BindKey(EKeys::Escape, IE_Pressed, this, &AVTC_OperatorController::Input_Escape);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  위젯 표시 / 숨기기
-// ─────────────────────────────────────────────────────────────────────────────
-void AVTC_OperatorController::ShowSubjectInfoWidget()
-{
-  if (SubjectInfoWidget)
-    SubjectInfoWidget->SetVisibility(ESlateVisibility::Visible);
-}
-
-void AVTC_OperatorController::HideSubjectInfoWidget()
-{
-  if (SubjectInfoWidget)
-    SubjectInfoWidget->SetVisibility(ESlateVisibility::Collapsed);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -357,13 +341,3 @@ void AVTC_OperatorController::AutoFindOperatorViewActor()
   UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorController: OperatorViewActor 없음 (Spectator Screen 비활성)."));
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  (Level 2에서는 사용 안 함 — 위젯 버튼 대신 키 사용)
-// ─────────────────────────────────────────────────────────────────────────────
-void AVTC_OperatorController::OnSessionStartRequested(const FString& SubjectID,
-                                                       float Height_cm)
-{
-  if (!SessionManager) return;
-  SessionManager->StartSessionWithHeight(SubjectID, Height_cm);
-  HideSubjectInfoWidget();
-}
