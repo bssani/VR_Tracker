@@ -89,6 +89,13 @@
 │    ├─ [NEW] VTC_OperatorViewActor (SceneCapture → Spectator Screen)    │
 │    └─ PostProcessVolume (Vignette 피드백용)                             │
 │                                                                         │
+│  Screen Space UI (운영자 데스크탑):                                      │
+│    └─ VTC_OperatorMonitorWidget (OperatorController가 자동 생성)        │
+│         ├─ 세션 상태 + 피실험자 정보 + 트래커 수                         │
+│         ├─ 실시간 거리 목록 (30Hz, DistanceRowMap 재사용)                │
+│         ├─ 세션 최솟값 거리 (DistanceValueMap 기반 자동 갱신)            │
+│         └─ 경과 시간 (Testing 중 1초마다)                                │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -183,6 +190,7 @@ Level 2 로드 → OperatorController::BeginPlay / OnPossess
 │                                                                     │
 │  [Level 1 UI: VTC_SetupWidget (Desktop)]                           │
 │  [Level 2 UI: VTC_StatusWidget (WorldSpace 3D)]                    │
+│  [Level 2 UI: VTC_OperatorMonitorWidget (Screen Space — 운영자)]    │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -323,6 +331,7 @@ Plugins/
     │    ├─ ApplyGameInstanceConfig() → TrackerPawn, BodyActor, CollisionDetector
     │    ├─ VehicleHipPosition → ReferencePoint 런타임 스폰
     │    ├─ StatusActor/StatusWidget 갱신 (Tick 1초마다)
+    │    ├─ OperatorMonitorWidget 생성 + 거리/상태/시간 갱신 (Screen Space)
     │    └─ EndPlay → SpawnedHipRefPoint 정리
     └─ (자식) SimPlayerController: WASD + 마우스 + Enhanced Input
 
@@ -352,6 +361,13 @@ Plugins/
               ├─ 키 안내 (F1/F2/F3/Escape)
               ├─ 피실험자 정보
               └─ 트래커 연결 수
+
+  VTC_OperatorMonitorWidget (UUserWidget, Screen Space)
+    ├─ OperatorController::BeginPlay에서 자동 생성 + AddToViewport
+    ├─ 세션 상태 + 피실험자 정보 + 트래커 수
+    ├─ 실시간 거리 목록 (30Hz, DistanceRowMap 재사용)
+    ├─ 세션 최솟값 거리 (DistanceValueMap → UpdateMinDistanceFromMap)
+    └─ 경과 시간 (MM:SS)
 ```
 
 ### 주요 타입 (VTC_TrackerTypes.h)
@@ -440,7 +456,13 @@ FVTCPresetRefPoint    — [NEW] 프리셋 내 단일 ReferencePoint 데이터
 │            + MinClearance 갱신 시 Timestamp 기록
 │
 └─ [7] VTC_OperatorController::Tick() (1초마다)
-        └─ StatusWidget 갱신 (TrackerStatus)
+        ├─ StatusWidget 갱신 (TrackerStatus)
+        └─ OperatorMonitorWidget 갱신 (TrackerStatus, ElapsedTime)
+│
+├─ [8] VTC_OperatorMonitorWidget (OnDistanceUpdated Delegate, 30Hz)
+│       └─ UpdateDistanceRow() → DistanceRowMap 텍스트 갱신
+│            └─ DistanceValueMap에 거리값 저장 → UpdateMinDistanceFromMap()
+│                 └─ 전체 최솟값 계산 → Txt_MinDistance 갱신
 ```
 
 ---

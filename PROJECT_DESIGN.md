@@ -98,6 +98,7 @@
 │          └──────────────────┘   └────────────────────┘  │
 │                                                         │
 │  VTC_StatusActor → VTC_StatusWidget (WorldSpace 3D)    │
+│  VTC_OperatorMonitorWidget (Screen Space — 운영자 데스크탑) │
 │  VTC_ReferencePoint × N + VehicleHipPosition (동적)     │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -374,12 +375,14 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 10. **PostProcessVolume** — Infinite Extent, WarningFeedback에 연결
 11. **BP_VTC_OperatorViewActor** — Level 2에 배치, SceneCapture → Spectator Screen (Feature I)
     - `WBP_SetupWidget`에 Slider_Warning/Collision, Combo_VehiclePreset, Btn_SavePreset BindWidget 연결 필수
+12. **WBP_VTC_OperatorMonitor** (VTC_OperatorMonitorWidget 기반) — 운영자 데스크탑 모니터링 UI
+    - `BP_VTC_SimPlayerController` → OperatorMonitorWidgetClass에 할당하면 BeginPlay에서 자동 생성
 
 ### 있으면 좋음
 
-12. **WBP_VTC_HUD** — 거리, 경고 상태, 세그먼트 길이 실시간 표시
-13. **Body Segment Material** — Safe/Warning/Collision 색상 변화
-14. **Niagara FX + Sound** — 충돌 피드백 이펙트 + 음성 카운트다운 (CountdownSFX[0~3])
+13. **WBP_VTC_HUD** — 거리, 경고 상태, 세그먼트 길이 실시간 표시
+14. **Body Segment Material** — Safe/Warning/Collision 색상 변화
+15. **Niagara FX + Sound** — 충돌 피드백 이펙트 + 음성 카운트다운 (CountdownSFX[0~3])
 
 ---
 
