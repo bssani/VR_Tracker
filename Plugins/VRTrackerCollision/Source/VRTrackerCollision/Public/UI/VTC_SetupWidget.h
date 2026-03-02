@@ -30,11 +30,13 @@
 //     Btn_SaveConfig            Button
 //     Btn_LoadConfig            Button
 //     Btn_StartSession          Button
+//     Btn_SavePreset            Button
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/ComboBoxString.h"
 #include "VTC_SessionConfig.h"
 #include "VTC_SetupWidget.generated.h"
 
@@ -43,7 +45,6 @@ class UCheckBox;
 class UButton;
 class USlider;
 class UTextBlock;
-class UComboBoxString;
 
 UCLASS(BlueprintType, Blueprintable, meta = (DisplayName = "VTC Setup Widget"))
 class VRTRACKERCOLLISION_API UVTC_SetupWidget : public UUserWidget
@@ -85,14 +86,14 @@ public:
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TB_HipRef_Z;
 
   // ─── 임계값 슬라이더 (Feature A) ───────────────────────────────────────
-  UPROPERTY(meta = (BindWidget)) TObjectPtr<USlider> Slider_Warning;
-  UPROPERTY(meta = (BindWidget)) TObjectPtr<USlider> Slider_Collision;
+  UPROPERTY(meta = (BindWidget)) TObjectPtr<USlider>    Slider_Warning;
+  UPROPERTY(meta = (BindWidget)) TObjectPtr<USlider>    Slider_Collision;
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> Txt_WarningVal;
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> Txt_CollisionVal;
 
   // ─── 차종 프리셋 (Feature B) ──────────────────────────────────────────
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UComboBoxString> Combo_VehiclePreset;
-  UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_SavePreset;
+  UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton>         Btn_SavePreset;
 
   // ─── 가시성 ─────────────────────────────────────────────────────────────
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UCheckBox> CB_ShowCollisionSpheres;
@@ -125,6 +126,15 @@ private:
   UFUNCTION() void OnSaveConfigClicked();
   UFUNCTION() void OnLoadConfigClicked();
   UFUNCTION() void OnStartSessionClicked();
+
+  // Threshold 슬라이더 콜백
+  UFUNCTION() void OnWarningSliderChanged(float Value);
+  UFUNCTION() void OnCollisionSliderChanged(float Value);
+
+  // Vehicle Preset 핸들러
+  UFUNCTION() void OnSavePresetClicked();
+  UFUNCTION() void OnPresetSelectionChanged(FString SelectedItem, ESelectInfo::Type SelectionType);
+  void RefreshPresetComboBox();
 
   // EditableTextBox → float 파싱 (실패 시 Default 반환)
   static float ParseFloat(const UEditableTextBox* TB, float Default = 0.0f);
