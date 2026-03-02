@@ -11,21 +11,30 @@
 | ID | 기능 | 난이도 | 신규 파일 | 수정 파일 | C++ 상태 |
 |----|------|--------|----------|----------|---------|
 | A | Level 1 임계값 슬라이더 | Low | - | SessionConfig, SetupWidget | ✅ 완료 |
-| B | JSON 차종별 프리셋 | Mid | VTC_VehiclePreset.h/cpp | SessionConfig, SetupWidget, OperatorController | ✅ 완료 (SetupWidget/VehiclePreset) / OperatorController 미적용 |
-| C | Tracker 드롭아웃 보간 | Low | - | TrackerTypes, TrackerPawn | 미완료 |
-| D | 캘리브레이션 유효성 강화 | Low | - | CalibrationComponent | 미완료 |
-| E | 진입/이탈 단계 분류 | Mid | - | TrackerTypes, TrackerPawn, DataLogger | 미완료 |
+| B | JSON 차종별 프리셋 | Mid | VTC_VehiclePreset.h/cpp | SessionConfig, SetupWidget, OperatorController | ✅ 완료 (SetupWidget/VehiclePreset) |
+| C | Tracker 드롭아웃 보간 | Low | - | TrackerTypes, TrackerPawn | ✅ 완료 (`UpdateTracker()` 보간 로직 구현) |
+| D | 캘리브레이션 유효성 강화 | Low | - | CalibrationComponent | ✅ 완료 (`ValidateMeasurements()` 강화 구현) |
+| E | 진입/이탈 단계 분류 | Mid | - | TrackerTypes, TrackerPawn, DataLogger | ✅ 완료 (`DetectMovementPhase()` + DataLogger CSV) |
 | F | 최악 순간 자동 스크린샷 | Low | - | CollisionDetector, DataLogger | ✅ 완료 (CollisionDetector) |
 | G | VR 거리 라인 + 수치 | Low | - | CollisionDetector | ✅ 완료 |
-| H | 음성 카운트다운 | Low | - | CalibrationComponent | 미완료 |
-| I | Operator View (Spectator) | Mid | VTC_OperatorViewActor.h/cpp | OperatorController | 미완료 |
+| H | 음성 카운트다운 | Low | - | CalibrationComponent | ✅ C++ 완료 (Blueprint에서 SFX 에셋 연결 필요) |
+| I | Operator View (Spectator) | Mid | VTC_OperatorViewActor.h/cpp | OperatorController | ⚠️ 클래스 구조 완료 / Spectator Screen 연결 미테스트 |
 
 **신규 파일 2개 / 수정 파일 10개**
 
+> **전체 완료 현황 (2026-03-02 기준)**
+> - **A~H**: C++ 코드 모두 완료. Blueprint 에셋 연결만 남은 항목: B(UI), H(SFX)
+> - **I**: VTC_OperatorViewActor.h/cpp 구조 완성. Spectator Screen API 연결 현장 테스트 필요
+> - **추가**: VTC_OperatorMonitorWidget (Screen Space 운영자 대시보드) 신규 구현 완료
+>
 > **실제 구현 차이점 (계획 vs 실제)**
-> - **A**: 슬라이더 간 상호 클램프(`CollisionThreshold < WarningThreshold`) 로직은 `OnWarningSliderChanged`/`OnCollisionSliderChanged` 에 미포함 — `VTC_CollisionDetector`의 `PostEditChangeProperty` + 런타임 클램프로 대신 처리
+> - **A**: 슬라이더 간 상호 클램프 — `VTC_CollisionDetector`의 `PostEditChangeProperty` + 런타임 클램프로 처리 (슬라이더 콜백 내 직접 클램프 대신)
 > - **B**: `TB_NewPresetName`, `Btn_DeletePreset` 위젯 미구현 (프리셋 이름은 SubjectID 또는 기존 선택 항목 재사용)
+> - **C**: 히스토리 기반 선형 외삽(2프레임) 구현. 드롭아웃 중 Debug Sphere 색상 Silver로 표시
+> - **D**: `AsymmetryWarningThreshold=0.25f` (계획의 0.15f보다 관대하게 설정), 허벅지/종아리 비율 0.7~1.5 추가 검증
+> - **E**: `PhaseVelocityThreshold=5.0f cm/s`, `DataLogger.PhaseMinClearance TMap` + CSV 컬럼 자동 포함
 > - **F**: `ScreenshotDelay` 타이머 없이 즉시 `FScreenshotRequest::RequestScreenshot()` 호출
+> - **H**: `CountdownSFX` 배열 + `VoiceVolume` 구현 완료. SFX 에셋은 Blueprint에서 할당
 
 ---
 
@@ -158,7 +167,10 @@ if (bShowDistanceLabels)
 
 ---
 
-## Step 2B — 기능 D: 캘리브레이션 유효성 강화
+## Step 2B — 기능 D: 캘리브레이션 유효성 강화 ✅ 구현 완료
+
+> 구현 위치: `Private/Body/VTC_CalibrationComponent.cpp` — `ValidateMeasurements()`
+> 프로퍼티: `AsymmetryWarningThreshold=0.25f`, `MinTotalLegLength=50.0f`, `MaxTotalLegLength=130.0f`
 
 ### `VTC_CalibrationComponent.cpp`
 
@@ -200,7 +212,10 @@ float MaxTotalLegLength = 120.0f;
 
 ---
 
-## Step 2C — 기능 H: 음성 카운트다운
+## Step 2C — 기능 H: 음성 카운트다운 ✅ C++ 완료 (SFX 에셋 Blueprint 연결 필요)
+
+> 구현 위치: `Private/Body/VTC_CalibrationComponent.cpp`
+> Blueprint 작업: `BP_VTC_SessionManager` → CalibrationComp → `CountdownSFX[0~3]` 에셋 연결
 
 ### `VTC_CalibrationComponent.h`에 추가
 
@@ -244,7 +259,10 @@ OnCalibrationComplete.Broadcast(Measurements);
 
 ---
 
-## Step 3A — 기능 C: Tracker 드롭아웃 보간
+## Step 3A — 기능 C: Tracker 드롭아웃 보간 ✅ 구현 완료
+
+> 구현 위치: `Private/Pawn/VTC_TrackerPawn.cpp` — `UpdateTracker()`
+> 히스토리 2프레임 선형 외삽, MaxDropoutFrames=5, 드롭아웃 시 Debug Sphere 색상 Silver
 
 ### `VTC_TrackerPawn.h` 추가
 
@@ -338,7 +356,11 @@ void AVTC_TrackerPawn::UpdateTracker(EVTCTrackerRole TrackerRole, UMotionControl
 
 ---
 
-## Step 3B — 기능 E: 진입/이탈 단계 분류
+## Step 3B — 기능 E: 진입/이탈 단계 분류 ✅ 구현 완료
+
+> 구현 위치: `Private/Pawn/VTC_TrackerPawn.cpp` — `DetectMovementPhase(DeltaTime)`
+> DataLogger: `PhaseMinClearance TMap<EVTCMovementPhase, float>` + Summary CSV 컬럼 포함
+> CSV 컬럼: `Phase_Entering_MinClearance`, `Phase_Seated_MinClearance`, `Phase_Exiting_MinClearance`
 
 ### `VTC_TrackerPawn.h` 추가
 
@@ -744,7 +766,7 @@ void AVTC_OperatorController::SpawnReferencePointsFromPreset(const FVTCVehiclePr
 
 ---
 
-## Step 5 — 기능 I: Operator View (Spectator Screen)
+## Step 5 — 기능 I: Operator View (Spectator Screen) ⚠️ 클래스 완성 / Spectator Screen 연결 미테스트
 
 ### 신규 파일: `VTC_OperatorViewActor.h`
 

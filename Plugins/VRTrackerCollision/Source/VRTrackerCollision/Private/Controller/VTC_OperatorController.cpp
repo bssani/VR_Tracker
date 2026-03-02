@@ -2,6 +2,7 @@
 
 #include "Controller/VTC_OperatorController.h"
 #include "UI/VTC_StatusWidget.h"
+#include "UI/VTC_OperatorMonitorWidget.h"
 #include "World/VTC_StatusActor.h"
 #include "World/VTC_OperatorViewActor.h"
 #include "Data/VTC_SessionManager.h"
@@ -38,11 +39,30 @@ void AVTC_OperatorController::BeginPlay()
   AutoFindStatusActor();
   AutoFindOperatorViewActor();
 
-  // ── SessionManager 상태 변경 시 StatusWidget 갱신 ─────────────────────────
+  // ── SessionManager 상태 변경 시 StatusWidget + OperatorMonitorWidget 갱신 ─
   if (SessionManager)
   {
     SessionManager->OnSessionStateChanged.AddDynamic(
         this, &AVTC_OperatorController::OnSessionStateChanged);
+
+    // CollisionDetector 거리 갱신 → OperatorMonitorWidget Row 갱신
+    if (SessionManager->CollisionDetector)
+    {
+      SessionManager->CollisionDetector->OnDistanceUpdated.AddDynamic(
+          this, &AVTC_OperatorController::OnDistanceUpdated);
+    }
+  }
+
+  // ── 운영자 데스크탑 모니터링 위젯 생성 (OperatorMonitorWidgetClass 할당 시) ─
+  if (OperatorMonitorWidgetClass)
+  {
+    OperatorMonitorWidget = CreateWidget<UVTC_OperatorMonitorWidget>(
+        this, OperatorMonitorWidgetClass);
+    if (OperatorMonitorWidget)
+    {
+      OperatorMonitorWidget->AddToViewport(1);  // ZOrder 1: StatusWidget 위
+      UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorMonitorWidget 생성 완료."));
+    }
   }
 
   // ── GameInstance → 각 Actor에 설정 적용 ──────────────────────────────────
@@ -54,15 +74,25 @@ void AVTC_OperatorController::BeginPlay()
     bConfigApplied = true;
   }
 
-  // ── 초기 상태 StatusWidget 표시 ───────────────────────────────────────────
+  // ── 초기 상태 표시 (StatusWidget 3D + OperatorMonitorWidget 데스크탑) ──────
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  const FString SubjectID = GI ? GI->SessionConfig.SubjectID : TEXT("");
+  const float   Height_cm = GI ? GI->SessionConfig.Height_cm : 170.0f;
+
   if (StatusActor)
   {
     if (UVTC_StatusWidget* W = StatusActor->GetStatusWidget())
     {
       W->UpdateState(EVTCSessionState::Idle);
-      if (UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>())
-        W->UpdateSubjectInfo(GI->SessionConfig.SubjectID, GI->SessionConfig.Height_cm);
+      W->UpdateSubjectInfo(SubjectID, Height_cm);
     }
+  }
+
+  if (OperatorMonitorWidget)
+  {
+    OperatorMonitorWidget->UpdateState(EVTCSessionState::Idle);
+    OperatorMonitorWidget->UpdateSubjectInfo(SubjectID, Height_cm);
+    OperatorMonitorWidget->UpdateElapsedTime(0.f);
   }
 }
 
@@ -87,18 +117,39 @@ void AVTC_OperatorController::Tick(float DeltaTime)
 {
   Super::Tick(DeltaTime);
 
-  // StatusActor 없으면 타이머 자체를 돌릴 필요 없음
-  if (!StatusActor) return;
-
   TrackerStatusTimer += DeltaTime;
   if (TrackerStatusTimer < TrackerStatusInterval) return;
   TrackerStatusTimer = 0.0f;
 
-  UVTC_StatusWidget* W = StatusActor->GetStatusWidget();
-  if (!W) return;
-
+  int32 ConnectedCount = 0;
   if (AVTC_TrackerPawn* TP = Cast<AVTC_TrackerPawn>(GetPawn()))
-    W->UpdateTrackerStatus(TP->GetActiveTrackerCount(), 5);
+    ConnectedCount = TP->GetActiveTrackerCount();
+
+  // 3D StatusWidget 갱신
+  if (StatusActor)
+  {
+    if (UVTC_StatusWidget* W = StatusActor->GetStatusWidget())
+      W->UpdateTrackerStatus(ConnectedCount, 5);
+  }
+
+  // 운영자 모니터 위젯 갱신 (1초마다: TrackerStatus + 경과 시간 + 최소 거리)
+  if (OperatorMonitorWidget)
+  {
+    OperatorMonitorWidget->UpdateTrackerStatus(ConnectedCount, 5);
+
+    if (SessionManager)
+    {
+      if (SessionManager->IsTesting())
+        OperatorMonitorWidget->UpdateElapsedTime(SessionManager->SessionElapsedTime);
+
+      if (SessionManager->CollisionDetector)
+      {
+        const float MinDist = SessionManager->CollisionDetector->SessionMinDistance;
+        if (MinDist < TNumericLimits<float>::Max())
+          OperatorMonitorWidget->UpdateMinDistance(MinDist);
+      }
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -145,6 +196,10 @@ void AVTC_OperatorController::ReturnToSetupLevel()
 
 void AVTC_OperatorController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+  // 운영자 모니터 위젯 뷰포트에서 제거
+  if (OperatorMonitorWidget && OperatorMonitorWidget->IsInViewport())
+    OperatorMonitorWidget->RemoveFromParent();
+
   // 동적으로 스폰한 ReferencePoint를 명시적으로 제거.
   if (SpawnedHipRefPoint)
   {
@@ -171,20 +226,47 @@ void AVTC_OperatorController::Input_F3()     { StopAndExport(); }
 void AVTC_OperatorController::Input_Escape() { ReturnToSetupLevel(); }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  세션 상태 변경 → StatusWidget 갱신
+//  세션 상태 변경 → StatusWidget + OperatorMonitorWidget 갱신
 // ─────────────────────────────────────────────────────────────────────────────
 void AVTC_OperatorController::OnSessionStateChanged(EVTCSessionState OldState,
                                                      EVTCSessionState NewState)
 {
-  if (!StatusActor) return;
-  if (UVTC_StatusWidget* W = StatusActor->GetStatusWidget())
-  {
-    W->UpdateState(NewState);
+  int32 ConnectedCount = 0;
+  if (AVTC_TrackerPawn* TP = Cast<AVTC_TrackerPawn>(GetPawn()))
+    ConnectedCount = TP->GetActiveTrackerCount();
 
-    // 상태 변경 시 TrackerStatus도 즉시 갱신
-    if (AVTC_TrackerPawn* TP = Cast<AVTC_TrackerPawn>(GetPawn()))
-      W->UpdateTrackerStatus(TP->GetActiveTrackerCount(), 5);
+  // 3D StatusWidget 갱신
+  if (StatusActor)
+  {
+    if (UVTC_StatusWidget* W = StatusActor->GetStatusWidget())
+    {
+      W->UpdateState(NewState);
+      W->UpdateTrackerStatus(ConnectedCount, 5);
+    }
   }
+
+  // 운영자 모니터 위젯 갱신
+  if (OperatorMonitorWidget)
+  {
+    OperatorMonitorWidget->UpdateState(NewState);
+    OperatorMonitorWidget->UpdateTrackerStatus(ConnectedCount, 5);
+
+    // Testing 시작 시 거리 목록 초기화 (이전 세션 잔재 제거)
+    if (NewState == EVTCSessionState::Testing)
+    {
+      OperatorMonitorWidget->ClearDistanceList();
+      OperatorMonitorWidget->UpdateElapsedTime(0.f);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  거리 측정 결과 → OperatorMonitorWidget Row 갱신 (30Hz)
+// ─────────────────────────────────────────────────────────────────────────────
+void AVTC_OperatorController::OnDistanceUpdated(const FVTCDistanceResult& Result)
+{
+  if (OperatorMonitorWidget)
+    OperatorMonitorWidget->UpdateDistanceRow(Result);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

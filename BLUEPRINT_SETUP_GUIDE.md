@@ -35,19 +35,25 @@ C++ 클래스들은 이미 완성되어 있고, 이제 **Blueprint로 래핑**�
     └─ DefaultPawn: BP_VTC_TrackerPawn (자동 스폰)
        PlayerController: BP_VTC_SimPlayerController
   BP_VTC_SimPlayerController
-    └─ BeginPlay → GameInstance 설정 읽어서 TrackerPawn/BodyActor에 자동 적용
-         ├─ F1     → 캘리브레이션 시작 (GameInstance의 SubjectID/Height 사용)
-         ├─ F2     → 테스트 직접 시작 (캘리브레이션 건너뜀)
-         ├─ F3     → 세션 종료 + CSV 내보내기
-         └─ Escape → Level 1(Setup)으로 복귀
+    ├─ BeginPlay → GameInstance 설정 읽어서 TrackerPawn/BodyActor에 자동 적용
+    ├─ BeginPlay → WBP_VTC_OperatorMonitor 생성 → AddToViewport (클래스 할당 시)
+    ├─ F1     → 캘리브레이션 시작 (GameInstance의 SubjectID/Height 사용)
+    ├─ F2     → 테스트 직접 시작 (캘리브레이션 건너뜀)
+    ├─ F3     → 세션 종료 + CSV 내보내기
+    └─ Escape → Level 1(Setup)으로 복귀
   BP_VTC_StatusActor (레벨에 3D 월드 배치 — VR 운전석 앞 대시보드 권장)
-    └─ WBP_StatusWidget (WorldSpace 3D 위젯)
+    └─ WBP_StatusWidget (WorldSpace 3D 위젯 — VR 피실험자용)
          ├─ 현재 세션 상태 표시 ("● IDLE" / "● TESTING" 등)
          ├─ 키 안내 메시지 (상태마다 자동 변경)
          ├─ 피실험자 정보 (Subject ID + Height)
          └─ 트래커 연결 수 (매 1초 갱신)
+  WBP_VTC_OperatorMonitor (Screen Space — 운영자 데스크탑 모니터용)
+    ├─ 세션 상태 + 피실험자 정보 + 트래커 수
+    ├─ 실시간 거리 목록 (30Hz, Map 재사용)
+    ├─ 세션 최솟값 거리 (1초마다 갱신)
+    └─ 경과 시간 (Testing 중 1초마다 갱신)
   BP_VTC_OperatorViewActor (레벨에 배치, 차량 위 상공에 위치) (Feature I)
-    └─ SceneCaptureComponent2D → RenderTarget → Spectator Screen (운영자 모니터)
+    └─ SceneCaptureComponent2D → RenderTarget → Spectator Screen (운영자 모니터 탑다운 뷰)
 ```
 
 ### 데이터 흐름
@@ -93,6 +99,7 @@ Level 2 로드 → OperatorController::BeginPlay → ApplyGameInstanceConfig()
   BP_VTC_SessionManager   (VTC_SessionManager 기반)
   BP_VTC_StatusActor      (VTC_StatusActor 기반)
   WBP_StatusWidget        (VTC_StatusWidget 기반)
+  WBP_VTC_OperatorMonitor (VTC_OperatorMonitorWidget 기반) ← 운영자 데스크탑 모니터링 UI
   BP_VTC_OperatorViewActor (VTC_OperatorViewActor 기반) ← Feature I
 
 [공통]
@@ -665,18 +672,61 @@ C++ 코드 분석 결과, SessionManager는 자체적으로 `CollisionDetector`,
 
 ---
 
-## ~~6. WBP_VTC_SubjectInfo / WBP_VTC_HUD — 제거됨~~
+## 6. WBP_VTC_OperatorMonitor (운영자 데스크탑 모니터링 위젯)
 
-> **[제거됨]** Level 2의 세션 시작은 F1/F2 키(BP_VTC_SimPlayerController)로 처리되며,
-> 피실험자 정보는 Level 1 SetupWidget → GameInstance를 통해 이미 전달됩니다.
-> Screen Space HUD는 이 아키텍처에서 불필요합니다.
-> Level 2의 UI는 **BP_VTC_StatusActor (3D WorldSpace 위젯)** 가 담당합니다.
+VR 피실험자 옆에 앉은 운영자가 **데스크탑 모니터**에서 실시간 거리 데이터를 확인하는 Screen Space UI입니다.
+
+> **VR 피실험자용 UI ≠ 운영자 모니터링 UI**
+> - **VR 피실험자**: WBP_StatusWidget (3D WorldSpace, StatusActor에 배치) — 상태/키 안내
+> - **운영자 데스크탑**: WBP_VTC_OperatorMonitor (Screen Space) — 세션 상태 + 거리 수치
+
+### 생성 방법
+
+1. Content Browser → 우클릭 → **User Interface → Widget Blueprint**
+2. **Parent Class**: `VTC_OperatorMonitorWidget` *(검색 후 선택)*
+3. 이름: `WBP_VTC_OperatorMonitor`
+
+### 필수: BindWidget 위젯 배치
+
+| 위젯 타입 | 이름 (정확히) | 표시 내용 |
+|----------|------------|---------|
+| TextBlock | `Txt_State` | 세션 상태 ("● TESTING") |
+| TextBlock | `Txt_SubjectInfo` | 피실험자 ID + 키 ("Subject: P001 \| Height: 175 cm") |
+| TextBlock | `Txt_TrackerStatus` | 트래커 연결 수 ("Trackers: 5 / 5") |
+| TextBlock | `Txt_ElapsedTime` | 경과 시간 ("02:34") |
+| TextBlock | `Txt_MinDistance` | 세션 최솟값 ("Min: 4.2 cm") |
+| VerticalBox | `VB_DistanceList` | 거리 Row 자동 생성 영역 |
+
+**Designer 탭 예시 레이아웃:**
+```
+[Canvas Panel]
+  └─ [Vertical Box] — 전체 레이아웃, 왼쪽 상단 고정
+       ├─ Txt_State        (폰트 굵게, 크게)
+       ├─ Txt_SubjectInfo
+       ├─ Txt_TrackerStatus
+       ├─ Txt_ElapsedTime
+       ├─ Txt_MinDistance  (강조 색상 권장)
+       └─ VB_DistanceList  (빈 VerticalBox — C++가 TextBlock Row 자동 추가)
+```
+
+> `VB_DistanceList`는 비워두세요. C++(`VTC_OperatorController`)가 30Hz로 Row를 자동으로 생성/갱신합니다.
+> Row TextBlock 포맷: `"Left Knee        Dashboard          8.2 cm"` (색상: 초록/노랑/빨강)
+
+### BP_VTC_SimPlayerController에 연결
+
+1. `BP_VTC_SimPlayerController` 열기
+2. **Class Defaults**에서 **"VTC|Operator|Monitor"** 카테고리 확인
+3. `Operator Monitor Widget Class` → `WBP_VTC_OperatorMonitor` 선택
+
+이것만 하면 BeginPlay에서 자동으로 생성되어 뷰포트에 표시됩니다.
+
+> **클래스 할당하지 않으면** 모니터링 위젯 없이 진행됩니다 (StatusActor 3D 위젯만 표시됨). 선택 사항입니다.
 
 ---
 
 ---
 
-## 6. PostProcessVolume (PP_VTC_Warning)
+## 7. PostProcessVolume (PP_VTC_Warning)
 
 ### 레벨에 배치
 
