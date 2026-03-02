@@ -302,9 +302,17 @@ IDLE → CALIBRATING → TESTING → REVIEWING → IDLE
 - OperatorController가 세션 상태 변경 시 자동 갱신
 - 모든 상태에서 "ESC — Return to Setup" 안내 표시
 
+#### Level 2 — VTC_OperatorMonitorWidget (Screen Space — 운영자 데스크탑)
+
+- 운영자 데스크탑 모니터에 표시되는 Screen Space UI
+- 6개 BindWidget: Txt_State, Txt_SubjectInfo, Txt_TrackerStatus, Txt_ElapsedTime, Txt_MinDistance, VB_DistanceList
+- `DistanceRowMap` (TMap): Row TextBlock을 재사용하여 30Hz에 ClearChildren 없이 갱신
+- `DistanceValueMap` (TMap<FString, float>): 거리 원본 값 저장, `UpdateMinDistanceFromMap()`에서 최솟값 계산 후 Txt_MinDistance 자동 갱신
+- OperatorController::BeginPlay에서 OperatorMonitorWidgetClass 지정 시 자동 생성
+
 ---
 
-## C++ Source Structure (24 Headers + 21 Sources = 45 files)
+## C++ Source Structure (25 Headers + 22 Sources = 47 files)
 
 ```
 Plugins/VRTrackerCollision/Source/VRTrackerCollision/
@@ -338,7 +346,8 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   ├── UI/
 │   │   ├── VTC_SetupWidget.h
 │   │   ├── VTC_StatusWidget.h
-│   │   └── VTC_SubjectInfoWidget.h
+│   │   ├── VTC_SubjectInfoWidget.h
+│   │   └── VTC_OperatorMonitorWidget.h  ← Level 2 운영자 데스크탑 모니터링 (Screen Space)
 │   └── World/
 │       ├── VTC_StatusActor.h
 │       └── VTC_OperatorViewActor.h  ← SceneCapture → Spectator Screen (Feature I)

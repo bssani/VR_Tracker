@@ -238,7 +238,8 @@ Plugins/
     │       │   ├── UI/
     │       │   │   ├── VTC_SetupWidget.h        ← Level 1 설정 위젯
     │       │   │   ├── VTC_StatusWidget.h       ← Level 2 상태 표시 위젯
-    │       │   │   └── VTC_SubjectInfoWidget.h  ← 피실험자 입력 위젯
+    │       │   │   ├── VTC_SubjectInfoWidget.h  ← 피실험자 입력 위젯
+    │       │   │   └── VTC_OperatorMonitorWidget.h ← Level 2 운영자 데스크탑 모니터링 위젯
     │       │   │
     │       │   └── World/
     │       │       ├── VTC_StatusActor.h        ← 3D 월드 위젯 Actor
@@ -269,7 +270,8 @@ Plugins/
     │           ├── UI/
     │           │   ├── VTC_SetupWidget.cpp
     │           │   ├── VTC_StatusWidget.cpp
-    │           │   └── VTC_SubjectInfoWidget.cpp
+    │           │   ├── VTC_SubjectInfoWidget.cpp
+    │           │   └── VTC_OperatorMonitorWidget.cpp
     │           └── World/
     │               ├── VTC_StatusActor.cpp
     │               └── VTC_OperatorViewActor.cpp
@@ -292,7 +294,7 @@ Plugins/
             └── WBP_VTC_HUD.uasset
 ```
 
-> 총 **24개 헤더 + 21개 구현** = 45개 C++ 파일 (4개 신규 추가)
+> 총 **25개 헤더 + 22개 구현** = 47개 C++ 파일 (5개 신규 추가)
 
 ---
 
@@ -584,7 +586,7 @@ CollisionOccurred, CollisionPartName
 
 ## 11. 구현 현황
 
-### C++ 구현 완료 (22개 헤더 + 19개 소스)
+### C++ 구현 완료 (25개 헤더 + 22개 소스)
 
 | 파일 | 카테고리 | 내용 | 신규 기능 |
 |------|---------|------|----------|
@@ -608,6 +610,7 @@ CollisionOccurred, CollisionPartName
 | VTC_SetupWidget | UI | Level 1 설정 위젯 | **A** 임계값 슬라이더 ✅ / **B** 차종 프리셋 ComboBox ✅ |
 | VTC_StatusWidget | UI | Level 2 상태 표시 위젯 | |
 | VTC_SubjectInfoWidget | UI | 피실험자 입력 위젯 | |
+| VTC_OperatorMonitorWidget | UI | Level 2 운영자 데스크탑 모니터링 위젯 (Screen Space) — 거리 실시간 표시 + DistanceValueMap 기반 최솟값 자동 갱신 | 신규 ✅ |
 | VTC_StatusActor | World | 3D 월드 위젯 Actor | |
 | VTC_VehiclePreset | Core | JSON 차종 프리셋 구조체 + 파일 I/O Manager | **B** ✅ |
 | VTC_OperatorViewActor | World | SceneCapture2D → TextureRenderTarget → Spectator Screen | **I** |
