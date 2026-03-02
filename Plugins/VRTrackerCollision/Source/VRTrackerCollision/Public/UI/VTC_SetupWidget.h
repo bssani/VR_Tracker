@@ -105,7 +105,6 @@ private:
   UFUNCTION() void OnLoadConfigClicked();
   UFUNCTION() void OnStartSessionClicked();
 
-
   // EditableTextBox → float 파싱 (실패 시 Default 반환)
   static float ParseFloat(const UEditableTextBox* TB, float Default = 0.0f);
 
