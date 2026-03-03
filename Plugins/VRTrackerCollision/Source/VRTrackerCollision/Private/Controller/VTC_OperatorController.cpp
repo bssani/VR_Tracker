@@ -148,14 +148,10 @@ void AVTC_OperatorController::SetupInputComponent() {
   if (!InputComponent)
     return;
 
-  InputComponent->BindKey(EKeys::One, IE_Pressed, this,
-                          &AVTC_OperatorController::Input_One);
-  InputComponent->BindKey(EKeys::Two, IE_Pressed, this,
-                          &AVTC_OperatorController::Input_Two);
-  InputComponent->BindKey(EKeys::Three, IE_Pressed, this,
-                          &AVTC_OperatorController::Input_Three);
-  InputComponent->BindKey(EKeys::Four, IE_Pressed, this,
-                          &AVTC_OperatorController::Input_Four);
+  InputComponent->BindKey(EKeys::One,     IE_Pressed, this, &AVTC_OperatorController::Input_One);
+  InputComponent->BindKey(EKeys::Two,     IE_Pressed, this, &AVTC_OperatorController::Input_Two);
+  InputComponent->BindKey(EKeys::Three,     IE_Pressed, this, &AVTC_OperatorController::Input_Three);
+  InputComponent->BindKey(EKeys::Four, IE_Pressed, this, &AVTC_OperatorController::Input_Four);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -210,9 +206,9 @@ void AVTC_OperatorController::EndPlay(
 // ─────────────────────────────────────────────────────────────────────────────
 //  단축키 핸들러
 // ─────────────────────────────────────────────────────────────────────────────
-void AVTC_OperatorController::Input_One() { StartCalibration(); }
-void AVTC_OperatorController::Input_Two() { StartTest(); }
-void AVTC_OperatorController::Input_Three() { StopAndExport(); }
+void AVTC_OperatorController::Input_One()     { StartCalibration(); }
+void AVTC_OperatorController::Input_Two()     { StartTest(); }
+void AVTC_OperatorController::Input_Three()     { StopAndExport(); }
 void AVTC_OperatorController::Input_Four() { ReturnToSetupLevel(); }
 
 // ─────────────────────────────────────────────────────────────────────────────
