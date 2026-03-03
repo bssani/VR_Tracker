@@ -98,6 +98,7 @@
 │          └──────────────────┘   └────────────────────┘  │
 │                                                         │
 │  VTC_StatusActor → VTC_StatusWidget (WorldSpace 3D)    │
+│  VTC_OperatorMonitorWidget (Screen Space — 운영자 데스크탑) │
 │  VTC_ReferencePoint × N + VehicleHipPosition (동적)     │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -302,9 +303,17 @@ IDLE → CALIBRATING → TESTING → REVIEWING → IDLE
 - OperatorController가 세션 상태 변경 시 자동 갱신
 - 모든 상태에서 "ESC — Return to Setup" 안내 표시
 
+#### Level 2 — VTC_OperatorMonitorWidget (Screen Space — 운영자 데스크탑)
+
+- 운영자 데스크탑 모니터에 표시되는 Screen Space UI
+- 6개 BindWidget: Txt_State, Txt_SubjectInfo, Txt_TrackerStatus, Txt_ElapsedTime, Txt_MinDistance, VB_DistanceList
+- `DistanceRowMap` (TMap): Row TextBlock을 재사용하여 30Hz에 ClearChildren 없이 갱신
+- `DistanceValueMap` (TMap<FString, float>): 거리 원본 값 저장, `UpdateMinDistanceFromMap()`에서 최솟값 계산 후 Txt_MinDistance 자동 갱신
+- OperatorController::BeginPlay에서 OperatorMonitorWidgetClass 지정 시 자동 생성
+
 ---
 
-## C++ Source Structure (24 Headers + 21 Sources = 45 files)
+## C++ Source Structure (25 Headers + 22 Sources = 47 files)
 
 ```
 Plugins/VRTrackerCollision/Source/VRTrackerCollision/
@@ -338,7 +347,8 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   ├── UI/
 │   │   ├── VTC_SetupWidget.h
 │   │   ├── VTC_StatusWidget.h
-│   │   └── VTC_SubjectInfoWidget.h
+│   │   ├── VTC_SubjectInfoWidget.h
+│   │   └── VTC_OperatorMonitorWidget.h  ← Level 2 운영자 데스크탑 모니터링 (Screen Space)
 │   └── World/
 │       ├── VTC_StatusActor.h
 │       └── VTC_OperatorViewActor.h  ← SceneCapture → Spectator Screen (Feature I)
@@ -365,12 +375,14 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 10. **PostProcessVolume** — Infinite Extent, WarningFeedback에 연결
 11. **BP_VTC_OperatorViewActor** — Level 2에 배치, SceneCapture → Spectator Screen (Feature I)
     - `WBP_SetupWidget`에 Slider_Warning/Collision, Combo_VehiclePreset, Btn_SavePreset BindWidget 연결 필수
+12. **WBP_VTC_OperatorMonitor** (VTC_OperatorMonitorWidget 기반) — 운영자 데스크탑 모니터링 UI
+    - `BP_VTC_SimPlayerController` → OperatorMonitorWidgetClass에 할당하면 BeginPlay에서 자동 생성
 
 ### 있으면 좋음
 
-12. **WBP_VTC_HUD** — 거리, 경고 상태, 세그먼트 길이 실시간 표시
-13. **Body Segment Material** — Safe/Warning/Collision 색상 변화
-14. **Niagara FX + Sound** — 충돌 피드백 이펙트 + 음성 카운트다운 (CountdownSFX[0~3])
+13. **WBP_VTC_HUD** — 거리, 경고 상태, 세그먼트 길이 실시간 표시
+14. **Body Segment Material** — Safe/Warning/Collision 색상 변화
+15. **Niagara FX + Sound** — 충돌 피드백 이펙트 + 음성 카운트다운 (CountdownSFX[0~3])
 
 ---
 
@@ -395,6 +407,18 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 - Vive Tracker 자체 오차: ~1~2mm
 - CollisionThreshold = 3cm (Sphere Overlap 이전에 경고 제공)
 - 충돌 이벤트 타임스탬프: 밀리초 정밀도
+
+**VehicleHipPosition (순수 위치 마커)**
+- SetupWidget에서 입력한 좌표에 시안색 ReferencePoint가 스폰됨
+- `RelevantBodyParts`가 비어있어 CollisionDetector가 건너뜀 (충돌/경고 미발생)
+- 피실험자 Hip 위치의 시각적 기준점으로만 사용
+
+**SteamVR 룸 세팅 가이드**
+- "앉아서 하기(Seated)" 또는 "서서 하기(Standing Only)" 모드 사용
+- 세팅 시 HMD를 차량 시트 위(착석 눈높이)에 놓고 진행
+- SteamVR 바닥 높이 = UE5의 VROrigin Z=0
+- PlayerStart는 차량 운전석 시트 바닥 위치에 배치
+- 대안: TrackerPawn의 `bAutoSnapOnBeginPlay = true` + `SeatHipWorldPosition` 설정으로 자동 보정
 
 **의존 플러그인**
 - OpenXR (필수 — Vive Pro 2 + Tracker 입력)

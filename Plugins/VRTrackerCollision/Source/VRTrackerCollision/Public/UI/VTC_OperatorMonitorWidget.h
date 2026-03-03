@@ -73,6 +73,12 @@ private:
   // (BodyPart + "_" + VehiclePartName) → TextBlock 재사용 맵
   TMap<FString, TObjectPtr<UTextBlock>> DistanceRowMap;
 
+  // 같은 Key → 거리 원본 값 저장 (최솟값 계산용)
+  TMap<FString, float> DistanceValueMap;
+
+  // DistanceValueMap에서 최솟값을 구해 Txt_MinDistance를 갱신
+  void UpdateMinDistanceFromMap();
+
   static FString MakeRowKey(EVTCTrackerRole BodyPart, const FString& VehiclePartName);
   static FString GetBodyPartLabel(EVTCTrackerRole Role);
   static FString GetStateLabel(EVTCSessionState State);

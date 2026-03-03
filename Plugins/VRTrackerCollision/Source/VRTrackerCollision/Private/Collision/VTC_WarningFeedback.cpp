@@ -48,10 +48,12 @@ void UVTC_WarningFeedback::ApplyWarningState()
 	// 노란색 화면 테두리
 	SetPostProcessVignetteColor(FLinearColor(1.0f, 0.8f, 0.0f, 1.0f), WarningVignetteIntensity);
 
-	// 경고음 재생
-	if (WarningSFX)
+	// 경고음 재생 (쿨다운 — 동일 측정 사이클 내 다중 재생 방지)
+	const float Now = GetWorld()->GetTimeSeconds();
+	if (WarningSFX && (Now - LastWarningSoundTime) > WarningSoundCooldown)
 	{
 		UGameplayStatics::PlaySound2D(GetWorld(), WarningSFX);
+		LastWarningSoundTime = Now;
 	}
 }
 
@@ -120,4 +122,6 @@ void UVTC_WarningFeedback::ResetFeedback()
 {
 	CurrentLevel = EVTCWarningLevel::Safe;
 	ApplySafeState();
+	LastWarningSoundTime = -999.0f;
+	LastCollisionSoundTime = -999.0f;
 }

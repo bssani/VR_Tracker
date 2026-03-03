@@ -80,7 +80,9 @@ private:
 	// PostProcess Material의 동적 파라미터 제어
 	void SetPostProcessVignetteColor(FLinearColor Color, float Intensity);
 
-	// 마지막 충돌 사운드 재생 시간 (연속 재생 방지)
+	// 마지막 사운드 재생 시간 (연속 재생 방지)
+	float LastWarningSoundTime = -999.0f;
+	float WarningSoundCooldown = 0.5f;
 	float LastCollisionSoundTime = -999.0f;
 	float CollisionSoundCooldown = 0.5f;
 };

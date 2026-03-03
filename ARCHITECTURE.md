@@ -89,6 +89,13 @@
 │    ├─ [NEW] VTC_OperatorViewActor (SceneCapture → Spectator Screen)    │
 │    └─ PostProcessVolume (Vignette 피드백용)                             │
 │                                                                         │
+│  Screen Space UI (운영자 데스크탑):                                      │
+│    └─ VTC_OperatorMonitorWidget (OperatorController가 자동 생성)        │
+│         ├─ 세션 상태 + 피실험자 정보 + 트래커 수                         │
+│         ├─ 실시간 거리 목록 (30Hz, DistanceRowMap 재사용)                │
+│         ├─ 세션 최솟값 거리 (DistanceValueMap 기반 자동 갱신)            │
+│         └─ 경과 시간 (Testing 중 1초마다)                                │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -107,8 +114,8 @@ Level 2 로드 → OperatorController::BeginPlay / OnPossess
          │    ├─ MountOffset 5개 적용
          │    └─ bShowCollisionSpheres → 멤버 변수 저장 (Tick 덮어쓰기 방지)
          ├─ CollisionDetector.WarningThreshold/CollisionThreshold 적용  [NEW]
-         ├─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰
-         │    └─ CollisionDetector.ReferencePoints.AddUnique()
+         ├─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰 (순수 위치 마커)
+         │    └─ RelevantBodyParts 비움 → 충돌 감지 없음, 시안색 마커만 표시
          └─ 차종 프리셋 JSON → 추가 ReferencePoint 스폰  [NEW]
               └─ CollisionDetector.ReferencePoints.AddUnique()
 ```
@@ -183,6 +190,7 @@ Level 2 로드 → OperatorController::BeginPlay / OnPossess
 │                                                                     │
 │  [Level 1 UI: VTC_SetupWidget (Desktop)]                           │
 │  [Level 2 UI: VTC_StatusWidget (WorldSpace 3D)]                    │
+│  [Level 2 UI: VTC_OperatorMonitorWidget (Screen Space — 운영자)]    │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -238,7 +246,8 @@ Plugins/
     │       │   ├── UI/
     │       │   │   ├── VTC_SetupWidget.h        ← Level 1 설정 위젯
     │       │   │   ├── VTC_StatusWidget.h       ← Level 2 상태 표시 위젯
-    │       │   │   └── VTC_SubjectInfoWidget.h  ← 피실험자 입력 위젯
+    │       │   │   ├── VTC_SubjectInfoWidget.h  ← 피실험자 입력 위젯
+    │       │   │   └── VTC_OperatorMonitorWidget.h ← Level 2 운영자 데스크탑 모니터링 위젯
     │       │   │
     │       │   └── World/
     │       │       ├── VTC_StatusActor.h        ← 3D 월드 위젯 Actor
@@ -269,7 +278,8 @@ Plugins/
     │           ├── UI/
     │           │   ├── VTC_SetupWidget.cpp
     │           │   ├── VTC_StatusWidget.cpp
-    │           │   └── VTC_SubjectInfoWidget.cpp
+    │           │   ├── VTC_SubjectInfoWidget.cpp
+    │           │   └── VTC_OperatorMonitorWidget.cpp
     │           └── World/
     │               ├── VTC_StatusActor.cpp
     │               └── VTC_OperatorViewActor.cpp
@@ -292,7 +302,7 @@ Plugins/
             └── WBP_VTC_HUD.uasset
 ```
 
-> 총 **24개 헤더 + 21개 구현** = 45개 C++ 파일 (4개 신규 추가)
+> 총 **25개 헤더 + 22개 구현** = 47개 C++ 파일 (5개 신규 추가)
 
 ---
 
@@ -321,6 +331,7 @@ Plugins/
     │    ├─ ApplyGameInstanceConfig() → TrackerPawn, BodyActor, CollisionDetector
     │    ├─ VehicleHipPosition → ReferencePoint 런타임 스폰
     │    ├─ StatusActor/StatusWidget 갱신 (Tick 1초마다)
+    │    ├─ OperatorMonitorWidget 생성 + 거리/상태/시간 갱신 (Screen Space)
     │    └─ EndPlay → SpawnedHipRefPoint 정리
     └─ (자식) SimPlayerController: WASD + 마우스 + Enhanced Input
 
@@ -350,6 +361,13 @@ Plugins/
               ├─ 키 안내 (F1/F2/F3/Escape)
               ├─ 피실험자 정보
               └─ 트래커 연결 수
+
+  VTC_OperatorMonitorWidget (UUserWidget, Screen Space)
+    ├─ OperatorController::BeginPlay에서 자동 생성 + AddToViewport
+    ├─ 세션 상태 + 피실험자 정보 + 트래커 수
+    ├─ 실시간 거리 목록 (30Hz, DistanceRowMap 재사용)
+    ├─ 세션 최솟값 거리 (DistanceValueMap → UpdateMinDistanceFromMap)
+    └─ 경과 시간 (MM:SS)
 ```
 
 ### 주요 타입 (VTC_TrackerTypes.h)
@@ -422,15 +440,17 @@ FVTCPresetRefPoint    — [NEW] 프리셋 내 단일 ReferencePoint 데이터
 │
 ├─ [4] VTC_CollisionDetector::TickComponent() (30Hz 제한)
 │       └─ PerformDistanceMeasurements()
+│           ├─ FlushPersistentDebugLines + FlushDebugStrings (이전 사이클 라인 제거)
 │           ├─ 각 ReferencePoint ↔ 관련 신체부위 거리 계산
 │           ├─ WarningLevel 결정 (Safe/Warning/Collision)
 │           ├─ OverallWarningLevel 갱신
+│           ├─ Persistent DrawDebugLine + DrawDebugString (다음 사이클에서 Flush)
 │           └─ OnWarningLevelChanged / OnDistanceUpdated Delegate 브로드캐스트
 │
 ├─ [5] VTC_WarningFeedback (CollisionDetector Delegate 수신)
 │       └─ Safe:      → PostProcess OFF, 사운드 OFF
-│          Warning:   → Vignette 0.5, WarningSFX
-│          Collision: → Vignette 1.0, CollisionSFX, Niagara FX 스폰
+│          Warning:   → Vignette 0.5, WarningSFX (500ms 쿨다운 — 다중 재생 방지)
+│          Collision: → Vignette 1.0, CollisionSFX (500ms 쿨다운), Niagara FX 스폰
 │
 ├─ [6] VTC_DataLogger (10Hz, Testing 상태일 때만)
 │       └─ LogFrame() — 위치 + 거리 + 경고레벨 CSV 버퍼에 추가
@@ -438,7 +458,13 @@ FVTCPresetRefPoint    — [NEW] 프리셋 내 단일 ReferencePoint 데이터
 │            + MinClearance 갱신 시 Timestamp 기록
 │
 └─ [7] VTC_OperatorController::Tick() (1초마다)
-        └─ StatusWidget 갱신 (TrackerStatus)
+        ├─ StatusWidget 갱신 (TrackerStatus)
+        └─ OperatorMonitorWidget 갱신 (TrackerStatus, ElapsedTime)
+│
+├─ [8] VTC_OperatorMonitorWidget (OnDistanceUpdated Delegate, 30Hz)
+│       └─ UpdateDistanceRow() → DistanceRowMap 텍스트 갱신
+│            └─ DistanceValueMap에 거리값 저장 → UpdateMinDistanceFromMap()
+│                 └─ 전체 최솟값 계산 → Txt_MinDistance 갱신
 ```
 
 ---
@@ -584,7 +610,7 @@ CollisionOccurred, CollisionPartName
 
 ## 11. 구현 현황
 
-### C++ 구현 완료 (22개 헤더 + 19개 소스)
+### C++ 구현 완료 (25개 헤더 + 22개 소스)
 
 | 파일 | 카테고리 | 내용 | 신규 기능 |
 |------|---------|------|----------|
@@ -600,14 +626,15 @@ CollisionOccurred, CollisionPartName
 | VTC_BodyActor | Body | 가상 신체 (세그먼트+Sphere+VisualSphere) | |
 | VTC_BodySegmentComponent | Body | Dynamic Cylinder | |
 | VTC_CalibrationComponent | Body | T-Pose 캘리브레이션 | |
-| VTC_ReferencePoint | Vehicle | 차량 기준점 Actor | |
+| VTC_ReferencePoint | Vehicle | 차량 기준점 Actor + SetActive(가시성 연동) | |
 | VTC_CollisionDetector | Collision | 거리 측정 + 충돌 감지 | **F** 자동 스크린샷 ✅ / **G** VR 거리 라벨 ✅ |
-| VTC_WarningFeedback | Collision | 시각/청각 피드백 | |
+| VTC_WarningFeedback | Collision | 시각/청각 피드백 (Warning+Collision 500ms 쿨다운) | |
 | VTC_DataLogger | Data | CSV 로깅 (summary + frames) | |
 | VTC_SessionManager | Data | 세션 상태머신 | |
 | VTC_SetupWidget | UI | Level 1 설정 위젯 | **A** 임계값 슬라이더 ✅ / **B** 차종 프리셋 ComboBox ✅ |
 | VTC_StatusWidget | UI | Level 2 상태 표시 위젯 | |
 | VTC_SubjectInfoWidget | UI | 피실험자 입력 위젯 | |
+| VTC_OperatorMonitorWidget | UI | Level 2 운영자 데스크탑 모니터링 위젯 (Screen Space) — 거리 실시간 표시 + DistanceValueMap 기반 최솟값 자동 갱신 | 신규 ✅ |
 | VTC_StatusActor | World | 3D 월드 위젯 Actor | |
 | VTC_VehiclePreset | Core | JSON 차종 프리셋 구조체 + 파일 I/O Manager | **B** ✅ |
 | VTC_OperatorViewActor | World | SceneCapture2D → TextureRenderTarget → Spectator Screen | **I** |

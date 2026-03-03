@@ -65,6 +65,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VTC|Reference Point")
 	void ResetMarkerColor();
 
+	// 활성/비활성 전환 (MarkerMesh 가시성 + 디버그 라인 연동)
+	UFUNCTION(BlueprintCallable, Category = "VTC|Reference Point")
+	void SetActive(bool bNewActive);
+
 private:
 	TObjectPtr<UMaterialInstanceDynamic> MarkerDynMaterial;
 	FLinearColor OriginalColor;

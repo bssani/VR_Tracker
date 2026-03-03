@@ -69,9 +69,9 @@ Level 2 로드 → OperatorController::BeginPlay → ApplyGameInstanceConfig()
     ├─ BodyActor.ApplySessionConfig(Config)
     │    ├─ MountOffset 5개 적용
     │    └─ bShowCollisionSpheres 적용 (Tick이 덮어쓰지 않도록 멤버 변수 저장)
-    └─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰
-         └─ CollisionDetector.ReferencePoints.AddUnique(SpawnedHipRefPoint)
-              (AutoFindReferencePoints는 BeginPlay에서 이미 실행됐으므로 수동 등록)
+    └─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰 (순수 위치 마커)
+         └─ RelevantBodyParts 비움 → 충돌 감지 없음, 시안색 마커만 표시
+              (CollisionDetector가 건너뜀 — Warning/Collision 미발생)
 ```
 
 ### INI 설정 파일
@@ -793,10 +793,24 @@ SessionManager → BodyActor → **CalibrationComp** 컴포넌트에서 (Feature
 - 비워두면 무음, 일부만 연결해도 동작함
 
 ### Step 8: 플레이 테스트
-1. **VR Preview** 버튼 클릭 (또는 Alt+P)
-2. Vive Pro 2 HMD 착용
-3. 5개 트래커가 모두 감지되는지 확인 (디버그 구 5개 표시)
-4. HUD에서 Start Session → T-Pose 3초 → Testing 시작
+
+#### Level 1 (Setup) — 일반 Play
+1. **일반 Play (PIE)** 로 시작 (VR Preview 아님!)
+2. Level 1은 데스크탑 UI 전용 → 마우스 커서가 자동으로 켜짐
+3. SetupWidget에서 SubjectID, Height, 오프셋 등 입력
+4. [Start Session] 클릭 → Level 2로 자동 전환
+
+#### Level 2 (Test) — VR Preview 또는 일반 Play
+- **VR 모드**: VR Preview 버튼 (Alt+P) 클릭 → HMD + 5 트래커 사용
+- **시뮬레이션 모드**: 일반 Play → HMD 미감지 시 자동 전환 (WASD+마우스)
+- F1 → 캘리브레이션 / F2 → 테스트 직접 시작 / F3 → CSV 내보내기 / Escape → Level 1 복귀
+
+#### SteamVR 룸 세팅 (VR 모드 사용 시)
+1. SteamVR에서 **"앉아서 하기(Seated)"** 또는 **"서서 하기(Standing Only)"** 모드로 룸 세팅
+2. HMD를 **차량 시트 위 (착석 눈높이)**에 놓고 세팅 진행
+3. SteamVR 바닥 = UE5의 VROrigin Z=0 → 트래커 높이가 맞는지 확인
+4. **PlayerStart**는 차량 운전석 시트 **바닥 위치**에 배치 (VROrigin 기준점)
+5. 대안: BP_VTC_TrackerPawn에서 `bAutoSnapOnBeginPlay = true` + `SeatHipWorldPosition` 설정 → BeginPlay 시 자동 위치 보정
 
 ---
 
@@ -940,6 +954,20 @@ SessionManager 내 CollisionDetector 컴포넌트에서:
 - `MI_VTC_Warning`: BodyColor = **(1, 1, 0)** (노랑)
 - `MI_VTC_Collision`: BodyColor = **(1, 0, 0)** (빨강)
 
+### M_VTC_ReferenceMarker (ReferencePoint 마커 머티리얼)
+1. Content Browser → Material → `M_VTC_ReferenceMarker`
+2. Material Domain: **Surface**
+3. Blend Mode: **Opaque** (또는 Translucent)
+4. 노드 구성:
+   - **Vector Parameter** `BaseColor` (Default: 1, 0.5, 0, 1 = Orange)
+   - **Scalar Parameter** `EmissiveIntensity` (Default: 1.0)
+   - BaseColor → Base Color
+   - BaseColor × EmissiveIntensity → Emissive Color
+5. BP_VTC_ReferencePoint → MarkerMesh → Material Slot 0에 할당
+6. C++이 `CreateAndSetMaterialInstanceDynamic(0)`으로 런타임에 동적 색상 변경 (경고 단계별)
+
+> **Vehicle_Hip 마커**: 시안색 (0, 0.7, 1) — 충돌 감지 없는 순수 위치 마커로 자동 스폰됨. 별도 머티리얼 불필요 (동적 머티리얼이 색상을 직접 설정)
+
 ---
 
 ## 문제 해결 FAQ
@@ -964,6 +992,21 @@ SessionManager 내 CollisionDetector 컴포넌트에서:
 **Q: CSV가 저장되지 않아요**
 - DataLogger의 LogDirectory가 비어있으면 `Saved/VTCLogs/`에 자동 저장
 - 파일 쓰기 권한 확인
+
+**Q: Vehicle Hip Position을 설정하면 바로 충돌이 발생해요**
+- 이전 버전에서는 Vehicle_Hip이 Waist와 충돌 감지 대상이었으나, 현재 버전에서는 **순수 위치 마커** (시안색)로 변경됨
+- `RelevantBodyParts`가 비어있어 CollisionDetector가 건너뜀 → Warning/Collision 미발생
+- 실제 충돌 감지는 Dashboard, Door 등 차량 구조물용 ReferencePoint가 담당
+
+**Q: ReferencePoint를 숨기고 싶어요**
+- `SetActive(false)` 호출 → MarkerMesh 숨김 + CollisionDetector가 건너뜀 + 디버그 라인 안 그려짐
+- `SetActive(true)` 호출 → 원래대로 복원
+- BP에서: Details → `bActive` 체크박스 해제 (또는 Blueprint 이벤트에서 `Set Active` 노드 사용)
+
+**Q: 경고/충돌 사운드가 여러 번 겹쳐서 재생돼요**
+- Warning 사운드와 Collision 사운드 모두 **500ms 쿨다운**이 적용되어 있음
+- 한 측정 사이클에서 여러 (BodyPart, ReferencePoint) 쌍이 동시 트리거되어도 1회만 재생
+- `ResetFeedback()` 호출 시 쿨다운 타이머도 함께 초기화됨
 
 **Q: CSV에 어떤 데이터가 저장되나요?**
 - `ExportAndEnd()` / `ExportToCSV()` → `*_summary.csv` (세션당 1행, Human Factors 분석용)

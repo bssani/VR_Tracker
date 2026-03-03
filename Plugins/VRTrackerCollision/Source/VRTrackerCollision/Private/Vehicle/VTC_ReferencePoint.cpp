@@ -85,3 +85,12 @@ void AVTC_ReferencePoint::ResetMarkerColor()
 		MarkerDynMaterial->SetScalarParameterValue(FName("EmissiveIntensity"), 1.0f);
 	}
 }
+
+void AVTC_ReferencePoint::SetActive(bool bNewActive)
+{
+	bActive = bNewActive;
+	if (MarkerMesh)
+	{
+		MarkerMesh->SetVisibility(bActive);
+	}
+}
