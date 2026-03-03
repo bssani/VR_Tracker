@@ -4,9 +4,10 @@
 #include "Body/VTC_BodyActor.h"
 #include "DrawDebugHelpers.h"
 #include "Kismet/GameplayStatics.h"
+#include "Vehicle/VTC_ReferencePoint.h"
 #include "Misc/FileHelper.h"
 #include "UnrealClient.h"
-#include "Vehicle/VTC_ReferencePoint.h"
+
 
 UVTC_CollisionDetector::UVTC_CollisionDetector() {
   PrimaryComponentTick.bCanEverTick = true;
@@ -102,44 +103,28 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
       Result.ReferencePointLocation = RefPoint->GetReferenceLocation();
       CurrentDistanceResults.Add(Result);
 
-      // Vehicle_Hip는 거리만 재고(시안색 라인) 임계값/데이터최솟값 등 로직
-      // 건너뜀
-      if (RefPoint->PartName == TEXT("Vehicle_Hip")) {
-        if (bShowDistanceLabels) {
-          const FVector MidPoint =
-              (BodyLocation + RefPoint->GetReferenceLocation()) * 0.5f;
-          const FString DistLabel =
-              FString::Printf(TEXT("%.1f cm"), SafeDistanceResult);
-          DrawDebugString(GetWorld(), MidPoint, DistLabel, nullptr,
-                          FColor::Cyan, -1.0f, true, 1.2f);
-          DrawDebugLine(GetWorld(), BodyLocation,
-                        RefPoint->GetReferenceLocation(), FColor::Cyan, true,
-                        -1.0f, 0, DebugLineThickness);
-        }
-        continue;
-      }
-
       // 최소 거리 갱신 + 자동 스크린샷
-      if (SafeDistanceResult < SessionMinDistance) {
+      if (SafeDistanceResult < SessionMinDistance)
+      {
         SessionMinDistance = SafeDistanceResult;
 
-        if (bAutoScreenshotOnWorstClearance) {
+        if (bAutoScreenshotOnWorstClearance)
+        {
           FString Dir = ScreenshotDirectory;
-          if (Dir.IsEmpty()) {
-            Dir = FPaths::ProjectSavedDir() / TEXT("VTCLogs") /
-                  TEXT("Screenshots");
+          if (Dir.IsEmpty())
+          {
+            Dir = FPaths::ProjectSavedDir() / TEXT("VTCLogs") / TEXT("Screenshots");
           }
           IFileManager::Get().MakeDirectory(*Dir, true);
           const FString Filename = FString::Printf(
-              TEXT("VTC_Worst_%.1fcm_%s.png"), SafeDistanceResult,
+              TEXT("VTC_Worst_%.1fcm_%s.png"),
+              SafeDistanceResult,
               *FDateTime::Now().ToString(TEXT("%Y%m%d_%H%M%S")));
           LastScreenshotPath = Dir / Filename;
-          FScreenshotRequest::RequestScreenshot(LastScreenshotPath, false,
-                                                false);
-          UE_LOG(
-              LogTemp, Log,
-              TEXT("[VTC] Worst clearance updated: %.1f cm — screenshot: %s"),
-              SafeDistanceResult, *LastScreenshotPath);
+          FScreenshotRequest::RequestScreenshot(LastScreenshotPath, false, false);
+          UE_LOG(LogTemp, Log,
+                 TEXT("[VTC] Worst clearance updated: %.1f cm — screenshot: %s"),
+                 SafeDistanceResult, *LastScreenshotPath);
         }
       }
 
@@ -172,13 +157,14 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
                     LineColor, true, -1.0f, 0, DebugLineThickness);
 
       // 라인 중간에 거리 수치 텍스트 표시 (VR HMD에서 가시)
-      if (bShowDistanceLabels) {
+      if (bShowDistanceLabels)
+      {
         const FVector MidPoint =
             (BodyLocation + RefPoint->GetReferenceLocation()) * 0.5f;
         const FString DistLabel =
             FString::Printf(TEXT("%.1f cm"), SafeDistanceResult);
-        DrawDebugString(GetWorld(), MidPoint, DistLabel, nullptr, LineColor,
-                        -1.0f, true, 1.2f);
+        DrawDebugString(GetWorld(), MidPoint, DistLabel, nullptr,
+                        LineColor, -1.0f, true, 1.2f);
       }
     }
   }
@@ -218,20 +204,20 @@ void UVTC_CollisionDetector::ResetSessionStats() {
 }
 
 #if WITH_EDITOR
-void UVTC_CollisionDetector::PostEditChangeProperty(
-    FPropertyChangedEvent &Event) {
+void UVTC_CollisionDetector::PostEditChangeProperty(FPropertyChangedEvent& Event)
+{
   Super::PostEditChangeProperty(Event);
 
   const FName PropName = Event.GetPropertyName();
 
   // WarningThreshold 낮아지면 CollisionThreshold도 같이 내려줌
-  if (PropName ==
-      GET_MEMBER_NAME_CHECKED(UVTC_CollisionDetector, WarningThreshold)) {
+  if (PropName == GET_MEMBER_NAME_CHECKED(UVTC_CollisionDetector, WarningThreshold))
+  {
     CollisionThreshold = FMath::Min(CollisionThreshold, WarningThreshold);
   }
   // CollisionThreshold 올라가면 WarningThreshold도 같이 올려줌
-  else if (PropName == GET_MEMBER_NAME_CHECKED(UVTC_CollisionDetector,
-                                               CollisionThreshold)) {
+  else if (PropName == GET_MEMBER_NAME_CHECKED(UVTC_CollisionDetector, CollisionThreshold))
+  {
     WarningThreshold = FMath::Max(WarningThreshold, CollisionThreshold);
   }
 }
