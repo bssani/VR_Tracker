@@ -49,6 +49,10 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
   if (!BodyActor)
     return;
 
+  // 이전 사이클의 디버그 라인/텍스트 제거 → 이동 시 잔상(겹침) 방지
+  FlushPersistentDebugLines(GetWorld());
+  FlushDebugStrings(GetWorld());
+
   // 런타임에서도 두 임계값의 논리적 순서 보장
   CollisionThreshold = FMath::Min(CollisionThreshold, WarningThreshold);
 
@@ -143,18 +147,14 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
       // 거리 업데이트 브로드캐스트
       OnDistanceUpdated.Broadcast(Result);
 
-      // Debug 라인 시각화
-      // DebugDuration: 측정 간격보다 약간 길게 유지 → 프레임 간 끊김 없음(깜빡임 방지)
-      // 텍스트는 다음 측정 전에 자동 소멸 → 누적 방지
-      const float DebugDuration = (1.0f / MeasurementHz) + 0.05f;
-
+      // Debug 라인 시각화 (persistent — 다음 사이클 시작 시 Flush로 일괄 제거)
       FColor LineColor = FColor::Green;
       if (Level == EVTCWarningLevel::Warning)
         LineColor = FColor::Yellow;
       if (Level == EVTCWarningLevel::Collision)
         LineColor = FColor::Red;
       DrawDebugLine(GetWorld(), BodyLocation, RefPoint->GetReferenceLocation(),
-                    LineColor, false, DebugDuration, 0, DebugLineThickness);
+                    LineColor, true, -1.0f, 0, DebugLineThickness);
 
       // 라인 중간에 거리 수치 텍스트 표시 (VR HMD에서 가시)
       if (bShowDistanceLabels)
@@ -164,7 +164,7 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
         const FString DistLabel =
             FString::Printf(TEXT("%.1f cm"), SafeDistanceResult);
         DrawDebugString(GetWorld(), MidPoint, DistLabel, nullptr,
-                        LineColor, DebugDuration, true, 1.2f);
+                        LineColor, -1.0f, true, 1.2f);
       }
     }
   }

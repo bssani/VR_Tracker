@@ -188,13 +188,16 @@ void AVTC_SessionManager::OnCalibrationFailed(const FString& Reason)
 void AVTC_SessionManager::OnWarningLevelChanged(EVTCTrackerRole BodyPart,
 	FString PartName, EVTCWarningLevel Level)
 {
-	if (WarningFeedback)
+	// Testing 상태에서만 사운드/PostProcess 피드백 활성화
+	// (IDLE/CALIBRATING 상태에서 VehicleHipPosition 등으로 인한 오작동 방지)
+	if (WarningFeedback && CurrentState == EVTCSessionState::Testing)
 	{
 		WarningFeedback->OnWarningLevelChanged(BodyPart, PartName, Level);
 	}
 
-	// 충돌 이벤트 즉시 기록
-	if (Level == EVTCWarningLevel::Collision && DataLogger && BodyActor)
+	// 충돌 이벤트 즉시 기록 (Testing 상태에서만)
+	if (Level == EVTCWarningLevel::Collision && DataLogger && BodyActor
+		&& CurrentState == EVTCSessionState::Testing)
 	{
 		FVTCCollisionEvent Event;
 		Event.Timestamp        = FDateTime::Now().ToString(TEXT("%Y-%m-%d %H:%M:%S.%s"));
