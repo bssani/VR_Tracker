@@ -160,10 +160,10 @@ void AVTC_OperatorController::SetupInputComponent()
   Super::SetupInputComponent();
   if (!InputComponent) return;
 
-  InputComponent->BindKey(EKeys::F1,     IE_Pressed, this, &AVTC_OperatorController::Input_F1);
-  InputComponent->BindKey(EKeys::F2,     IE_Pressed, this, &AVTC_OperatorController::Input_F2);
-  InputComponent->BindKey(EKeys::F3,     IE_Pressed, this, &AVTC_OperatorController::Input_F3);
-  InputComponent->BindKey(EKeys::Escape, IE_Pressed, this, &AVTC_OperatorController::Input_Escape);
+  InputComponent->BindKey(EKeys::One,     IE_Pressed, this, &AVTC_OperatorController::Input_One);
+  InputComponent->BindKey(EKeys::Two,     IE_Pressed, this, &AVTC_OperatorController::Input_Two);
+  InputComponent->BindKey(EKeys::Three,     IE_Pressed, this, &AVTC_OperatorController::Input_Three);
+  InputComponent->BindKey(EKeys::Four, IE_Pressed, this, &AVTC_OperatorController::Input_Four);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -220,10 +220,10 @@ void AVTC_OperatorController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 // ─────────────────────────────────────────────────────────────────────────────
 //  단축키 핸들러
 // ─────────────────────────────────────────────────────────────────────────────
-void AVTC_OperatorController::Input_F1()     { StartCalibration(); }
-void AVTC_OperatorController::Input_F2()     { StartTest(); }
-void AVTC_OperatorController::Input_F3()     { StopAndExport(); }
-void AVTC_OperatorController::Input_Escape() { ReturnToSetupLevel(); }
+void AVTC_OperatorController::Input_One()     { StartCalibration(); }
+void AVTC_OperatorController::Input_Two()     { StartTest(); }
+void AVTC_OperatorController::Input_Three()     { StopAndExport(); }
+void AVTC_OperatorController::Input_Four() { ReturnToSetupLevel(); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  세션 상태 변경 → StatusWidget + OperatorMonitorWidget 갱신

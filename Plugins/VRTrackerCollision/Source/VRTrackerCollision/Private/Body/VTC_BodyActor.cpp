@@ -251,6 +251,7 @@ void AVTC_BodyActor::ApplySessionConfig(const FVTCSessionConfig& Config)
   VehicleHipPosition = Config.VehicleHipPosition;
   if (VehicleHipMarker)
     VehicleHipMarker->SetWorldLocation(Config.VehicleHipPosition);
+  Sphere_Hip->SetWorldLocation(Config.VehicleHipPosition);  // Hip Sphere도 함께 이동
 
   // 가시성 상태 저장 (SyncSpherePositions Tick이 덮어쓰지 않도록)
   bShowCollisionSpheres = Config.bShowCollisionSpheres;

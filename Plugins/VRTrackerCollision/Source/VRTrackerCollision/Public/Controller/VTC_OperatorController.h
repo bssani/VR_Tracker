@@ -77,10 +77,10 @@ protected:
   virtual void OnPossess(APawn* InPawn) override;
 
 private:
-  void Input_F1();
-  void Input_F2();
-  void Input_F3();
-  void Input_Escape();
+  void Input_One();
+  void Input_Two();
+  void Input_Three();
+  void Input_Four();
 
   // GameInstance 설정 → TrackerPawn + BodyActor + CollisionDetector 에 일괄 적용
   void ApplyGameInstanceConfig();
