@@ -301,10 +301,10 @@ void AVTC_OperatorController::ApplyGameInstanceConfig()
            C.WarningThreshold_cm, C.CollisionThreshold_cm);
   }
 
-  // ── VehicleHipPosition → CollisionDetector용 ReferencePoint 동적 스폰 ──
-  // VehicleHipPosition이 설정되어 있으면 레벨에 ReferencePoint를 스폰하고
-  // SessionManager의 CollisionDetector에 직접 추가한다.
-  // (AutoFindReferencePoints가 BeginPlay에서 이미 실행된 이후이므로 수동 등록 필요)
+  // ── VehicleHipPosition → 순수 위치 마커 스폰 (충돌 감지 없음) ──────────
+  // VehicleHipPosition은 피실험자 Hip 위치의 기준점 마커로만 사용.
+  // RelevantBodyParts를 비워서 CollisionDetector가 건너뛰게 한다.
+  // (충돌 감지는 Dashboard, Door 등 실제 차량 내부 구조물용 ReferencePoint가 담당)
   if (!C.VehicleHipPosition.IsNearlyZero())
   {
     const bool bFirstSpawn = !SpawnedHipRefPoint;
@@ -325,7 +325,8 @@ void AVTC_OperatorController::ApplyGameInstanceConfig()
     {
       SpawnedHipRefPoint->SetActorLocation(C.VehicleHipPosition);
       SpawnedHipRefPoint->PartName          = TEXT("Vehicle_Hip");
-      SpawnedHipRefPoint->RelevantBodyParts = { EVTCTrackerRole::Waist };
+      SpawnedHipRefPoint->RelevantBodyParts.Empty();  // 충돌 감지 대상 아님 — 순수 위치 마커
+      SpawnedHipRefPoint->MarkerColor = FLinearColor(0.0f, 0.7f, 1.0f, 1.0f);  // 시안색으로 구분
 
       // 처음 스폰될 때만 CollisionDetector에 등록.
       // 이미 존재하는 경우는 위치 업데이트만으로 충분하다.

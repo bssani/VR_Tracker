@@ -408,6 +408,18 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 - CollisionThreshold = 3cm (Sphere Overlap 이전에 경고 제공)
 - 충돌 이벤트 타임스탬프: 밀리초 정밀도
 
+**VehicleHipPosition (순수 위치 마커)**
+- SetupWidget에서 입력한 좌표에 시안색 ReferencePoint가 스폰됨
+- `RelevantBodyParts`가 비어있어 CollisionDetector가 건너뜀 (충돌/경고 미발생)
+- 피실험자 Hip 위치의 시각적 기준점으로만 사용
+
+**SteamVR 룸 세팅 가이드**
+- "앉아서 하기(Seated)" 또는 "서서 하기(Standing Only)" 모드 사용
+- 세팅 시 HMD를 차량 시트 위(착석 눈높이)에 놓고 진행
+- SteamVR 바닥 높이 = UE5의 VROrigin Z=0
+- PlayerStart는 차량 운전석 시트 바닥 위치에 배치
+- 대안: TrackerPawn의 `bAutoSnapOnBeginPlay = true` + `SeatHipWorldPosition` 설정으로 자동 보정
+
 **의존 플러그인**
 - OpenXR (필수 — Vive Pro 2 + Tracker 입력)
 - Niagara (필수 — 충돌 FX)

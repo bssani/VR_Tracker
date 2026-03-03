@@ -114,8 +114,8 @@ Level 2 로드 → OperatorController::BeginPlay / OnPossess
          │    ├─ MountOffset 5개 적용
          │    └─ bShowCollisionSpheres → 멤버 변수 저장 (Tick 덮어쓰기 방지)
          ├─ CollisionDetector.WarningThreshold/CollisionThreshold 적용  [NEW]
-         ├─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰
-         │    └─ CollisionDetector.ReferencePoints.AddUnique()
+         ├─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰 (순수 위치 마커)
+         │    └─ RelevantBodyParts 비움 → 충돌 감지 없음, 시안색 마커만 표시
          └─ 차종 프리셋 JSON → 추가 ReferencePoint 스폰  [NEW]
               └─ CollisionDetector.ReferencePoints.AddUnique()
 ```
@@ -440,15 +440,17 @@ FVTCPresetRefPoint    — [NEW] 프리셋 내 단일 ReferencePoint 데이터
 │
 ├─ [4] VTC_CollisionDetector::TickComponent() (30Hz 제한)
 │       └─ PerformDistanceMeasurements()
+│           ├─ FlushPersistentDebugLines + FlushDebugStrings (이전 사이클 라인 제거)
 │           ├─ 각 ReferencePoint ↔ 관련 신체부위 거리 계산
 │           ├─ WarningLevel 결정 (Safe/Warning/Collision)
 │           ├─ OverallWarningLevel 갱신
+│           ├─ Persistent DrawDebugLine + DrawDebugString (다음 사이클에서 Flush)
 │           └─ OnWarningLevelChanged / OnDistanceUpdated Delegate 브로드캐스트
 │
 ├─ [5] VTC_WarningFeedback (CollisionDetector Delegate 수신)
 │       └─ Safe:      → PostProcess OFF, 사운드 OFF
-│          Warning:   → Vignette 0.5, WarningSFX
-│          Collision: → Vignette 1.0, CollisionSFX, Niagara FX 스폰
+│          Warning:   → Vignette 0.5, WarningSFX (500ms 쿨다운 — 다중 재생 방지)
+│          Collision: → Vignette 1.0, CollisionSFX (500ms 쿨다운), Niagara FX 스폰
 │
 ├─ [6] VTC_DataLogger (10Hz, Testing 상태일 때만)
 │       └─ LogFrame() — 위치 + 거리 + 경고레벨 CSV 버퍼에 추가
@@ -624,9 +626,9 @@ CollisionOccurred, CollisionPartName
 | VTC_BodyActor | Body | 가상 신체 (세그먼트+Sphere+VisualSphere) | |
 | VTC_BodySegmentComponent | Body | Dynamic Cylinder | |
 | VTC_CalibrationComponent | Body | T-Pose 캘리브레이션 | |
-| VTC_ReferencePoint | Vehicle | 차량 기준점 Actor | |
+| VTC_ReferencePoint | Vehicle | 차량 기준점 Actor + SetActive(가시성 연동) | |
 | VTC_CollisionDetector | Collision | 거리 측정 + 충돌 감지 | **F** 자동 스크린샷 ✅ / **G** VR 거리 라벨 ✅ |
-| VTC_WarningFeedback | Collision | 시각/청각 피드백 | |
+| VTC_WarningFeedback | Collision | 시각/청각 피드백 (Warning+Collision 500ms 쿨다운) | |
 | VTC_DataLogger | Data | CSV 로깅 (summary + frames) | |
 | VTC_SessionManager | Data | 세션 상태머신 | |
 | VTC_SetupWidget | UI | Level 1 설정 위젯 | **A** 임계값 슬라이더 ✅ / **B** 차종 프리셋 ComboBox ✅ |
