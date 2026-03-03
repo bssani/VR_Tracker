@@ -16,7 +16,6 @@
 #include "World/VTC_OperatorViewActor.h"
 #include "World/VTC_StatusActor.h"
 
-
 AVTC_OperatorController::AVTC_OperatorController() {
   // Tick 활성화 — TrackerStatus 주기적 갱신에 필요
   PrimaryActorTick.bCanEverTick = true;
@@ -309,8 +308,9 @@ void AVTC_OperatorController::ApplyGameInstanceConfig() {
     if (SpawnedHipRefPoint) {
       SpawnedHipRefPoint->SetActorLocation(C.VehicleHipPosition);
       SpawnedHipRefPoint->PartName = TEXT("Vehicle_Hip");
-      SpawnedHipRefPoint->RelevantBodyParts
-          .Empty(); // 충돌 감지 대상 아님 — 순수 위치 마커
+      SpawnedHipRefPoint->RelevantBodyParts.Empty();
+      SpawnedHipRefPoint->RelevantBodyParts.Add(
+          EVTCTrackerRole::Waist); // 거리 측정을 위해 Waist 추가
       SpawnedHipRefPoint->MarkerColor =
           FLinearColor(0.0f, 0.7f, 1.0f, 1.0f); // 시안색으로 구분
 

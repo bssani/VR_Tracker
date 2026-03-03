@@ -408,10 +408,10 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 - CollisionThreshold = 3cm (Sphere Overlap 이전에 경고 제공)
 - 충돌 이벤트 타임스탬프: 밀리초 정밀도
 
-**VehicleHipPosition (순수 위치 마커)**
+**VehicleHipPosition (순수 위치 마커 및 Waist 거리 측정)**
 - SetupWidget에서 입력한 좌표에 시안색 ReferencePoint가 스폰됨
-- `RelevantBodyParts`가 비어있어 CollisionDetector가 건너뜀 (충돌/경고 미발생)
-- 피실험자 Hip 위치의 시각적 기준점으로만 사용
+- `RelevantBodyParts`에 Waist가 등록되어 거리를 계산하고 시안색 텍스트로 표시함
+- 단, CollisionDetector의 특수 예외 처리로 인해 충돌/경고는 발생하지 않음
 
 **SteamVR 룸 세팅 가이드**
 - "앉아서 하기(Seated)" 또는 "서서 하기(Standing Only)" 모드 사용
