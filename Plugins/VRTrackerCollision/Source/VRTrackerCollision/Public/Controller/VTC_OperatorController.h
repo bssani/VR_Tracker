@@ -4,7 +4,7 @@
 // [역할]
 //   - GameInstance에서 세션 설정을 읽어 TrackerPawn/BodyActor에 적용
 //   - 1/2/3 키로만 세션 제어 (버튼 없음)
-//   - 4 키로 Level 1 (Setup)으로 복귀
+//   - 3 키로 CSV 저장 후 게임 종료 (레벨 전환 없음)
 //   - StatusActor(월드 3D 위젯)에 현재 상태 + 키 안내 메시지 표시
 //   - OperatorMonitorWidget(Screen Space)에 거리 데이터 + 상태 표시 (운영자
 //   데스크탑용)
@@ -14,7 +14,7 @@
 // [단축키]
 //   1      : 캘리브레이션 시작 (GameInstance의 SubjectID/Height 사용)
 //   2      : 테스트 시작 (캘리브레이션 건너뜀)
-//   3      : CSV 저장 + Level 1 (Setup 레벨) 복귀
+//   3      : CSV 저장 + 게임 종료 (QuitGame)
 
 #pragma once
 
@@ -67,10 +67,6 @@ public:
   UFUNCTION(BlueprintCallable, BlueprintNativeEvent,
             Category = "VTC|Operator|Session")
   void StopAndExport();
-
-  // Level 1 (Setup 레벨)으로 즉시 복귀
-  UFUNCTION(BlueprintCallable, Category = "VTC|Operator|Session")
-  void ReturnToSetupLevel();
 
 protected:
   virtual void BeginPlay() override;

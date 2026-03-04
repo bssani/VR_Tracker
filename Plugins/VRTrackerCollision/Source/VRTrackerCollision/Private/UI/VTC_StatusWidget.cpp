@@ -160,9 +160,9 @@ FString UVTC_StatusWidget::GetPromptForState(EVTCSessionState State) {
   case EVTCSessionState::Calibrating:
     return TEXT("Sit in correct position and hold still.\nCalibration will complete automatically.");
   case EVTCSessionState::Testing:
-    return TEXT("3  —  Save CSV & Return to Setup\nTesting in progress...");
+    return TEXT("3  —  Save CSV & Quit\nTesting in progress...");
   case EVTCSessionState::Reviewing:
-    return TEXT("3  —  Save CSV & Return to Setup");
+    return TEXT("3  —  Save CSV & Quit");
   default:
     return TEXT("");
   }

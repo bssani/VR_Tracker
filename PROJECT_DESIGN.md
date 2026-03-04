@@ -37,9 +37,8 @@
   VR/시뮬레이션 테스트 환경
   ├─ GameMode: VTC_GameMode
   ├─ PlayerController: VTC_SimPlayerController (→ VTC_OperatorController 상속)
-  │    ├─ F1 캘리브레이션 / F2 테스트 / F3 CSV 내보내기
-  │    ├─ Escape → Level 1 복귀
-  │    └─ WASD + 마우스 시뮬레이션 이동
+  │    ├─ 1 캘리브레이션 / 2 테스트 / 3 CSV 내보내기 + 게임 종료
+  │    └─ WASD + 마우스 시뮬레이션 이동 (SimPlayerController)
   ├─ 3D WorldSpace 위젯 (VTC_StatusActor → VTC_StatusWidget)
   ├─ [NEW] VTC_OperatorViewActor (SceneCapture → Spectator Screen) (Feature I)
   └─ 세션 상태머신: IDLE → CALIBRATING → TESTING → REVIEWING
@@ -146,7 +145,7 @@ VTC_SimPlayerController → VTC_OperatorController → APlayerController
 ```
 
 **VTC_OperatorController (부모):**
-- **단축키:** 1(캘리브레이션) / 2(테스트) / 3(CSV저장+Level1복귀)
+- **단축키:** 1(캘리브레이션) / 2(테스트) / 3(CSV저장+게임종료)
 - GameInstance 설정 → TrackerPawn, BodyActor, CollisionDetector에 일괄 적용
 - VehicleHipPosition → ReferencePoint 런타임 스폰 + CollisionDetector 등록 (`bCollisionDisabled=true`)
 - VehicleHipPosition → `SnapWaistToWithRetry()` 호출 (최대 10초 재시도, VR tracker 미인식 대응)
@@ -308,7 +307,7 @@ IDLE → CALIBRATING → TESTING → REVIEWING → IDLE
 - **선택 BindWidgetOptional** 5개: Txt_PresetInfo, Txt_CalibResult, Txt_ElapsedTime, Txt_MinDistance, VB_DistanceList
 - OperatorController가 세션 상태 변경 시 자동 갱신
 - 캘리브레이션 결과: Calibrating→Testing 시 "Cal: OK ✓" / Calibrating→Idle 시 "Cal: FAILED"
-- 키 안내: 1(캘리브레이션) / 2(테스트) / 3(CSV저장+복귀)
+- 키 안내: 1(캘리브레이션) / 2(테스트) / 3(CSV저장+게임종료)
 
 #### Level 2 — VTC_OperatorMonitorWidget (Screen Space — 운영자 데스크탑)
 

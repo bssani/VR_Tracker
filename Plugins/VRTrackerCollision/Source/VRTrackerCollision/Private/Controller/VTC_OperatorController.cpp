@@ -7,6 +7,7 @@
 #include "Components/InputComponent.h"
 #include "Data/VTC_SessionManager.h"
 #include "EngineUtils.h" // TActorIterator
+#include "Kismet/KismetSystemLibrary.h"
 #include "Pawn/VTC_TrackerPawn.h"
 #include "UI/VTC_OperatorMonitorWidget.h"
 #include "UI/VTC_StatusWidget.h"
@@ -197,11 +198,6 @@ void AVTC_OperatorController::StopAndExport_Implementation() {
     SessionManager->ExportAndEnd();
 }
 
-void AVTC_OperatorController::ReturnToSetupLevel() {
-  if (UVTC_GameInstance *GI = GetGameInstance<UVTC_GameInstance>())
-    GI->OpenSetupLevel();
-}
-
 void AVTC_OperatorController::EndPlay(
     const EEndPlayReason::Type EndPlayReason) {
   // 운영자 모니터 위젯 뷰포트에서 제거
@@ -242,8 +238,8 @@ void AVTC_OperatorController::EndPlay(
 void AVTC_OperatorController::Input_One()   { StartCalibration(); }
 void AVTC_OperatorController::Input_Two()   { StartTest(); }
 void AVTC_OperatorController::Input_Three() {
-  StopAndExport();       // CSV 저장 + 상태 Idle로 전환 (동기)
-  ReturnToSetupLevel();  // Level 1으로 복귀 (비동기 레벨 로드 큐잉)
+  StopAndExport();  // CSV 저장 + 상태 Idle로 전환
+  UKismetSystemLibrary::QuitGame(GetWorld(), this, EQuitPreference::Quit, false);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
