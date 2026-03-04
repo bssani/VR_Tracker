@@ -84,6 +84,7 @@ void AVTC_OperatorController::BeginPlay() {
     if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget()) {
       W->UpdateState(EVTCSessionState::Idle);
       W->UpdateSubjectInfo(SubjectID, Height_cm);
+      W->UpdateElapsedTime(0.f);
     }
   }
 
@@ -121,10 +122,21 @@ void AVTC_OperatorController::Tick(float DeltaTime) {
   if (AVTC_TrackerPawn *TP = Cast<AVTC_TrackerPawn>(GetPawn()))
     ConnectedCount = TP->GetActiveTrackerCount();
 
-  // 3D StatusWidget 갱신
+  // 3D StatusWidget 갱신 (1초마다)
   if (StatusActor) {
-    if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget())
+    if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget()) {
       W->UpdateTrackerStatus(ConnectedCount, 5);
+      if (SessionManager) {
+        if (SessionManager->IsTesting())
+          W->UpdateElapsedTime(SessionManager->SessionElapsedTime);
+        if (SessionManager->CollisionDetector) {
+          const float MinDist =
+              SessionManager->CollisionDetector->SessionMinDistance;
+          if (MinDist < TNumericLimits<float>::Max())
+            W->UpdateMinDistance(MinDist);
+        }
+      }
+    }
   }
 
   // 운영자 모니터 위젯 갱신 (1초마다: TrackerStatus + 경과 시간 + 최소 거리)
@@ -257,6 +269,16 @@ void AVTC_OperatorController::OnSessionStateChanged(EVTCSessionState OldState,
       OperatorMonitorWidget->UpdateElapsedTime(0.f);
     }
   }
+
+  // 3D StatusWidget: Testing 시작 시 거리 목록 + 경과 시간 초기화
+  if (NewState == EVTCSessionState::Testing) {
+    if (StatusActor) {
+      if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget()) {
+        W->ClearDistanceList();
+        W->UpdateElapsedTime(0.f);
+      }
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -266,6 +288,12 @@ void AVTC_OperatorController::OnDistanceUpdated(
     const FVTCDistanceResult &Result) {
   if (OperatorMonitorWidget)
     OperatorMonitorWidget->UpdateDistanceRow(Result);
+
+  // 3D StatusWidget에도 동일한 거리 Row 갱신 (30Hz)
+  if (StatusActor) {
+    if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget())
+      W->UpdateDistanceRow(Result);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
