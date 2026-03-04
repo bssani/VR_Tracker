@@ -340,13 +340,14 @@ void AVTC_TrackerPawn::SnapWaistTo(const FVector& WorldPos)
 	// Pawn 루트는 바닥 기준이므로 Waist 위치와 다르다 → 반드시 Delta 방식 사용.
 	const FVector WaistWorld = GetTrackerLocation(EVTCTrackerRole::Waist);
 
-	// Waist 데이터가 아직 없으면(추적 미시작, BeginPlay 직후 등) 스냅 건너뜀.
-	// ApplyGameInstanceConfig()에서 SetTimerForNextTick으로 호출하므로
-	// 보통 첫 Tick 이후에는 유효한 데이터가 있어야 한다.
-	if (WaistWorld.IsNearlyZero())
+	// Waist 트래커가 활성 상태가 아니면(추적 미시작, 연결 없음 등) 스냅 건너뜀.
+	// IsNearlyZero() 대신 IsTrackerActive()를 사용하는 이유:
+	//   피실험자가 월드 원점 근처에 있을 때 (0,0,0)에 가까운 유효 위치도
+	//   IsNearlyZero()로 잘못 차단될 수 있다.
+	if (!IsTrackerActive(EVTCTrackerRole::Waist))
 	{
 		UE_LOG(LogTemp, Warning,
-			TEXT("[VTC] SnapWaistTo skipped: Waist tracker data not yet available."));
+			TEXT("[VTC] SnapWaistTo skipped: Waist tracker not active."));
 		return;
 	}
 

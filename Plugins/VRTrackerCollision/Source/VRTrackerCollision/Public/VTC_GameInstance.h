@@ -31,9 +31,16 @@ public:
   UPROPERTY(BlueprintReadWrite, Category = "VTC|Session")
   FVTCSessionConfig SessionConfig;
 
+  // ─── 라이프사이클 ──────────────────────────────────────────────────────────
+
+  // 게임 인스턴스 초기화 시 INI 자동 로드.
+  // Level 1 없이 VR/Sim 레벨을 직접 실행할 때도 이전 설정을 사용할 수 있다.
+  virtual void Init() override;
+
   // ─── 레벨 전환 ─────────────────────────────────────────────────────────────
 
-  // Level 2 (테스트 레벨) 열기. 레벨 이름은 BP에서 Override 가능.
+  // 테스트 레벨 열기.
+  // RunMode에 따라 VRTestLevelName 또는 SimTestLevelName으로 자동 분기한다.
   UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "VTC|Session")
   void OpenTestLevel();
 
@@ -54,9 +61,16 @@ public:
   void LoadConfigFromINI();
 
   // ─── 레벨 이름 (BP에서 Override해 실제 레벨 이름 지정) ──────────────────
+
+  // VR 전용 테스트 레벨 이름 (RunMode = VR 일 때 OpenTestLevel에서 사용)
   UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Session",
-            meta = (DisplayName = "Test Level Name"))
-  FString TestLevelName = TEXT("VTC_TestLevel");
+            meta = (DisplayName = "VR Test Level Name"))
+  FString VRTestLevelName = TEXT("VTC_VRTestLevel");
+
+  // 시뮬레이션 전용 테스트 레벨 이름 (RunMode = Simulation 일 때 사용)
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Session",
+            meta = (DisplayName = "Sim Test Level Name"))
+  FString SimTestLevelName = TEXT("VTC_SimTestLevel");
 
   UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Session",
             meta = (DisplayName = "Setup Level Name"))

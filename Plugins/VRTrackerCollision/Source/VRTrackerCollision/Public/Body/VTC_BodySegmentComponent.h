@@ -21,6 +21,11 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
 		FActorComponentTickFunction* ThisTickFunction) override;
 
+	// SegmentMesh를 런타임 인스턴스 생성 시점에 만든다.
+	// 생성자에서 CreateDefaultSubobject를 쓰면 4개 컴포넌트가 모두 "SegmentMesh"라는
+	// 동일 이름을 Actor CDO에 등록해 UE 오브젝트 인스턴싱 ensure 실패를 유발한다.
+	virtual void OnRegister() override;
+
 	// ─── 설정 ────────────────────────────────────────────────────────────────
 
 	// 이 세그먼트의 시작점 Tracker 역할 (예: Waist)

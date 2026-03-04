@@ -1,26 +1,44 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "Body/VTC_BodySegmentComponent.h"
-#include "UObject/ConstructorHelpers.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "UObject/Package.h"
 
 UVTC_BodySegmentComponent::UVTC_BodySegmentComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
+	// SegmentMesh는 OnRegister()에서 생성한다.
+	// 생성자에서 CreateDefaultSubobject<UStaticMeshComponent>("SegmentMesh")를 쓰면
+	// AVTC_BodyActor가 이 컴포넌트를 4개 포함할 때 모두 같은 이름 "SegmentMesh"를
+	// 동일한 Actor CDO에 등록해 UE 오브젝트 인스턴싱 과정에서 ensure 실패가 발생한다.
+}
 
-	// Cylinder Static Mesh 생성 (UE5 엔진 기본 Cylinder)
-	SegmentMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SegmentMesh"));
+void UVTC_BodySegmentComponent::OnRegister()
+{
+	Super::OnRegister();
+
+	// CDO 또는 아직 Owner(Actor)가 없는 경우 생성을 건너뜀.
+	// IsTemplate(): CDO / 아키타입 컨텍스트이면 true → 런타임 인스턴스에서만 생성.
+	if (IsTemplate() || !GetOwner() || SegmentMesh)
+		return;
+
+	// 컴포넌트 자신의 이름을 접두사로 사용해 고유 이름 생성.
+	// 예) "Seg_RKnee_RFoot" → "Seg_RKnee_RFoot_SegMesh"
+	// Actor 안에서 이름 충돌이 없으므로 CDO 인스턴싱 오류가 발생하지 않는다.
+	const FName MeshName(*FString::Printf(TEXT("%s_SegMesh"), *GetName()));
+	SegmentMesh = NewObject<UStaticMeshComponent>(GetOwner(), MeshName);
 	SegmentMesh->SetupAttachment(this);
 	SegmentMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SegmentMesh->SetCastShadow(false);
 
-	// 엔진 기본 Cylinder Mesh 로드
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> CylinderMesh(
-		TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
-	if (CylinderMesh.Succeeded())
-	{
-		SegmentMesh->SetStaticMesh(CylinderMesh.Object);
-	}
+	// ConstructorHelpers는 생성자 외부에서 사용할 수 없으므로 StaticLoadObject 사용
+	UStaticMesh* CylinderMesh = Cast<UStaticMesh>(StaticLoadObject(
+		UStaticMesh::StaticClass(), nullptr,
+		TEXT("/Engine/BasicShapes/Cylinder.Cylinder")));
+	if (CylinderMesh)
+		SegmentMesh->SetStaticMesh(CylinderMesh);
+
+	SegmentMesh->RegisterComponent();
 }
 
 void UVTC_BodySegmentComponent::TickComponent(float DeltaTime, ELevelTick TickType,
