@@ -5,6 +5,18 @@
 #include "Components/VerticalBox.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  프리셋 정보
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_OperatorMonitorWidget::UpdatePresetInfo(bool bUsePreset, const FString& PresetName)
+{
+  if (!Txt_PresetInfo) return;
+  const FString Text = bUsePreset && !PresetName.IsEmpty()
+      ? FString::Printf(TEXT("Preset: %s"), *PresetName)
+      : TEXT("Preset: None");
+  Txt_PresetInfo->SetText(FText::FromString(Text));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  세션 상태
 // ─────────────────────────────────────────────────────────────────────────────
 void UVTC_OperatorMonitorWidget::UpdateState(EVTCSessionState NewState)

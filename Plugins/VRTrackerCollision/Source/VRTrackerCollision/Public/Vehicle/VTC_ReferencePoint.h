@@ -28,9 +28,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Reference Point")
 	TArray<EVTCTrackerRole> RelevantBodyParts;
 
-	// 이 기준점이 활성화 상태인지
+	// 이 기준점이 활성화 상태인지 (false면 CollisionDetector가 완전히 무시)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Reference Point")
 	bool bActive = true;
+
+	// true면 거리 시각화(선+수치)만 표시하고 Warning/Collision 임계값 판정은 수행하지 않음.
+	// Vehicle_Hip 등 참조용 마커에 사용. bActive가 true여야 효과 있음.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Reference Point")
+	bool bCollisionDisabled = false;
 
 	// ─── 시각화 ─────────────────────────────────────────────────────────────
 

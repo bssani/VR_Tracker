@@ -78,13 +78,16 @@ void AVTC_OperatorController::BeginPlay() {
   // ── 초기 상태 표시 (StatusWidget 3D + OperatorMonitorWidget 데스크탑) ──────
   UVTC_GameInstance *GI = GetGameInstance<UVTC_GameInstance>();
   const FString SubjectID = GI ? GI->SessionConfig.SubjectID : TEXT("");
-  const float Height_cm = GI ? GI->SessionConfig.Height_cm : 170.0f;
+  const float Height_cm   = GI ? GI->SessionConfig.Height_cm : 170.0f;
+  const bool  bUsePreset  = GI && GI->SessionConfig.bUseVehiclePreset;
+  const FString PresetName = GI ? GI->SessionConfig.SelectedPresetName : TEXT("");
 
   if (StatusActor) {
     if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget()) {
       W->UpdateState(EVTCSessionState::Idle);
       W->UpdateSubjectInfo(SubjectID, Height_cm);
       W->UpdateElapsedTime(0.f);
+      W->UpdatePresetInfo(bUsePreset, PresetName);
     }
   }
 
@@ -92,6 +95,7 @@ void AVTC_OperatorController::BeginPlay() {
     OperatorMonitorWidget->UpdateState(EVTCSessionState::Idle);
     OperatorMonitorWidget->UpdateSubjectInfo(SubjectID, Height_cm);
     OperatorMonitorWidget->UpdateElapsedTime(0.f);
+    OperatorMonitorWidget->UpdatePresetInfo(bUsePreset, PresetName);
   }
 }
 
@@ -166,10 +170,9 @@ void AVTC_OperatorController::SetupInputComponent() {
   if (!InputComponent)
     return;
 
-  InputComponent->BindKey(EKeys::One,     IE_Pressed, this, &AVTC_OperatorController::Input_One);
-  InputComponent->BindKey(EKeys::Two,     IE_Pressed, this, &AVTC_OperatorController::Input_Two);
-  InputComponent->BindKey(EKeys::Three,     IE_Pressed, this, &AVTC_OperatorController::Input_Three);
-  InputComponent->BindKey(EKeys::Four, IE_Pressed, this, &AVTC_OperatorController::Input_Four);
+  InputComponent->BindKey(EKeys::One,   IE_Pressed, this, &AVTC_OperatorController::Input_One);
+  InputComponent->BindKey(EKeys::Two,   IE_Pressed, this, &AVTC_OperatorController::Input_Two);
+  InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AVTC_OperatorController::Input_Three);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -236,10 +239,12 @@ void AVTC_OperatorController::EndPlay(
 // ─────────────────────────────────────────────────────────────────────────────
 //  단축키 핸들러
 // ─────────────────────────────────────────────────────────────────────────────
-void AVTC_OperatorController::Input_One()     { StartCalibration(); }
-void AVTC_OperatorController::Input_Two()     { StartTest(); }
-void AVTC_OperatorController::Input_Three()     { StopAndExport(); }
-void AVTC_OperatorController::Input_Four() { ReturnToSetupLevel(); }
+void AVTC_OperatorController::Input_One()   { StartCalibration(); }
+void AVTC_OperatorController::Input_Two()   { StartTest(); }
+void AVTC_OperatorController::Input_Three() {
+  StopAndExport();       // CSV 저장 + 상태 Idle로 전환 (동기)
+  ReturnToSetupLevel();  // Level 1으로 복귀 (비동기 레벨 로드 큐잉)
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  세션 상태 변경 → StatusWidget + OperatorMonitorWidget 갱신
@@ -250,11 +255,23 @@ void AVTC_OperatorController::OnSessionStateChanged(EVTCSessionState OldState,
   if (AVTC_TrackerPawn *TP = Cast<AVTC_TrackerPawn>(GetPawn()))
     ConnectedCount = TP->GetActiveTrackerCount();
 
-  // 3D StatusWidget 갱신
+  // 캘리브레이션 결과: Calibrating → Testing = 성공 / Calibrating → Idle = 실패
+  const bool bCalibSuccess = (OldState == EVTCSessionState::Calibrating &&
+                               NewState == EVTCSessionState::Testing);
+  const bool bCalibFailed  = (OldState == EVTCSessionState::Calibrating &&
+                               NewState == EVTCSessionState::Idle);
+
+  // 3D StatusWidget 갱신 (한 번만 GetStatusWidget 호출)
   if (StatusActor) {
     if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget()) {
       W->UpdateState(NewState);
       W->UpdateTrackerStatus(ConnectedCount, 5);
+      if (bCalibSuccess) W->UpdateCalibrationResult(true,  TEXT("OK"));
+      if (bCalibFailed)  W->UpdateCalibrationResult(false, TEXT("Check trackers"));
+      if (NewState == EVTCSessionState::Testing) {
+        W->ClearDistanceList();
+        W->UpdateElapsedTime(0.f);
+      }
     }
   }
 
@@ -262,21 +279,9 @@ void AVTC_OperatorController::OnSessionStateChanged(EVTCSessionState OldState,
   if (OperatorMonitorWidget) {
     OperatorMonitorWidget->UpdateState(NewState);
     OperatorMonitorWidget->UpdateTrackerStatus(ConnectedCount, 5);
-
-    // Testing 시작 시 거리 목록 초기화 (이전 세션 잔재 제거)
     if (NewState == EVTCSessionState::Testing) {
       OperatorMonitorWidget->ClearDistanceList();
       OperatorMonitorWidget->UpdateElapsedTime(0.f);
-    }
-  }
-
-  // 3D StatusWidget: Testing 시작 시 거리 목록 + 경과 시간 초기화
-  if (NewState == EVTCSessionState::Testing) {
-    if (StatusActor) {
-      if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget()) {
-        W->ClearDistanceList();
-        W->UpdateElapsedTime(0.f);
-      }
     }
   }
 }
@@ -310,18 +315,11 @@ void AVTC_OperatorController::ApplyGameInstanceConfig() {
     TP->bSimulationMode = (C.RunMode == EVTCRunMode::Simulation);
     TP->SetTrackerMeshVisible(C.bShowTrackerMesh);
 
-    // VehicleHipPosition이 설정된 경우, 다음 Tick에 Pawn의 Waist를 Hip 위치로 스냅.
-    // 다음 Tick까지 대기하는 이유: Tick에서 첫 UpdateSimulatedTrackers/UpdateAllTrackers
-    // 실행 후 WaistWorld 데이터가 유효해진다.
-    if (!C.VehicleHipPosition.IsNearlyZero()) {
-      const FVector HipPos = C.VehicleHipPosition;
-      TWeakObjectPtr<AVTC_TrackerPawn> WeakTP(TP);
-      GetWorld()->GetTimerManager().SetTimerForNextTick([WeakTP, HipPos]() {
-        if (AVTC_TrackerPawn* Pawn = WeakTP.Get()) {
-          Pawn->SnapWaistTo(HipPos);
-        }
-      });
-    }
+    // VehicleHipPosition이 설정된 경우 Hip 위치로 Waist 스냅.
+    // VR 모드에서는 트래커가 처음 프레임에 비활성 상태일 수 있으므로
+    // SnapWaistToWithRetry로 최대 10초(0.5s × 20회) 재시도한다.
+    if (!C.VehicleHipPosition.IsNearlyZero())
+      TP->SnapWaistToWithRetry(C.VehicleHipPosition);
   }
 
   // ── BodyActor: Mount Offset + Sphere 가시성 적용 ───────────────────────
@@ -341,11 +339,9 @@ void AVTC_OperatorController::ApplyGameInstanceConfig() {
         C.WarningThreshold_cm, C.CollisionThreshold_cm);
   }
 
-  // ── VehicleHipPosition → 순수 위치 마커 스폰 (충돌 감지 없음) ──────────
-  // VehicleHipPosition은 피실험자 Hip 위치의 기준점 마커로만 사용.
-  // RelevantBodyParts를 비워서 CollisionDetector가 건너뛰게 한다.
-  // (충돌 감지는 Dashboard, Door 등 실제 차량 내부 구조물용 ReferencePoint가
-  // 담당)
+  // ── VehicleHipPosition → 참조용 마커 스폰 (bCollisionDisabled = true) ──
+  // bCollisionDisabled = true이므로 거리 라인/수치만 표시되고
+  // Warning/Collision 판정 및 OnWarningLevelChanged는 발생하지 않는다.
   if (!C.VehicleHipPosition.IsNearlyZero()) {
     const bool bFirstSpawn = !SpawnedHipRefPoint;
 
@@ -363,9 +359,10 @@ void AVTC_OperatorController::ApplyGameInstanceConfig() {
     if (SpawnedHipRefPoint) {
       SpawnedHipRefPoint->SetActorLocation(C.VehicleHipPosition);
       SpawnedHipRefPoint->PartName = TEXT("Vehicle_Hip");
+      SpawnedHipRefPoint->bCollisionDisabled = true;  // 라인만 표시, 경고 없음
       SpawnedHipRefPoint->RelevantBodyParts.Empty();
       SpawnedHipRefPoint->RelevantBodyParts.Add(
-          EVTCTrackerRole::Waist); // 거리 측정을 위해 Waist 추가
+          EVTCTrackerRole::Waist); // Waist ↔ Hip 라인 측정
       SpawnedHipRefPoint->MarkerColor =
           FLinearColor(0.0f, 0.7f, 1.0f, 1.0f); // 시안색으로 구분
 

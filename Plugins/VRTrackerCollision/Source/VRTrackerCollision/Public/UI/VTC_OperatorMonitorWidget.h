@@ -13,6 +13,9 @@
 //   Txt_MinDistance   TextBlock  — 세션 최솟값 거리 (Min: 4.2 cm)
 //   VB_DistanceList   VerticalBox — 거리 Row (TextBlock, Map 재사용)
 //
+// [BP 연결 선택 위젯 이름]
+//   Txt_PresetInfo    TextBlock  — 적용된 차종 프리셋 이름
+//
 // [사용법]
 //   VTC_OperatorController가 BeginPlay에서 생성 → AddToViewport.
 //   CollisionDetector.OnDistanceUpdated, SessionManager.OnSessionStateChanged에 바인딩됨.
@@ -36,9 +39,10 @@ class VRTRACKERCOLLISION_API UVTC_OperatorMonitorWidget : public UUserWidget
 public:
   // ─── BindWidget (Blueprint에서 이름 정확히 일치) ──────────────────────────
 
-  UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock>    Txt_State;
-  UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock>    Txt_SubjectInfo;
-  UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock>    Txt_TrackerStatus;
+  UPROPERTY(meta = (BindWidget))         TObjectPtr<UTextBlock>    Txt_State;
+  UPROPERTY(meta = (BindWidget))         TObjectPtr<UTextBlock>    Txt_SubjectInfo;
+  UPROPERTY(meta = (BindWidget))         TObjectPtr<UTextBlock>    Txt_TrackerStatus;
+  UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock>    Txt_PresetInfo;
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock>    Txt_ElapsedTime;
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock>    Txt_MinDistance;
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UVerticalBox>  VB_DistanceList;
@@ -47,6 +51,10 @@ public:
 
   UFUNCTION(BlueprintCallable, Category = "VTC|Monitor")
   void UpdateState(EVTCSessionState NewState);
+
+  // 적용된 프리셋 이름 표시 (Txt_PresetInfo 있을 때만 작동)
+  UFUNCTION(BlueprintCallable, Category = "VTC|Monitor")
+  void UpdatePresetInfo(bool bUsePreset, const FString& PresetName);
 
   UFUNCTION(BlueprintCallable, Category = "VTC|Monitor")
   void UpdateSubjectInfo(const FString& SubjectID, float Height_cm);

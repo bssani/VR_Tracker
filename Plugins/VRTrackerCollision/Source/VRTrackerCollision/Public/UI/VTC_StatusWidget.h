@@ -8,6 +8,8 @@
 //   Txt_TrackerStatus TextBlock — 트래커 연결 상태 요약
 //
 // [BP 연결 선택 위젯 이름 — VR 실시간 데이터 표시용]
+//   Txt_PresetInfo   TextBlock — 적용된 차종 프리셋 이름
+//   Txt_CalibResult  TextBlock — 캘리브레이션 결과 (OK / FAILED)
 //   Txt_ElapsedTime  TextBlock — 경과 시간 ("02:34")
 //   Txt_MinDistance  TextBlock — 세션 최소 거리 ("Min: 4.2 cm")
 //   VB_DistanceList  VerticalBox — 기준점별 거리 Row 자동 생성 영역
@@ -40,6 +42,8 @@ public:
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> Txt_TrackerStatus;
 
   // ─── 선택 BindWidget (VR 실시간 데이터 — 없어도 컴파일 오류 없음) ────────
+  UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock>   Txt_PresetInfo;
+  UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock>   Txt_CalibResult;
   UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock>   Txt_ElapsedTime;
   UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock>   Txt_MinDistance;
   UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UVerticalBox> VB_DistanceList;
@@ -56,6 +60,14 @@ public:
   void UpdateTrackerStatus(int32 ConnectedCount, int32 TotalCount);
 
   // ─── VR 실시간 데이터 업데이트 (선택 위젯이 없으면 no-op) ─────────────────
+
+  // 적용된 프리셋 이름 표시 (없으면 "No Preset")
+  UFUNCTION(BlueprintCallable, Category = "VTC|Status")
+  void UpdatePresetInfo(bool bUsePreset, const FString& PresetName);
+
+  // 캘리브레이션 결과 표시 (Reason 빈 문자열 = 텍스트 클리어)
+  UFUNCTION(BlueprintCallable, Category = "VTC|Status")
+  void UpdateCalibrationResult(bool bSuccess, const FString& Reason);
 
   // 경과 시간 갱신 (MM:SS 포맷)
   UFUNCTION(BlueprintCallable, Category = "VTC|Status")

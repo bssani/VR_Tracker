@@ -39,6 +39,34 @@ void UVTC_StatusWidget::UpdateTrackerStatus(int32 ConnectedCount,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  프리셋 정보 — 선택 위젯
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_StatusWidget::UpdatePresetInfo(bool bUsePreset, const FString& PresetName) {
+  if (!Txt_PresetInfo) return;
+  const FString Text = bUsePreset && !PresetName.IsEmpty()
+      ? FString::Printf(TEXT("Preset: %s"), *PresetName)
+      : TEXT("Preset: None");
+  Txt_PresetInfo->SetText(FText::FromString(Text));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  캘리브레이션 결과 — 선택 위젯
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_StatusWidget::UpdateCalibrationResult(bool bSuccess, const FString& Reason) {
+  if (!Txt_CalibResult) return;
+  if (Reason.IsEmpty()) {
+    Txt_CalibResult->SetText(FText::GetEmpty());
+    return;
+  }
+  const FString Text = bSuccess
+      ? TEXT("Cal: OK ✓")
+      : FString::Printf(TEXT("Cal: FAILED — %s"), *Reason);
+  const FLinearColor Color = bSuccess ? FLinearColor::Green : FLinearColor::Red;
+  Txt_CalibResult->SetText(FText::FromString(Text));
+  Txt_CalibResult->SetColorAndOpacity(FSlateColor(Color));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  경과 시간 (MM:SS) — 선택 위젯
 // ─────────────────────────────────────────────────────────────────────────────
 void UVTC_StatusWidget::UpdateElapsedTime(float ElapsedSeconds) {
@@ -128,13 +156,13 @@ FString UVTC_StatusWidget::GetStateLabel(EVTCSessionState State) {
 FString UVTC_StatusWidget::GetPromptForState(EVTCSessionState State) {
   switch (State) {
   case EVTCSessionState::Idle:
-    return TEXT("1  —  Start Calibration\n2  —  Start Test (skip calibration)\n4  —  Return to Setup");
+    return TEXT("1  —  Start Calibration\n2  —  Start Test (skip calibration)");
   case EVTCSessionState::Calibrating:
-    return TEXT("Stand in T-Pose and hold still.\nCalibration will complete automatically.\n4  —  Return to Setup");
+    return TEXT("Sit in correct position and hold still.\nCalibration will complete automatically.");
   case EVTCSessionState::Testing:
-    return TEXT("3  —  Stop & Export CSV\nTesting in progress...\n4  —  Return to Setup");
+    return TEXT("3  —  Save CSV & Return to Setup\nTesting in progress...");
   case EVTCSessionState::Reviewing:
-    return TEXT("3  —  Export CSV & Return to Idle\n4  —  Return to Setup");
+    return TEXT("3  —  Save CSV & Return to Setup");
   default:
     return TEXT("");
   }

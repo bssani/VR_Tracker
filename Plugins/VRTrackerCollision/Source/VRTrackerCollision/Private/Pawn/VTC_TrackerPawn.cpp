@@ -334,6 +334,58 @@ void AVTC_TrackerPawn::DetectMovementPhase(float DeltaTime)
 
 // ─── 착석 정렬 ────────────────────────────────────────────────────────────────
 
+void AVTC_TrackerPawn::SnapWaistToWithRetry(const FVector& WorldPos,
+                                             float RetryInterval, int32 MaxRetries)
+{
+	// 진행 중인 재시도 타이머가 있으면 취소 후 새 목표로 시작
+	if (UWorld* W = GetWorld())
+		W->GetTimerManager().ClearTimer(HipSnapRetryTimer);
+
+	HipSnapPendingTarget = WorldPos;
+	HipSnapRetryCount    = 0;
+	HipSnapMaxRetries    = MaxRetries;
+
+	// 즉시 한 번 시도
+	if (IsTrackerActive(EVTCTrackerRole::Waist))
+	{
+		SnapWaistTo(WorldPos);
+		return;
+	}
+
+	UE_LOG(LogTemp, Log,
+		TEXT("[VTC] SnapWaistToWithRetry: Waist not active yet. Retry every %.1fs (max %d)."),
+		RetryInterval, MaxRetries);
+
+	if (UWorld* W = GetWorld())
+	{
+		W->GetTimerManager().SetTimer(HipSnapRetryTimer, this,
+			&AVTC_TrackerPawn::RetryHipSnap, RetryInterval, /*bLoop=*/true);
+	}
+}
+
+void AVTC_TrackerPawn::RetryHipSnap()
+{
+	HipSnapRetryCount++;
+
+	if (IsTrackerActive(EVTCTrackerRole::Waist))
+	{
+		SnapWaistTo(HipSnapPendingTarget);
+		if (UWorld* W = GetWorld())
+			W->GetTimerManager().ClearTimer(HipSnapRetryTimer);
+		UE_LOG(LogTemp, Log, TEXT("[VTC] HipSnap succeeded on retry %d."), HipSnapRetryCount);
+		return;
+	}
+
+	if (HipSnapRetryCount >= HipSnapMaxRetries)
+	{
+		if (UWorld* W = GetWorld())
+			W->GetTimerManager().ClearTimer(HipSnapRetryTimer);
+		UE_LOG(LogTemp, Warning,
+			TEXT("[VTC] HipSnap: Waist tracker not active after %d retries. Giving up."),
+			HipSnapRetryCount);
+	}
+}
+
 void AVTC_TrackerPawn::SnapWaistTo(const FVector& WorldPos)
 {
 	// Waist tracker 현재 월드 위치와 목표 위치의 차이만큼 Pawn 루트를 이동.

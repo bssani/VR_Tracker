@@ -14,8 +14,7 @@
 // [단축키]
 //   1      : 캘리브레이션 시작 (GameInstance의 SubjectID/Height 사용)
 //   2      : 테스트 시작 (캘리브레이션 건너뜀)
-//   3      : 세션 종료 + CSV 내보내기
-//   4      : Level 1 (Setup 레벨) 로 복귀
+//   3      : CSV 저장 + Level 1 (Setup 레벨) 복귀
 
 #pragma once
 
@@ -87,7 +86,6 @@ private:
   void Input_One();
   void Input_Two();
   void Input_Three();
-  void Input_Four();
 
   // GameInstance 설정 → TrackerPawn + BodyActor + CollisionDetector 에 일괄
   // 적용

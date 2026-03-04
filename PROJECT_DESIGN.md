@@ -146,10 +146,12 @@ VTC_SimPlayerController → VTC_OperatorController → APlayerController
 ```
 
 **VTC_OperatorController (부모):**
-- F1/F2/F3/Escape 단축키 바인딩
+- **단축키:** 1(캘리브레이션) / 2(테스트) / 3(CSV저장+Level1복귀)
 - GameInstance 설정 → TrackerPawn, BodyActor, CollisionDetector에 일괄 적용
-- VehicleHipPosition → ReferencePoint 런타임 스폰 + CollisionDetector 등록
-- StatusActor (3D 월드 위젯) 갱신 (Tick 1초마다)
+- VehicleHipPosition → ReferencePoint 런타임 스폰 + CollisionDetector 등록 (`bCollisionDisabled=true`)
+- VehicleHipPosition → `SnapWaistToWithRetry()` 호출 (최대 10초 재시도, VR tracker 미인식 대응)
+- StatusActor (3D 월드 위젯) 갱신: 상태, 트래커, 경과시간, 최소거리, 거리Row, **프리셋 정보**, **캘리브레이션 결과**
+- OperatorMonitorWidget (운영자 데스크탑) 갱신: 상태, 트래커, 경과시간, 거리Row, **프리셋 정보**
 - EndPlay에서 SpawnedHipRefPoint 명시적 정리
 - BeginPlay / OnPossess 이중 설정 적용 방지 (bConfigApplied 플래그)
 
@@ -191,14 +193,17 @@ VTC_SimPlayerController → VTC_OperatorController → APlayerController
 
 ### 4. Vehicle Reference Point — `VTC_ReferencePoint`
 
-- 차량 Interior 돌출 부위에 에디터에서 수동 배치
+- 차량 Interior 돌출 부위에 에디터에서 수동 배치 또는 런타임 동적 스폰
 - `PartName`: 데이터 로그에 기록 ("AC Unit", "Dashboard" 등)
 - `RelevantBodyParts`: 어느 신체 부위와 측정할지 지정
-- 마커 색상이 경고 단계에 따라 변경됨
+- `bActive`: false이면 CollisionDetector가 완전히 무시 (측정 없음)
+- `bCollisionDisabled`: true이면 거리 시각화(시안색 라인 + 수치)만 하고 Warning/Collision 판정·색상변경·이벤트 없음
+- 마커 색상이 경고 단계에 따라 변경됨 (`bCollisionDisabled=false`인 경우)
 
 **VehicleHipPosition (동적 스폰):**
 - Level 1에서 입력한 차량 설계 기준 Hip 좌표
 - OperatorController::ApplyGameInstanceConfig()에서 ReferencePoint를 런타임 스폰
+- `bCollisionDisabled = true` 자동 설정 → 시안색 라인 + 거리만 표시, 경고 없음
 - CollisionDetector.ReferencePoints.AddUnique()로 수동 등록 (AutoFind 이후이므로)
 - EndPlay에서 명시적 Destroy + null 처리
 
@@ -299,14 +304,17 @@ IDLE → CALIBRATING → TESTING → REVIEWING → IDLE
 #### Level 2 — VTC_StatusWidget (WorldSpace 3D)
 
 - `VTC_StatusActor`의 WidgetComponent에 WorldSpace로 렌더링
-- 4개 TextBlock: Txt_State, Txt_Prompt, Txt_SubjectInfo, Txt_TrackerStatus
+- **필수 BindWidget** 4개: Txt_State, Txt_Prompt, Txt_SubjectInfo, Txt_TrackerStatus
+- **선택 BindWidgetOptional** 5개: Txt_PresetInfo, Txt_CalibResult, Txt_ElapsedTime, Txt_MinDistance, VB_DistanceList
 - OperatorController가 세션 상태 변경 시 자동 갱신
-- 모든 상태에서 "ESC — Return to Setup" 안내 표시
+- 캘리브레이션 결과: Calibrating→Testing 시 "Cal: OK ✓" / Calibrating→Idle 시 "Cal: FAILED"
+- 키 안내: 1(캘리브레이션) / 2(테스트) / 3(CSV저장+복귀)
 
 #### Level 2 — VTC_OperatorMonitorWidget (Screen Space — 운영자 데스크탑)
 
 - 운영자 데스크탑 모니터에 표시되는 Screen Space UI
-- 6개 BindWidget: Txt_State, Txt_SubjectInfo, Txt_TrackerStatus, Txt_ElapsedTime, Txt_MinDistance, VB_DistanceList
+- **필수 BindWidget** 6개: Txt_State, Txt_SubjectInfo, Txt_TrackerStatus, Txt_ElapsedTime, Txt_MinDistance, VB_DistanceList
+- **선택 BindWidgetOptional** 1개: Txt_PresetInfo
 - `DistanceRowMap` (TMap): Row TextBlock을 재사용하여 30Hz에 ClearChildren 없이 갱신
 - `DistanceValueMap` (TMap<FString, float>): 거리 원본 값 저장, `UpdateMinDistanceFromMap()`에서 최솟값 계산 후 Txt_MinDistance 자동 갱신
 - OperatorController::BeginPlay에서 OperatorMonitorWidgetClass 지정 시 자동 생성
@@ -408,10 +416,16 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 - CollisionThreshold = 3cm (Sphere Overlap 이전에 경고 제공)
 - 충돌 이벤트 타임스탬프: 밀리초 정밀도
 
-**VehicleHipPosition (순수 위치 마커 및 Waist 거리 측정)**
-- SetupWidget에서 입력한 좌표에 시안색 ReferencePoint가 스폰됨
-- `RelevantBodyParts`에 Waist가 등록되어 거리를 계산하고 시안색 텍스트로 표시함
-- 단, CollisionDetector의 특수 예외 처리로 인해 충돌/경고는 발생하지 않음
+**VehicleHipPosition (참조용 마커 — bCollisionDisabled=true)**
+- SetupWidget에서 입력한 좌표에 시안색 ReferencePoint가 런타임 스폰됨
+- `bCollisionDisabled = true`로 설정되어 항상 시안색 라인 + 거리 수치만 표시
+- Warning/Collision 판정, 마커 색상 변경, OnWarningLevelChanged 이벤트 없음
+- `SnapWaistToWithRetry()` 호출로 VR 트래커가 활성화되는 순간 Waist를 자동 정렬
+
+**TrackerPawn Hip Snap 재시도 (SnapWaistToWithRetry)**
+- VR 모드에서 트래커가 첫 프레임에 비활성인 경우 즉시 스냅이 실패함
+- `SnapWaistToWithRetry(WorldPos, RetryInterval=0.5f, MaxRetries=20)` 호출 시
+  Waist가 활성화될 때까지 0.5초 간격으로 최대 10초 재시도 후 자동 스냅
 
 **SteamVR 룸 세팅 가이드**
 - "앉아서 하기(Seated)" 또는 "서서 하기(Standing Only)" 모드 사용

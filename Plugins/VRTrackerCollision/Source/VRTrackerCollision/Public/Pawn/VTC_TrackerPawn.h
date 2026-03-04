@@ -256,6 +256,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VTC|Seating")
 	void SnapWaistTo(const FVector& WorldPos);
 
+	// Waist tracker가 아직 비활성 상태인 경우 RetryInterval(초)마다 재시도.
+	// MaxRetries 회 이후에도 실패하면 경고 로그 출력. VR 모드 시작 시 사용.
+	UFUNCTION(BlueprintCallable, Category = "VTC|Seating")
+	void SnapWaistToWithRetry(const FVector& WorldPos,
+	                          float RetryInterval = 0.5f,
+	                          int32 MaxRetries    = 20);
+
 	// ─── 시뮬레이션 제어 함수 (PlayerController에서 호출) ─────────────────
 
 	// 시뮬레이션 모드 토글 (Backspace 키 → PlayerController → 여기 호출)
@@ -293,6 +300,13 @@ private:
 	bool bHasPreviousHipLocation = false;
 
 	void DetectMovementPhase(float DeltaTime);
+
+	// ─── HipSnap 재시도 내부 상태 ────────────────────────────────────────────
+	FVector      HipSnapPendingTarget;
+	int32        HipSnapRetryCount   = 0;
+	int32        HipSnapMaxRetries   = 20;
+	FTimerHandle HipSnapRetryTimer;
+	void         RetryHipSnap();
 
 	// 매 Tick: 5개 트래커 데이터 갱신
 	void UpdateAllTrackers();
