@@ -248,10 +248,12 @@ void AVTC_BodyActor::ApplySessionConfig(const FVTCSessionConfig& Config)
   MountOffset_RightFoot  = Config.MountOffset_RightFoot;
 
   // Vehicle Hip Reference Position 적용 및 마커 이동
+  // VehicleHipMarker: 차량 설계 기준 Hip 위치를 시각적으로 표시 (정적 마커)
+  // Sphere_Hip: 매 Tick SyncSpherePositions()에서 실제 waist tracker 위치로 자동 갱신
+  //             → 여기서 SetWorldLocation하면 다음 Tick에 덮어씌워지므로 설정하지 않음
   VehicleHipPosition = Config.VehicleHipPosition;
   if (VehicleHipMarker)
     VehicleHipMarker->SetWorldLocation(Config.VehicleHipPosition);
-  Sphere_Hip->SetWorldLocation(Config.VehicleHipPosition);  // Hip Sphere도 함께 이동
 
   // 가시성 상태 저장 (SyncSpherePositions Tick이 덮어쓰지 않도록)
   bShowCollisionSpheres = Config.bShowCollisionSpheres;

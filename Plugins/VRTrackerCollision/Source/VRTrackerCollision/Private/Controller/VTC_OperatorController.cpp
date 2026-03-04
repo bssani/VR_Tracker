@@ -51,13 +51,19 @@ void AVTC_OperatorController::BeginPlay() {
   }
 
   // ── 운영자 데스크탑 모니터링 위젯 생성 (OperatorMonitorWidgetClass 할당 시)
-  // ─
+  // 시뮬레이션(데스크탑) 모드에서만 화면에 추가. VR 모드에서는 HMD 뷰를 가리지 않도록 숨김.
   if (OperatorMonitorWidgetClass) {
     OperatorMonitorWidget = CreateWidget<UVTC_OperatorMonitorWidget>(
         this, OperatorMonitorWidgetClass);
     if (OperatorMonitorWidget) {
-      OperatorMonitorWidget->AddToViewport(1); // ZOrder 1: StatusWidget 위
-      UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorMonitorWidget 생성 완료."));
+      const UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+      const bool bIsSimMode = GI && (GI->SessionConfig.RunMode == EVTCRunMode::Simulation);
+      if (bIsSimMode) {
+        OperatorMonitorWidget->AddToViewport(1); // ZOrder 1: StatusWidget 위
+        UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorMonitorWidget 생성 완료 (Simulation 모드)."));
+      } else {
+        UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorMonitorWidget 생성됨 (VR 모드 — 뷰포트 비표시)."));
+      }
     }
   }
 
@@ -263,6 +269,19 @@ void AVTC_OperatorController::ApplyGameInstanceConfig() {
   if (AVTC_TrackerPawn *TP = Cast<AVTC_TrackerPawn>(GetPawn())) {
     TP->bSimulationMode = (C.RunMode == EVTCRunMode::Simulation);
     TP->SetTrackerMeshVisible(C.bShowTrackerMesh);
+
+    // VehicleHipPosition이 설정된 경우, 다음 Tick에 Pawn의 Waist를 Hip 위치로 스냅.
+    // 다음 Tick까지 대기하는 이유: Tick에서 첫 UpdateSimulatedTrackers/UpdateAllTrackers
+    // 실행 후 WaistWorld 데이터가 유효해진다.
+    if (!C.VehicleHipPosition.IsNearlyZero()) {
+      const FVector HipPos = C.VehicleHipPosition;
+      TWeakObjectPtr<AVTC_TrackerPawn> WeakTP(TP);
+      GetWorld()->GetTimerManager().SetTimerForNextTick([WeakTP, HipPos]() {
+        if (AVTC_TrackerPawn* Pawn = WeakTP.Get()) {
+          Pawn->SnapWaistTo(HipPos);
+        }
+      });
+    }
   }
 
   // ── BodyActor: Mount Offset + Sphere 가시성 적용 ───────────────────────

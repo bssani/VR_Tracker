@@ -3,6 +3,7 @@
 #include "Pawn/VTC_TrackerPawn.h"
 #include "DrawDebugHelpers.h"
 #include "IXRTrackingSystem.h"
+#include "VTC_GameInstance.h"
 
 AVTC_TrackerPawn::AVTC_TrackerPawn()
 {
@@ -64,11 +65,18 @@ void AVTC_TrackerPawn::BeginPlay()
 	if (MC_LeftFoot)  MC_LeftFoot->MotionSource  = MotionSource_LeftFoot;
 	if (MC_RightFoot) MC_RightFoot->MotionSource = MotionSource_RightFoot;
 
-	// ── HMD 자동 감지 → 시뮬레이션 모드 전환 ──────────────────────────────
-	// bAutoDetectSimulation = true이면 HMD가 미연결 시 자동으로 시뮬레이션 모드.
-	// VR Preview 실행 시에는 HMD가 감지되어 자동으로 VR 모드로 유지된다.
-	if (bAutoDetectSimulation && !DetectHMDPresence())
+	// ── RunMode 결정: GameInstance 설정값 우선, 없으면 HMD 자동 감지 ──────────
+	// Level 1에서 사용자가 선택한 RunMode가 GameInstance에 저장되어 있으면 이를 우선 적용.
+	// GameInstance가 없는 경우(Level 2 직접 실행 등)에는 HMD 자동 감지 폴백 사용.
+	if (UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>())
 	{
+		bSimulationMode = (GI->SessionConfig.RunMode == EVTCRunMode::Simulation);
+		UE_LOG(LogTemp, Log, TEXT("[VTC] RunMode from GameInstance: %s"),
+			bSimulationMode ? TEXT("Simulation") : TEXT("VR"));
+	}
+	else if (bAutoDetectSimulation && !DetectHMDPresence())
+	{
+		// GameInstance 없음: HMD 자동 감지 폴백
 		bSimulationMode = true;
 		UE_LOG(LogTemp, Log, TEXT("[VTC] HMD not detected -> Simulation mode ON (Desktop Test)"));
 	}
@@ -331,6 +339,17 @@ void AVTC_TrackerPawn::SnapWaistTo(const FVector& WorldPos)
 	// Waist tracker 현재 월드 위치와 목표 위치의 차이만큼 Pawn 루트를 이동.
 	// Pawn 루트는 바닥 기준이므로 Waist 위치와 다르다 → 반드시 Delta 방식 사용.
 	const FVector WaistWorld = GetTrackerLocation(EVTCTrackerRole::Waist);
+
+	// Waist 데이터가 아직 없으면(추적 미시작, BeginPlay 직후 등) 스냅 건너뜀.
+	// ApplyGameInstanceConfig()에서 SetTimerForNextTick으로 호출하므로
+	// 보통 첫 Tick 이후에는 유효한 데이터가 있어야 한다.
+	if (WaistWorld.IsNearlyZero())
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[VTC] SnapWaistTo skipped: Waist tracker data not yet available."));
+		return;
+	}
+
 	const FVector Delta = WorldPos - WaistWorld;
 	SetActorLocation(GetActorLocation() + Delta);
 
