@@ -43,7 +43,6 @@ void UVTC_DataLogger::StartLogging(const FString& SubjectID)
 	WarningDuration_sec     = 0.0f;
 	CollisionDuration_sec   = 0.0f;
 	PhaseMinClearance.Empty();
-	WorstClearanceScreenshotPath = TEXT("");
 	CurrentLogPhase         = EVTCMovementPhase::Unknown;
 
 	UE_LOG(LogTemp, Log, TEXT("[VTC] Logging started for subject: %s"), *SubjectID);
@@ -192,16 +191,11 @@ void UVTC_DataLogger::LogCollisionEvent(const FVTCCollisionEvent& Event)
 		Event.Distance);
 }
 
-// ─── Phase / Screenshot 설정 (Feature E, F) ─────────────────────────────────
+// ─── Phase 설정 (Feature E) ───────────────────────────────────────────────────
 
 void UVTC_DataLogger::SetCurrentPhase(EVTCMovementPhase Phase)
 {
 	CurrentLogPhase = Phase;
-}
-
-void UVTC_DataLogger::SetWorstClearanceScreenshotPath(const FString& Path)
-{
-	WorstClearanceScreenshotPath = Path;
 }
 
 // ─── CSV 내보내기 — 요약 (메인) ──────────────────────────────────────────────
@@ -293,7 +287,6 @@ void UVTC_DataLogger::ClearLog()
 	CollisionDuration_sec = 0.0f;
 	CachedMeasurements    = FVTCBodyMeasurements();
 	PhaseMinClearance.Empty();
-	WorstClearanceScreenshotPath = TEXT("");
 	CurrentLogPhase       = EVTCMovementPhase::Unknown;
 }
 
@@ -317,8 +310,7 @@ FString UVTC_DataLogger::BuildSummaryHeader() const
 		TEXT(",OverallStatus,CollisionCount,WarningFrames,TotalFrames")
 		TEXT(",TestingStartTime,TestingEndTime,TestingDuration_sec")
 		TEXT(",WarningDuration_sec,CollisionDuration_sec")
-		TEXT(",Phase_Entering_MinClearance,Phase_Seated_MinClearance,Phase_Exiting_MinClearance")
-		TEXT(",WorstClearanceScreenshot");
+		TEXT(",Phase_Entering_MinClearance,Phase_Seated_MinClearance,Phase_Exiting_MinClearance");
 }
 
 FString UVTC_DataLogger::BuildSummaryRow() const
@@ -385,12 +377,11 @@ FString UVTC_DataLogger::BuildSummaryRow() const
 		WarningDuration_sec, CollisionDuration_sec
 	);
 
-	// Phase별 최소 클리어런스 + 스크린샷 경로 추가
-	Row += FString::Printf(TEXT(",%s,%s,%s,%s"),
+	// Phase별 최소 클리어런스 추가
+	Row += FString::Printf(TEXT(",%s,%s,%s"),
 		*GetPhaseMin(EVTCMovementPhase::Entering),
 		*GetPhaseMin(EVTCMovementPhase::Seated),
-		*GetPhaseMin(EVTCMovementPhase::Exiting),
-		*WorstClearanceScreenshotPath);
+		*GetPhaseMin(EVTCMovementPhase::Exiting));
 
 	return Row;
 }

@@ -193,6 +193,18 @@ void AVTC_OperatorController::EndPlay(
   if (OperatorMonitorWidget && OperatorMonitorWidget->IsInViewport())
     OperatorMonitorWidget->RemoveFromParent();
 
+  // Delegate 명시적 해제 — Controller 소멸 후 SessionManager/CollisionDetector가
+  // 이벤트를 브로드캐스트할 경우 dangling 호출 방지.
+  // (AddDynamic은 약참조이지만 GC 전 소멸 순서에 따라 크래시 가능)
+  if (SessionManager) {
+    SessionManager->OnSessionStateChanged.RemoveDynamic(
+        this, &AVTC_OperatorController::OnSessionStateChanged);
+    if (SessionManager->CollisionDetector) {
+      SessionManager->CollisionDetector->OnDistanceUpdated.RemoveDynamic(
+          this, &AVTC_OperatorController::OnDistanceUpdated);
+    }
+  }
+
   // 동적으로 스폰한 ReferencePoint를 명시적으로 제거.
   if (SpawnedHipRefPoint) {
     SpawnedHipRefPoint->Destroy();

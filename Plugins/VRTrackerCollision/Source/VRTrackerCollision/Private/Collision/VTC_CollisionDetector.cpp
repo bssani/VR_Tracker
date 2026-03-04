@@ -5,7 +5,6 @@
 #include "DrawDebugHelpers.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/FileHelper.h"
-#include "UnrealClient.h"
 #include "Vehicle/VTC_ReferencePoint.h"
 
 UVTC_CollisionDetector::UVTC_CollisionDetector() {
@@ -119,28 +118,12 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
         continue;
       }
 
-      // 최소 거리 갱신 + 자동 스크린샷
+      // 최소 거리 갱신
       if (SafeDistanceResult < SessionMinDistance) {
         SessionMinDistance = SafeDistanceResult;
-
-        if (bAutoScreenshotOnWorstClearance) {
-          FString Dir = ScreenshotDirectory;
-          if (Dir.IsEmpty()) {
-            Dir = FPaths::ProjectSavedDir() / TEXT("VTCLogs") /
-                  TEXT("Screenshots");
-          }
-          IFileManager::Get().MakeDirectory(*Dir, true);
-          const FString Filename = FString::Printf(
-              TEXT("VTC_Worst_%.1fcm_%s.png"), SafeDistanceResult,
-              *FDateTime::Now().ToString(TEXT("%Y%m%d_%H%M%S")));
-          LastScreenshotPath = Dir / Filename;
-          FScreenshotRequest::RequestScreenshot(LastScreenshotPath, false,
-                                                false);
-          UE_LOG(
-              LogTemp, Log,
-              TEXT("[VTC] Worst clearance updated: %.1f cm — screenshot: %s"),
-              SafeDistanceResult, *LastScreenshotPath);
-        }
+        UE_LOG(LogTemp, Log,
+               TEXT("[VTC] Worst clearance updated: %.1f cm"),
+               SafeDistanceResult);
       }
 
       // 전체 경고 레벨 갱신 (더 심각한 쪽으로)

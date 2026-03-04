@@ -10,11 +10,25 @@
 // ─────────────────────────────────────────────────────────────────────────────
 void UVTC_GameInstance::OpenTestLevel_Implementation()
 {
+  if (TestLevelName.IsEmpty())
+  {
+    UE_LOG(LogTemp, Error,
+        TEXT("[VTC] OpenTestLevel: TestLevelName이 설정되지 않았습니다. "
+             "BP_VTC_GameInstance > TestLevelName에 레벨 이름을 입력하세요."));
+    return;
+  }
   UGameplayStatics::OpenLevel(this, FName(*TestLevelName));
 }
 
 void UVTC_GameInstance::OpenSetupLevel_Implementation()
 {
+  if (SetupLevelName.IsEmpty())
+  {
+    UE_LOG(LogTemp, Error,
+        TEXT("[VTC] OpenSetupLevel: SetupLevelName이 설정되지 않았습니다. "
+             "BP_VTC_GameInstance > SetupLevelName에 레벨 이름을 입력하세요."));
+    return;
+  }
   UGameplayStatics::OpenLevel(this, FName(*SetupLevelName));
 }
 

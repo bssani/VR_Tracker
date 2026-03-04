@@ -22,9 +22,9 @@
 #include "CoreMinimal.h"
 #include "Data/VTC_SessionManager.h"
 #include "GameFramework/PlayerController.h"
-#include "VTC_OperatorController.generated.h"
 #include "VTC_SessionConfig.h"
 #include "Vehicle/VTC_ReferencePoint.h"
+#include "VTC_OperatorController.generated.h"
 
 
 class AVTC_StatusActor;
