@@ -44,9 +44,6 @@ public:
   void LoadConfigFromINI();
 
 private:
-  // INI 섹션명 상수
-  static constexpr const TCHAR* INI_SECTION = TEXT("VTCSettings");
-
-  // INI 파일 절대 경로 반환 (ProjectDir/Config/VTCSettings.ini)
-  FString GetINIPath() const;
+  // JSON 파일 절대 경로 반환 (Saved/VTCConfig/VTCSettings.json)
+  FString GetConfigPath() const;
 };
