@@ -68,48 +68,15 @@ void AVTC_OperatorController::BeginPlay() {
     }
   }
 
-  // ── GameInstance → 각 Actor에 설정 적용 ──────────────────────────────────
-  // BeginPlay 시점에 Pawn이 이미 possess되어 있으면 즉시 적용.
-  // Pawn이 없으면 OnPossess()에서 처리된다.
-  if (GetPawn()) {
-    ApplyGameInstanceConfig();
-    bConfigApplied = true;
-  }
-
-  // ── 초기 상태 표시 (StatusWidget 3D + OperatorMonitorWidget 데스크탑) ──────
-  UVTC_GameInstance *GI = GetGameInstance<UVTC_GameInstance>();
-  const FString SubjectID = GI ? GI->SessionConfig.SubjectID : TEXT("");
-  const float Height_cm   = GI ? GI->SessionConfig.Height_cm : 170.0f;
-  const bool  bUsePreset  = GI && GI->SessionConfig.bUseVehiclePreset;
-  const FString PresetName = GI ? GI->SessionConfig.SelectedPresetName : TEXT("");
-
-  if (StatusActor) {
-    if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget()) {
-      W->UpdateState(EVTCSessionState::Idle);
-      W->UpdateSubjectInfo(SubjectID, Height_cm);
-      W->UpdateElapsedTime(0.f);
-      W->UpdatePresetInfo(bUsePreset, PresetName);
-    }
-  }
-
-  if (OperatorMonitorWidget) {
-    OperatorMonitorWidget->UpdateState(EVTCSessionState::Idle);
-    OperatorMonitorWidget->UpdateSubjectInfo(SubjectID, Height_cm);
-    OperatorMonitorWidget->UpdateElapsedTime(0.f);
-    OperatorMonitorWidget->UpdatePresetInfo(bUsePreset, PresetName);
-  }
+  // 설정 적용 및 위젯 업데이트는 P키에서만 수행 (시작 시 아무것도 하지 않음)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  OnPossess — Pawn이 BeginPlay 이후에 possess될 때 설정 적용
+//  OnPossess
 // ─────────────────────────────────────────────────────────────────────────────
 void AVTC_OperatorController::OnPossess(APawn *InPawn) {
   Super::OnPossess(InPawn);
-
-  if (!bConfigApplied) {
-    ApplyGameInstanceConfig();
-    bConfigApplied = true;
-  }
+  // 설정 적용은 P키에서만 수행
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

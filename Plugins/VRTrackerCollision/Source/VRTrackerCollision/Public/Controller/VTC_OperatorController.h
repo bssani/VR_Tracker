@@ -110,9 +110,6 @@ private:
   float TrackerStatusTimer = 0.0f;
   static constexpr float TrackerStatusInterval = 1.0f;
 
-  // BeginPlay와 OnPossess 중 먼저 호출된 쪽에서만 설정 적용 (중복 방지)
-  bool bConfigApplied = false;
-
   // SessionManager 상태 변경 → StatusWidget + OperatorMonitorWidget 갱신
   UFUNCTION()
   void OnSessionStateChanged(EVTCSessionState OldState,
