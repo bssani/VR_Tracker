@@ -4,6 +4,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Paths.h"
+#include "VTC_VehiclePreset.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  라이프사이클
@@ -83,6 +84,13 @@ void UVTC_GameInstance::SaveConfigToINI()
   GConfig->SetFloat(INI_SECTION, TEXT("WarningThreshold_cm"),   C.WarningThreshold_cm,   Path);
   GConfig->SetFloat(INI_SECTION, TEXT("CollisionThreshold_cm"), C.CollisionThreshold_cm, Path);
 
+  // Preset — VR 단독 실행 시 자동 복원을 위해 저장
+  GConfig->SetBool  (INI_SECTION, TEXT("UseVehiclePreset"),   C.bUseVehiclePreset,   Path);
+  GConfig->SetString(INI_SECTION, TEXT("SelectedPresetName"), *C.SelectedPresetName, Path);
+
+  // SubjectID — last-used 값으로 저장 (VR 단독 실행 시 자동 채움)
+  GConfig->SetString(INI_SECTION, TEXT("SubjectID"), *C.SubjectID, Path);
+
   GConfig->Flush(false, Path);
   UE_LOG(LogTemp, Log, TEXT("[VTC] Config saved → %s"), *Path);
 }
@@ -124,6 +132,53 @@ void UVTC_GameInstance::LoadConfigFromINI()
   // Thresholds (Feature A)
   GConfig->GetFloat(INI_SECTION, TEXT("WarningThreshold_cm"),   C.WarningThreshold_cm,   Path);
   GConfig->GetFloat(INI_SECTION, TEXT("CollisionThreshold_cm"), C.CollisionThreshold_cm, Path);
+
+  // Preset — 이름으로 디스크에서 JSON 재로드 (VR 단독 실행 지원)
+  GConfig->GetBool(INI_SECTION, TEXT("UseVehiclePreset"), C.bUseVehiclePreset, Path);
+  FString LoadedPresetName;
+  if (GConfig->GetString(INI_SECTION, TEXT("SelectedPresetName"), LoadedPresetName, Path))
+    C.SelectedPresetName = LoadedPresetName;
+
+  if (C.bUseVehiclePreset && !C.SelectedPresetName.IsEmpty())
+  {
+    FVTCVehiclePreset Preset;
+    if (UVTC_VehiclePresetLibrary::LoadPreset(C.SelectedPresetName, Preset))
+    {
+      C.LoadedPresetJson = UVTC_VehiclePresetLibrary::PresetToJsonString(Preset);
+
+      // VehicleHipPosition이 INI에 없으면(zero) preset의 Vehicle_Hip에서 채움
+      if (C.VehicleHipPosition.IsNearlyZero())
+      {
+        for (const FVTCPresetRefPoint& P : Preset.ReferencePoints)
+        {
+          if (P.PartName == TEXT("Vehicle_Hip"))
+          {
+            C.VehicleHipPosition = P.Location;
+            UE_LOG(LogTemp, Log,
+                TEXT("[VTC] VehicleHipPosition ← preset '%s': %s"),
+                *C.SelectedPresetName, *C.VehicleHipPosition.ToString());
+            break;
+          }
+        }
+      }
+      UE_LOG(LogTemp, Log,
+          TEXT("[VTC] Preset '%s' reloaded from disk (%d ref points)"),
+          *C.SelectedPresetName, Preset.ReferencePoints.Num());
+    }
+    else
+    {
+      UE_LOG(LogTemp, Warning,
+          TEXT("[VTC] Preset '%s' not found on disk — preset not applied."),
+          *C.SelectedPresetName);
+      C.bUseVehiclePreset = false;
+    }
+  }
+
+  // SubjectID last-used 복원 (비어 있으면 기본값 유지)
+  FString LoadedSubjectID;
+  if (GConfig->GetString(INI_SECTION, TEXT("SubjectID"), LoadedSubjectID, Path)
+      && !LoadedSubjectID.IsEmpty())
+    C.SubjectID = LoadedSubjectID;
 
   UE_LOG(LogTemp, Log, TEXT("[VTC] Config loaded ← %s"), *Path);
 }
