@@ -58,12 +58,20 @@ void UVTC_CalibrationComponent::StartCalibration()
 		OnCalibrationFailed.Broadcast(TEXT("TrackerSource (TrackerPawn) is not set."));
 		return;
 	}
-	if (!TrackerSource->AreAllTrackersActive())
+
+	const int32 ActiveCount = TrackerSource->GetActiveTrackerCount();
+	if (ActiveCount == 0)
 	{
-		const int32 Count = TrackerSource->GetActiveTrackerCount();
-		OnCalibrationFailed.Broadcast(
-			FString::Printf(TEXT("Not all trackers are active. Active: %d/5"), Count));
+		OnCalibrationFailed.Broadcast(TEXT("No trackers active. Connect at least one tracker and try again."));
 		return;
+	}
+
+	if (ActiveCount < 5)
+	{
+		UE_LOG(LogTemp, Log,
+			TEXT("[VTC] Calibration: %d/5 trackers active. "
+			     "Missing trackers will use mirrored values from the opposite side."),
+			ActiveCount);
 	}
 
 	bIsCalibrating = true;
@@ -71,7 +79,8 @@ void UVTC_CalibrationComponent::StartCalibration()
 	LastBroadcastedSecond = -1;
 	PrimaryComponentTick.SetTickFunctionEnable(true);
 
-	UE_LOG(LogTemp, Log, TEXT("[VTC] Calibration started. Hold T-Pose for %.1f seconds."), CalibrationHoldTime);
+	UE_LOG(LogTemp, Log, TEXT("[VTC] Calibration started (%d/5 trackers). Hold T-Pose for %.1f seconds."),
+		ActiveCount, CalibrationHoldTime);
 }
 
 void UVTC_CalibrationComponent::CancelCalibration()
@@ -117,11 +126,12 @@ bool UVTC_CalibrationComponent::SnapCalibrate()
 
 	OnCalibrationComplete.Broadcast(Measurements);
 
-	UE_LOG(LogTemp, Log, TEXT("[VTC] Calibration complete!\n"
+	UE_LOG(LogTemp, Log, TEXT("[VTC] Calibration complete! (%d/5 trackers)\n"
 		"  Hip→LKnee: %.1f cm | Hip→RKnee: %.1f cm\n"
 		"  LKnee→LFoot: %.1f cm | RKnee→RFoot: %.1f cm\n"
 		"  Total Left: %.1f cm | Total Right: %.1f cm\n"
 		"  Est. Height: %.1f cm"),
+		TrackerSource ? TrackerSource->GetActiveTrackerCount() : 0,
 		Measurements.Hip_LeftKnee, Measurements.Hip_RightKnee,
 		Measurements.LeftKnee_LeftFoot, Measurements.RightKnee_RightFoot,
 		Measurements.TotalLeftLeg, Measurements.TotalRightLeg,
@@ -135,18 +145,33 @@ FVTCBodyMeasurements UVTC_CalibrationComponent::CalculateMeasurements() const
 	FVTCBodyMeasurements M;
 	if (!TrackerSource) return M;
 
-	const FVector HipPos    = TrackerSource->GetTrackerLocation(EVTCTrackerRole::Waist);
-	const FVector LKneePos  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftKnee);
-	const FVector RKneePos  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightKnee);
-	const FVector LFootPos  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftFoot);
-	const FVector RFootPos  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightFoot);
+	// 트래커별 활성 여부 확인 — 비활성 트래커는 거리 계산에서 제외
+	const bool bWaist = TrackerSource->IsTrackerActive(EVTCTrackerRole::Waist);
+	const bool bLKnee = TrackerSource->IsTrackerActive(EVTCTrackerRole::LeftKnee);
+	const bool bRKnee = TrackerSource->IsTrackerActive(EVTCTrackerRole::RightKnee);
+	const bool bLFoot = TrackerSource->IsTrackerActive(EVTCTrackerRole::LeftFoot);
+	const bool bRFoot = TrackerSource->IsTrackerActive(EVTCTrackerRole::RightFoot);
 
-	M.Hip_LeftKnee         = FVector::Dist(HipPos, LKneePos);
-	M.Hip_RightKnee        = FVector::Dist(HipPos, RKneePos);
-	M.LeftKnee_LeftFoot    = FVector::Dist(LKneePos, LFootPos);
-	M.RightKnee_RightFoot  = FVector::Dist(RKneePos, RFootPos);
-	M.TotalLeftLeg         = M.Hip_LeftKnee + M.LeftKnee_LeftFoot;
-	M.TotalRightLeg        = M.Hip_RightKnee + M.RightKnee_RightFoot;
+	const FVector HipPos   = bWaist ? TrackerSource->GetTrackerLocation(EVTCTrackerRole::Waist)     : FVector::ZeroVector;
+	const FVector LKneePos = bLKnee ? TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftKnee)  : FVector::ZeroVector;
+	const FVector RKneePos = bRKnee ? TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightKnee) : FVector::ZeroVector;
+	const FVector LFootPos = bLFoot ? TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftFoot)  : FVector::ZeroVector;
+	const FVector RFootPos = bRFoot ? TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightFoot) : FVector::ZeroVector;
+
+	// 직접 측정: 양쪽 트래커 모두 활성인 세그먼트만
+	const float DirectHipL = (bWaist && bLKnee) ? FVector::Dist(HipPos, LKneePos)  : 0.0f;
+	const float DirectHipR = (bWaist && bRKnee) ? FVector::Dist(HipPos, RKneePos)  : 0.0f;
+	const float DirectLLow = (bLKnee && bLFoot) ? FVector::Dist(LKneePos, LFootPos) : 0.0f;
+	const float DirectRLow = (bRKnee && bRFoot) ? FVector::Dist(RKneePos, RFootPos) : 0.0f;
+
+	// 미러링: 한쪽이 없으면 반대쪽 측정값으로 좌우 대칭 추정
+	M.Hip_LeftKnee        = (DirectHipL > 0.0f) ? DirectHipL : DirectHipR;
+	M.Hip_RightKnee       = (DirectHipR > 0.0f) ? DirectHipR : DirectHipL;
+	M.LeftKnee_LeftFoot   = (DirectLLow > 0.0f) ? DirectLLow : DirectRLow;
+	M.RightKnee_RightFoot = (DirectRLow > 0.0f) ? DirectRLow : DirectLLow;
+
+	M.TotalLeftLeg  = M.Hip_LeftKnee + M.LeftKnee_LeftFoot;
+	M.TotalRightLeg = M.Hip_RightKnee + M.RightKnee_RightFoot;
 
 	// HMD 높이 기반 키 추정 (HMD가 Pawn에 붙어 있다면 Pawn의 카메라 위치 활용)
 	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
@@ -173,66 +198,75 @@ FVTCBodyMeasurements UVTC_CalibrationComponent::CalculateMeasurements() const
 bool UVTC_CalibrationComponent::ValidateMeasurements(const FVTCBodyMeasurements& M,
 	FString& OutReason) const
 {
-	// ── 기본 최소값 체크 ──
-	if (M.Hip_LeftKnee < 10.0f)
+	// ── 세그먼트별 최소값 체크 (0.0f = 해당 트래커 미연결 → 건너뜀) ──
+	if (M.Hip_LeftKnee > 0.0f && M.Hip_LeftKnee < 10.0f)
 	{
 		OutReason = TEXT("Hip→LeftKnee distance too small. Check Waist or LeftKnee tracker.");
 		return false;
 	}
-	if (M.Hip_RightKnee < 10.0f)
+	if (M.Hip_RightKnee > 0.0f && M.Hip_RightKnee < 10.0f)
 	{
 		OutReason = TEXT("Hip→RightKnee distance too small. Check Waist or RightKnee tracker.");
 		return false;
 	}
-	if (M.LeftKnee_LeftFoot < 10.0f)
+	if (M.LeftKnee_LeftFoot > 0.0f && M.LeftKnee_LeftFoot < 10.0f)
 	{
 		OutReason = TEXT("LeftKnee→LeftFoot distance too small. Check LeftKnee or LeftFoot tracker.");
 		return false;
 	}
-	if (M.RightKnee_RightFoot < 10.0f)
+	if (M.RightKnee_RightFoot > 0.0f && M.RightKnee_RightFoot < 10.0f)
 	{
 		OutReason = TEXT("RightKnee→RightFoot distance too small. Check RightKnee or RightFoot tracker.");
 		return false;
 	}
 
-	// ── 전체 다리 길이 범위 체크 (Feature D) ──
-	if (M.TotalLeftLeg < MinTotalLegLength || M.TotalRightLeg < MinTotalLegLength)
+	// ── 전체 다리 길이 범위 체크 (측정된 경우만) ──
+	if (M.TotalLeftLeg > 0.0f)
 	{
-		OutReason = FString::Printf(
-			TEXT("Leg too short (L:%.1f / R:%.1f cm). Min: %.0f cm. Check tracker placement."),
-			M.TotalLeftLeg, M.TotalRightLeg, MinTotalLegLength);
-		return false;
-	}
-	if (M.TotalLeftLeg > MaxTotalLegLength || M.TotalRightLeg > MaxTotalLegLength)
-	{
-		OutReason = FString::Printf(
-			TEXT("Leg too long (L:%.1f / R:%.1f cm). Max: %.0f cm. Check tracker role assignments."),
-			M.TotalLeftLeg, M.TotalRightLeg, MaxTotalLegLength);
-		return false;
-	}
-
-	// ── 좌우 비대칭 체크 (Feature D) ──
-	const float AvgLeg = (M.TotalLeftLeg + M.TotalRightLeg) * 0.5f;
-	if (AvgLeg > 0.0f)
-	{
-		const float Asymmetry =
-			FMath::Abs(M.TotalLeftLeg - M.TotalRightLeg) / AvgLeg;
-		if (Asymmetry > AsymmetryWarningThreshold)
+		if (M.TotalLeftLeg < MinTotalLegLength || M.TotalLeftLeg > MaxTotalLegLength)
 		{
 			OutReason = FString::Printf(
-				TEXT("Left/Right leg asymmetry %.0f%% exceeds %.0f%% threshold. "
-				     "L:%.1f / R:%.1f cm. Re-check tracker positions."),
-				Asymmetry * 100.0f, AsymmetryWarningThreshold * 100.0f,
-				M.TotalLeftLeg, M.TotalRightLeg);
+				TEXT("Left leg length (%.1f cm) out of range [%.0f–%.0f cm]. Check tracker placement."),
+				M.TotalLeftLeg, MinTotalLegLength, MaxTotalLegLength);
+			return false;
+		}
+	}
+	if (M.TotalRightLeg > 0.0f)
+	{
+		if (M.TotalRightLeg < MinTotalLegLength || M.TotalRightLeg > MaxTotalLegLength)
+		{
+			OutReason = FString::Printf(
+				TEXT("Right leg length (%.1f cm) out of range [%.0f–%.0f cm]. Check tracker placement."),
+				M.TotalRightLeg, MinTotalLegLength, MaxTotalLegLength);
 			return false;
 		}
 	}
 
-	// ── 상/하 비율 체크 (대퇴 vs 하퇴 비율 0.7~1.5 범위) ──
+	// ── 좌우 비대칭 체크 (양쪽 모두 측정된 경우만) ──
+	if (M.TotalLeftLeg > 0.0f && M.TotalRightLeg > 0.0f)
+	{
+		const float AvgLeg = (M.TotalLeftLeg + M.TotalRightLeg) * 0.5f;
+		if (AvgLeg > 0.0f)
+		{
+			const float Asymmetry =
+				FMath::Abs(M.TotalLeftLeg - M.TotalRightLeg) / AvgLeg;
+			if (Asymmetry > AsymmetryWarningThreshold)
+			{
+				OutReason = FString::Printf(
+					TEXT("Left/Right leg asymmetry %.0f%% exceeds %.0f%% threshold. "
+					     "L:%.1f / R:%.1f cm. Re-check tracker positions."),
+					Asymmetry * 100.0f, AsymmetryWarningThreshold * 100.0f,
+					M.TotalLeftLeg, M.TotalRightLeg);
+				return false;
+			}
+		}
+	}
+
+	// ── 상/하 비율 체크 (세그먼트 모두 측정된 경우만) ──
 	auto CheckSegmentRatio = [&](float Upper, float Lower,
 								 const TCHAR* SideName) -> bool
 	{
-		if (Lower > 0.0f)
+		if (Upper > 0.0f && Lower > 0.0f)
 		{
 			const float Ratio = Upper / Lower;
 			if (Ratio < 0.7f || Ratio > 1.5f)
