@@ -1,8 +1,9 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "VTC_GameInstance.h"
-#include "Misc/ConfigCacheIni.h"
+#include "Misc/ConfigFile.h"
 #include "Misc/Paths.h"
+#include "HAL/FileManager.h"
 #include "VTC_VehiclePreset.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,37 +27,53 @@ void UVTC_GameInstance::SaveConfigToINI()
   const FString Path = GetINIPath();
   const FVTCSessionConfig& C = SessionConfig;
 
+  // Config 디렉터리가 없으면 생성
+  IFileManager::Get().MakeDirectory(*FPaths::GetPath(Path), /*Tree=*/true);
+
+  FConfigFile Config;
+  // 기존 파일이 있으면 읽어서 병합
+  if (FPaths::FileExists(Path))
+    Config.Read(Path);
+
+  auto SetVec = [&](const FString& Key, const FVector& V)
+  {
+    Config.SetString(INI_SECTION, *(Key + TEXT("_X")), *FString::SanitizeFloat(V.X));
+    Config.SetString(INI_SECTION, *(Key + TEXT("_Y")), *FString::SanitizeFloat(V.Y));
+    Config.SetString(INI_SECTION, *(Key + TEXT("_Z")), *FString::SanitizeFloat(V.Z));
+  };
+
   // Run mode
-  GConfig->SetString(INI_SECTION, TEXT("RunMode"),
-      (C.RunMode == EVTCRunMode::VR ? TEXT("VR") : TEXT("Simulation")), Path);
+  Config.SetString(INI_SECTION, TEXT("RunMode"),
+      C.RunMode == EVTCRunMode::VR ? TEXT("VR") : TEXT("Simulation"));
 
   // Mount offsets
-  SaveVector(TEXT("MountOffset_Waist"),      C.MountOffset_Waist,      Path);
-  SaveVector(TEXT("MountOffset_LeftKnee"),   C.MountOffset_LeftKnee,   Path);
-  SaveVector(TEXT("MountOffset_RightKnee"),  C.MountOffset_RightKnee,  Path);
-  SaveVector(TEXT("MountOffset_LeftFoot"),   C.MountOffset_LeftFoot,   Path);
-  SaveVector(TEXT("MountOffset_RightFoot"),  C.MountOffset_RightFoot,  Path);
+  SetVec(TEXT("MountOffset_Waist"),      C.MountOffset_Waist);
+  SetVec(TEXT("MountOffset_LeftKnee"),   C.MountOffset_LeftKnee);
+  SetVec(TEXT("MountOffset_RightKnee"),  C.MountOffset_RightKnee);
+  SetVec(TEXT("MountOffset_LeftFoot"),   C.MountOffset_LeftFoot);
+  SetVec(TEXT("MountOffset_RightFoot"),  C.MountOffset_RightFoot);
 
   // Vehicle hip reference
-  SaveVector(TEXT("VehicleHipPosition"), C.VehicleHipPosition, Path);
+  SetVec(TEXT("VehicleHipPosition"), C.VehicleHipPosition);
 
   // Visibility
-  GConfig->SetBool(INI_SECTION, TEXT("ShowCollisionSpheres"), C.bShowCollisionSpheres, Path);
-  GConfig->SetBool(INI_SECTION, TEXT("ShowTrackerMesh"),      C.bShowTrackerMesh,      Path);
+  Config.SetString(INI_SECTION, TEXT("ShowCollisionSpheres"), C.bShowCollisionSpheres ? TEXT("True") : TEXT("False"));
+  Config.SetString(INI_SECTION, TEXT("ShowTrackerMesh"),      C.bShowTrackerMesh      ? TEXT("True") : TEXT("False"));
 
   // Thresholds (Feature A)
-  GConfig->SetFloat(INI_SECTION, TEXT("WarningThreshold_cm"),   C.WarningThreshold_cm,   Path);
-  GConfig->SetFloat(INI_SECTION, TEXT("CollisionThreshold_cm"), C.CollisionThreshold_cm, Path);
+  Config.SetString(INI_SECTION, TEXT("WarningThreshold_cm"),   *FString::SanitizeFloat(C.WarningThreshold_cm));
+  Config.SetString(INI_SECTION, TEXT("CollisionThreshold_cm"), *FString::SanitizeFloat(C.CollisionThreshold_cm));
 
   // Preset — VR 단독 실행 시 자동 복원을 위해 저장
-  GConfig->SetBool  (INI_SECTION, TEXT("UseVehiclePreset"),   C.bUseVehiclePreset,   Path);
-  GConfig->SetString(INI_SECTION, TEXT("SelectedPresetName"), *C.SelectedPresetName, Path);
+  Config.SetString(INI_SECTION, TEXT("UseVehiclePreset"),   C.bUseVehiclePreset ? TEXT("True") : TEXT("False"));
+  Config.SetString(INI_SECTION, TEXT("SelectedPresetName"), *C.SelectedPresetName);
 
   // SubjectID — last-used 값으로 저장 (VR 단독 실행 시 자동 채움)
-  GConfig->SetString(INI_SECTION, TEXT("SubjectID"), *C.SubjectID, Path);
+  Config.SetString(INI_SECTION, TEXT("SubjectID"), *C.SubjectID);
 
-  GConfig->Flush(false, Path);
-  UE_LOG(LogTemp, Log, TEXT("[VTC] Config saved → %s"), *Path);
+  const bool bOK = Config.Write(Path);
+  UE_LOG(LogTemp, Log, TEXT("[VTC] Config %s → %s"),
+      bOK ? TEXT("saved") : TEXT("SAVE FAILED"), *Path);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,35 +89,62 @@ void UVTC_GameInstance::LoadConfigFromINI()
     return;
   }
 
+  FConfigFile Config;
+  Config.Read(Path);
+
   FVTCSessionConfig& C = SessionConfig;
+
+  auto GetVec = [&](const FString& Key, const FVector& Default) -> FVector
+  {
+    FString SX, SY, SZ;
+    float X = (float)Default.X, Y = (float)Default.Y, Z = (float)Default.Z;
+    if (Config.GetString(INI_SECTION, *(Key + TEXT("_X")), SX)) LexTryParseString(X, *SX);
+    if (Config.GetString(INI_SECTION, *(Key + TEXT("_Y")), SY)) LexTryParseString(Y, *SY);
+    if (Config.GetString(INI_SECTION, *(Key + TEXT("_Z")), SZ)) LexTryParseString(Z, *SZ);
+    return FVector(X, Y, Z);
+  };
+
+  auto GetBool = [&](const TCHAR* Key, bool Default) -> bool
+  {
+    FString Val;
+    return Config.GetString(INI_SECTION, Key, Val) ? (Val == TEXT("True")) : Default;
+  };
+
+  auto GetFloat = [&](const TCHAR* Key, float Default) -> float
+  {
+    FString Val;
+    float Out = Default;
+    if (Config.GetString(INI_SECTION, Key, Val)) LexTryParseString(Out, *Val);
+    return Out;
+  };
 
   // Run mode
   FString ModeStr;
-  if (GConfig->GetString(INI_SECTION, TEXT("RunMode"), ModeStr, Path))
+  if (Config.GetString(INI_SECTION, TEXT("RunMode"), ModeStr))
     C.RunMode = (ModeStr == TEXT("VR")) ? EVTCRunMode::VR : EVTCRunMode::Simulation;
 
   // Mount offsets
-  C.MountOffset_Waist     = LoadVector(TEXT("MountOffset_Waist"),     C.MountOffset_Waist,     Path);
-  C.MountOffset_LeftKnee  = LoadVector(TEXT("MountOffset_LeftKnee"),  C.MountOffset_LeftKnee,  Path);
-  C.MountOffset_RightKnee = LoadVector(TEXT("MountOffset_RightKnee"), C.MountOffset_RightKnee, Path);
-  C.MountOffset_LeftFoot  = LoadVector(TEXT("MountOffset_LeftFoot"),  C.MountOffset_LeftFoot,  Path);
-  C.MountOffset_RightFoot = LoadVector(TEXT("MountOffset_RightFoot"), C.MountOffset_RightFoot, Path);
+  C.MountOffset_Waist     = GetVec(TEXT("MountOffset_Waist"),     C.MountOffset_Waist);
+  C.MountOffset_LeftKnee  = GetVec(TEXT("MountOffset_LeftKnee"),  C.MountOffset_LeftKnee);
+  C.MountOffset_RightKnee = GetVec(TEXT("MountOffset_RightKnee"), C.MountOffset_RightKnee);
+  C.MountOffset_LeftFoot  = GetVec(TEXT("MountOffset_LeftFoot"),  C.MountOffset_LeftFoot);
+  C.MountOffset_RightFoot = GetVec(TEXT("MountOffset_RightFoot"), C.MountOffset_RightFoot);
 
   // Vehicle hip reference
-  C.VehicleHipPosition = LoadVector(TEXT("VehicleHipPosition"), C.VehicleHipPosition, Path);
+  C.VehicleHipPosition = GetVec(TEXT("VehicleHipPosition"), C.VehicleHipPosition);
 
   // Visibility
-  GConfig->GetBool(INI_SECTION, TEXT("ShowCollisionSpheres"), C.bShowCollisionSpheres, Path);
-  GConfig->GetBool(INI_SECTION, TEXT("ShowTrackerMesh"),      C.bShowTrackerMesh,      Path);
+  C.bShowCollisionSpheres = GetBool(TEXT("ShowCollisionSpheres"), C.bShowCollisionSpheres);
+  C.bShowTrackerMesh      = GetBool(TEXT("ShowTrackerMesh"),      C.bShowTrackerMesh);
 
   // Thresholds (Feature A)
-  GConfig->GetFloat(INI_SECTION, TEXT("WarningThreshold_cm"),   C.WarningThreshold_cm,   Path);
-  GConfig->GetFloat(INI_SECTION, TEXT("CollisionThreshold_cm"), C.CollisionThreshold_cm, Path);
+  C.WarningThreshold_cm   = GetFloat(TEXT("WarningThreshold_cm"),   C.WarningThreshold_cm);
+  C.CollisionThreshold_cm = GetFloat(TEXT("CollisionThreshold_cm"), C.CollisionThreshold_cm);
 
   // Preset — 이름으로 디스크에서 JSON 재로드 (VR 단독 실행 지원)
-  GConfig->GetBool(INI_SECTION, TEXT("UseVehiclePreset"), C.bUseVehiclePreset, Path);
+  C.bUseVehiclePreset = GetBool(TEXT("UseVehiclePreset"), C.bUseVehiclePreset);
   FString LoadedPresetName;
-  if (GConfig->GetString(INI_SECTION, TEXT("SelectedPresetName"), LoadedPresetName, Path))
+  if (Config.GetString(INI_SECTION, TEXT("SelectedPresetName"), LoadedPresetName))
     C.SelectedPresetName = LoadedPresetName;
 
   if (C.bUseVehiclePreset && !C.SelectedPresetName.IsEmpty())
@@ -140,7 +184,7 @@ void UVTC_GameInstance::LoadConfigFromINI()
 
   // SubjectID last-used 복원 (비어 있으면 기본값 유지)
   FString LoadedSubjectID;
-  if (GConfig->GetString(INI_SECTION, TEXT("SubjectID"), LoadedSubjectID, Path)
+  if (Config.GetString(INI_SECTION, TEXT("SubjectID"), LoadedSubjectID)
       && !LoadedSubjectID.IsEmpty())
     C.SubjectID = LoadedSubjectID;
 
@@ -154,24 +198,4 @@ FString UVTC_GameInstance::GetINIPath() const
 {
   return FPaths::ConvertRelativePathToFull(
       FPaths::ProjectConfigDir() / TEXT("VTCSettings.ini"));
-}
-
-void UVTC_GameInstance::SaveVector(const TCHAR* Key, const FVector& V,
-                                   const FString& Path) const
-{
-  GConfig->SetFloat(INI_SECTION, *(FString(Key) + TEXT("_X")), V.X, Path);
-  GConfig->SetFloat(INI_SECTION, *(FString(Key) + TEXT("_Y")), V.Y, Path);
-  GConfig->SetFloat(INI_SECTION, *(FString(Key) + TEXT("_Z")), V.Z, Path);
-}
-
-FVector UVTC_GameInstance::LoadVector(const TCHAR* Key, const FVector& Default,
-                                      const FString& Path) const
-{
-  // UE5에서 FVector::X/Y/Z는 double이므로 GetFloat(float&)에 직접 전달 불가.
-  // float 임시 변수에 읽어 FVector로 변환한다.
-  float X = (float)Default.X, Y = (float)Default.Y, Z = (float)Default.Z;
-  GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_X")), X, Path);
-  GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_Y")), Y, Path);
-  GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_Z")), Z, Path);
-  return FVector(X, Y, Z);
 }

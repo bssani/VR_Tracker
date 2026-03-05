@@ -45,12 +45,8 @@ public:
 
 private:
   // INI 섹션명 상수
-  static constexpr const TCHAR* INI_SECTION = TEXT("VTC/Settings");
+  static constexpr const TCHAR* INI_SECTION = TEXT("VTCSettings");
 
   // INI 파일 절대 경로 반환 (ProjectDir/Config/VTCSettings.ini)
   FString GetINIPath() const;
-
-  // FVector → INI 읽기/쓰기 헬퍼
-  void SaveVector(const TCHAR* Key, const FVector& V, const FString& Path) const;
-  FVector LoadVector(const TCHAR* Key, const FVector& Default, const FString& Path) const;
 };
