@@ -1,5 +1,9 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
-// VTC_SetupWidget.h — Level 1 설정 화면 위젯
+// VTC_SetupWidget.h — 설정 전용 위젯 (Config-only, 레벨 전환 없음)
+//
+// [역할]
+//   INI 설정 저장/불러오기 + 프리셋 관리 전용.
+//   VR 맵은 직접 실행하고 INI에서 자동 로드한다.
 //
 // [BP 연결 필수 위젯 이름 목록]
 //   피실험자 정보:
@@ -27,10 +31,9 @@
 //     Combo_VehiclePreset   ComboBoxString (Saved/VTCPresets/*.json 목록 자동 로드)
 //     Btn_SavePreset        Button         (현재 설정을 프리셋으로 저장)
 //   버튼:
-//     Btn_SaveConfig            Button
-//     Btn_LoadConfig            Button
-//     Btn_StartSession          Button
-//     Btn_SavePreset            Button
+//     Btn_SaveConfig            Button  (설정 저장 → INI)
+//     Btn_LoadConfig            Button  (INI → 화면 반영)
+//     Btn_SavePreset            Button  (프리셋 저장)
 
 #pragma once
 
@@ -102,7 +105,6 @@ public:
   // ─── 버튼 ────────────────────────────────────────────────────────────────
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_SaveConfig;
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_LoadConfig;
-  UPROPERTY(meta = (BindWidget)) TObjectPtr<UButton> Btn_StartSession;
 
   // ─── Blueprint 호출 가능 함수 ─────────────────────────────────────────────
 
@@ -114,10 +116,6 @@ public:
   UFUNCTION(BlueprintCallable, Category = "VTC|Setup")
   void PopulateFromConfig(const FVTCSessionConfig& Config);
 
-  // SubjectID 비어있지 않고 Height > 0 인지 확인
-  UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Setup")
-  bool IsInputValid() const;
-
 protected:
   virtual void NativeConstruct() override;
 
@@ -125,7 +123,6 @@ private:
   // 버튼 클릭 핸들러
   UFUNCTION() void OnSaveConfigClicked();
   UFUNCTION() void OnLoadConfigClicked();
-  UFUNCTION() void OnStartSessionClicked();
 
   // Threshold 슬라이더 콜백
   UFUNCTION() void OnWarningSliderChanged(float Value);

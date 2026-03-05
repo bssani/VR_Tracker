@@ -19,8 +19,6 @@ void UVTC_SetupWidget::NativeConstruct()
     Btn_SaveConfig->OnClicked.AddDynamic(this, &UVTC_SetupWidget::OnSaveConfigClicked);
   if (Btn_LoadConfig)
     Btn_LoadConfig->OnClicked.AddDynamic(this, &UVTC_SetupWidget::OnLoadConfigClicked);
-  if (Btn_StartSession)
-    Btn_StartSession->OnClicked.AddDynamic(this, &UVTC_SetupWidget::OnStartSessionClicked);
 
   // 모드 Toggle 기본값: VR
   if (Toggle_VRMode) Toggle_VRMode->SetIsChecked(true);
@@ -141,12 +139,6 @@ void UVTC_SetupWidget::PopulateFromConfig(const FVTCSessionConfig& C)
   if (CB_ShowTrackerMesh)      CB_ShowTrackerMesh->SetIsChecked(C.bShowTrackerMesh);
 }
 
-bool UVTC_SetupWidget::IsInputValid() const
-{
-  const FString ID = TB_SubjectID ? TB_SubjectID->GetText().ToString().TrimStartAndEnd() : TEXT("");
-  return !ID.IsEmpty() && ParseFloat(TB_Height, 0.0f) > 0.0f;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  버튼 핸들러
 // ─────────────────────────────────────────────────────────────────────────────
@@ -168,21 +160,6 @@ void UVTC_SetupWidget::OnLoadConfigClicked()
     PopulateFromConfig(GI->SessionConfig);
     UE_LOG(LogTemp, Log, TEXT("[VTC] Setup: Config loaded."));
   }
-}
-
-void UVTC_SetupWidget::OnStartSessionClicked()
-{
-  if (!IsInputValid())
-  {
-    UE_LOG(LogTemp, Warning, TEXT("[VTC] Setup: SubjectID 또는 Height가 유효하지 않습니다."));
-    return;
-  }
-  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
-  if (!GI) return;
-
-  GI->SessionConfig = BuildConfigFromInputs();
-  GI->SaveConfigToINI();   // 시작 전에 항상 저장
-  GI->OpenTestLevel();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

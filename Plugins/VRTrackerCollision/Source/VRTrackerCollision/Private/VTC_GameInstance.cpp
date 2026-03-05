@@ -1,7 +1,6 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "VTC_GameInstance.h"
-#include "Kismet/GameplayStatics.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Paths.h"
 #include "VTC_VehiclePreset.h"
@@ -17,41 +16,6 @@ void UVTC_GameInstance::Init()
   LoadConfigFromINI();
   UE_LOG(LogTemp, Log, TEXT("[VTC] GameInstance::Init — config loaded from INI. RunMode=%s"),
       SessionConfig.RunMode == EVTCRunMode::VR ? TEXT("VR") : TEXT("Simulation"));
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  레벨 전환
-// ─────────────────────────────────────────────────────────────────────────────
-void UVTC_GameInstance::OpenTestLevel_Implementation()
-{
-  // RunMode에 따라 VR 전용 레벨 또는 시뮬레이션 레벨로 분기
-  const bool bVR = (SessionConfig.RunMode == EVTCRunMode::VR);
-  const FString& LevelToOpen = bVR ? VRTestLevelName : SimTestLevelName;
-
-  if (LevelToOpen.IsEmpty())
-  {
-    UE_LOG(LogTemp, Error,
-        TEXT("[VTC] OpenTestLevel: %s 레벨 이름이 설정되지 않았습니다. "
-             "BP_VTC_GameInstance > %s에 레벨 이름을 입력하세요."),
-        bVR ? TEXT("VRTestLevelName") : TEXT("SimTestLevelName"),
-        bVR ? TEXT("VRTestLevelName") : TEXT("SimTestLevelName"));
-    return;
-  }
-  UE_LOG(LogTemp, Log, TEXT("[VTC] OpenTestLevel → %s (RunMode=%s)"),
-      *LevelToOpen, bVR ? TEXT("VR") : TEXT("Simulation"));
-  UGameplayStatics::OpenLevel(this, FName(*LevelToOpen));
-}
-
-void UVTC_GameInstance::OpenSetupLevel_Implementation()
-{
-  if (SetupLevelName.IsEmpty())
-  {
-    UE_LOG(LogTemp, Error,
-        TEXT("[VTC] OpenSetupLevel: SetupLevelName이 설정되지 않았습니다. "
-             "BP_VTC_GameInstance > SetupLevelName에 레벨 이름을 입력하세요."));
-    return;
-  }
-  UGameplayStatics::OpenLevel(this, FName(*SetupLevelName));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
