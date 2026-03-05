@@ -15,6 +15,7 @@
 //   1      : 캘리브레이션 시작 (GameInstance의 SubjectID/Height 사용)
 //   2      : 테스트 시작 (캘리브레이션 건너뜀)
 //   3      : CSV 저장 + 게임 종료 (QuitGame)
+//   P      : INI에서 설정 재로드 + 전체 적용 (Level 1 설정 반영)
 
 #pragma once
 
@@ -82,6 +83,7 @@ private:
   void Input_One();
   void Input_Two();
   void Input_Three();
+  void Input_P();
 
   // GameInstance 설정 → TrackerPawn + BodyActor + CollisionDetector 에 일괄
   // 적용

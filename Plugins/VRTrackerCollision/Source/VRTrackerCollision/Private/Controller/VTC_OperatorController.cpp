@@ -174,6 +174,7 @@ void AVTC_OperatorController::SetupInputComponent() {
   InputComponent->BindKey(EKeys::One,   IE_Pressed, this, &AVTC_OperatorController::Input_One);
   InputComponent->BindKey(EKeys::Two,   IE_Pressed, this, &AVTC_OperatorController::Input_Two);
   InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AVTC_OperatorController::Input_Three);
+  InputComponent->BindKey(EKeys::P,     IE_Pressed, this, &AVTC_OperatorController::Input_P);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -240,6 +241,49 @@ void AVTC_OperatorController::Input_Two()   { StartTest(); }
 void AVTC_OperatorController::Input_Three() {
   StopAndExport();  // CSV 저장 + 상태 Idle로 전환
   UKismetSystemLibrary::QuitGame(GetWorld(), this, EQuitPreference::Quit, false);
+}
+
+void AVTC_OperatorController::Input_P() {
+  UVTC_GameInstance *GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI)
+    return;
+
+  // 1) INI에서 최신 설정 강제 재로드 (디스크에서 읽기)
+  GI->LoadConfigFromINI();
+
+  // 2) 기존 preset ref points 정리 (중복 스폰 방지)
+  for (auto &Ref : SpawnedPresetRefPoints) {
+    if (Ref)
+      Ref->Destroy();
+  }
+  SpawnedPresetRefPoints.Empty();
+
+  // 3) 모든 Actor에 설정 재적용
+  //    TrackerPawn: RunMode, TrackerMesh, SnapWaistTo(VehicleHipPosition)
+  //    BodyActor: MountOffset, Sphere 가시성, VehicleHipMarker
+  //    CollisionDetector: 임계값
+  //    HipRefPoint: 스폰 또는 위치 업데이트
+  //    Preset RefPoints: 재스폰
+  ApplyGameInstanceConfig();
+
+  // 4) StatusWidget + OperatorMonitor에 피실험자 정보 갱신
+  const FVTCSessionConfig &C = GI->SessionConfig;
+  if (StatusActor) {
+    if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget()) {
+      W->UpdateSubjectInfo(C.SubjectID, C.Height_cm);
+      W->UpdatePresetInfo(C.bUseVehiclePreset, C.SelectedPresetName);
+    }
+  }
+  if (OperatorMonitorWidget) {
+    OperatorMonitorWidget->UpdateSubjectInfo(C.SubjectID, C.Height_cm);
+    OperatorMonitorWidget->UpdatePresetInfo(C.bUseVehiclePreset,
+                                            C.SelectedPresetName);
+  }
+
+  UE_LOG(LogTemp, Log,
+         TEXT("[VTC] P key: Config reloaded from INI and applied. Subject=%s "
+              "Hip=%s"),
+         *C.SubjectID, *C.VehicleHipPosition.ToString());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
