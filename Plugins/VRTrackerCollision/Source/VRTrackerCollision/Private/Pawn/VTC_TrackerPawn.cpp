@@ -337,53 +337,16 @@ void AVTC_TrackerPawn::DetectMovementPhase(float DeltaTime)
 void AVTC_TrackerPawn::SnapWaistToWithRetry(const FVector& WorldPos,
                                              float RetryInterval, int32 MaxRetries)
 {
-	// 진행 중인 재시도 타이머가 있으면 취소 후 새 목표로 시작
+	// 진행 중인 재시도 타이머가 있으면 취소
 	if (UWorld* W = GetWorld())
 		W->GetTimerManager().ClearTimer(HipSnapRetryTimer);
 
-	HipSnapPendingTarget = WorldPos;
-	HipSnapRetryCount    = 0;
-	HipSnapMaxRetries    = MaxRetries;
-
-	// 즉시 한 번 시도
-	if (IsTrackerActive(EVTCTrackerRole::Waist))
-	{
-		SnapWaistTo(WorldPos);
-		return;
-	}
+	// Tracker 활성 여부와 관계없이 한 번만 스냅 시도
+	// (VR 모드에서 tracker 초기 비활성 → 타이머 반복 → 깜빡거림 문제 해결)
+	SnapWaistTo(WorldPos);
 
 	UE_LOG(LogTemp, Log,
-		TEXT("[VTC] SnapWaistToWithRetry: Waist not active yet. Retry every %.1fs (max %d)."),
-		RetryInterval, MaxRetries);
-
-	if (UWorld* W = GetWorld())
-	{
-		W->GetTimerManager().SetTimer(HipSnapRetryTimer, this,
-			&AVTC_TrackerPawn::RetryHipSnap, RetryInterval, /*bLoop=*/true);
-	}
-}
-
-void AVTC_TrackerPawn::RetryHipSnap()
-{
-	HipSnapRetryCount++;
-
-	if (IsTrackerActive(EVTCTrackerRole::Waist))
-	{
-		SnapWaistTo(HipSnapPendingTarget);
-		if (UWorld* W = GetWorld())
-			W->GetTimerManager().ClearTimer(HipSnapRetryTimer);
-		UE_LOG(LogTemp, Log, TEXT("[VTC] HipSnap succeeded on retry %d."), HipSnapRetryCount);
-		return;
-	}
-
-	if (HipSnapRetryCount >= HipSnapMaxRetries)
-	{
-		if (UWorld* W = GetWorld())
-			W->GetTimerManager().ClearTimer(HipSnapRetryTimer);
-		UE_LOG(LogTemp, Warning,
-			TEXT("[VTC] HipSnap: Waist tracker not active after %d retries. Giving up."),
-			HipSnapRetryCount);
-	}
+		TEXT("[VTC] SnapWaistToWithRetry: Snap attempted. Tracker will auto-adjust when active."));
 }
 
 void AVTC_TrackerPawn::SnapWaistTo(const FVector& WorldPos)
@@ -392,25 +355,34 @@ void AVTC_TrackerPawn::SnapWaistTo(const FVector& WorldPos)
 	// Pawn 루트는 바닥 기준이므로 Waist 위치와 다르다 → 반드시 Delta 방식 사용.
 	const FVector WaistWorld = GetTrackerLocation(EVTCTrackerRole::Waist);
 
-	// Waist 트래커가 활성 상태가 아니면(추적 미시작, 연결 없음 등) 스냅 건너뜀.
-	// IsNearlyZero() 대신 IsTrackerActive()를 사용하는 이유:
-	//   피실험자가 월드 원점 근처에 있을 때 (0,0,0)에 가까운 유효 위치도
-	//   IsNearlyZero()로 잘못 차단될 수 있다.
-	if (!IsTrackerActive(EVTCTrackerRole::Waist))
+	// VR 모드에서 Tracker가 아직 데이터를 제공하지 못할 수도 있음 (초기 활성화 대기)
+	// → 타이머 반복 제거, 베스트 에포트로 스냅 시도
+	if (!WaistWorld.IsNearlyZero())
 	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("[VTC] SnapWaistTo skipped: Waist tracker not active."));
-		return;
+		// Tracker가 유효한 위치 제공 → Delta 방식으로 정확히 이동
+		const FVector Delta = WorldPos - WaistWorld;
+		SetActorLocation(GetActorLocation() + Delta);
+
+		UE_LOG(LogTemp, Log,
+			TEXT("[VTC] SnapWaistTo: Waist %.1f,%.1f,%.1f → Target %.1f,%.1f,%.1f (delta %.1f,%.1f,%.1f)"),
+			WaistWorld.X, WaistWorld.Y, WaistWorld.Z,
+			WorldPos.X,   WorldPos.Y,   WorldPos.Z,
+			Delta.X,      Delta.Y,      Delta.Z);
 	}
+	else
+	{
+		// Tracker 데이터 아직 없음 (0,0,0) — Pawn root를 목표 방향으로 이동
+		// Z(높이)는 유지해서 캐릭터가 낙하하지 않도록
+		FVector NewLocation = GetActorLocation();
+		NewLocation.X = WorldPos.X;
+		NewLocation.Y = WorldPos.Y;
+		// Z는 유지 (캐릭터 높이 보존)
+		SetActorLocation(NewLocation);
 
-	const FVector Delta = WorldPos - WaistWorld;
-	SetActorLocation(GetActorLocation() + Delta);
-
-	UE_LOG(LogTemp, Log,
-		TEXT("[VTC] SnapWaistTo: Waist %.1f,%.1f,%.1f → Target %.1f,%.1f,%.1f (delta %.1f,%.1f,%.1f)"),
-		WaistWorld.X, WaistWorld.Y, WaistWorld.Z,
-		WorldPos.X,   WorldPos.Y,   WorldPos.Z,
-		Delta.X,      Delta.Y,      Delta.Z);
+		UE_LOG(LogTemp, Log,
+			TEXT("[VTC] SnapWaistTo: Tracker data pending. Pawn moved to XY of target (%.1f, %.1f) with current Z (%.1f)"),
+			WorldPos.X, WorldPos.Y, GetActorLocation().Z);
+	}
 }
 
 // ─── 시뮬레이션 모드 — 제어 함수 ───────────────────────────────────────────

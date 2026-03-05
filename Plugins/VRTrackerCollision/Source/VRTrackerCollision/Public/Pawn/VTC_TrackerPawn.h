@@ -301,12 +301,8 @@ private:
 
 	void DetectMovementPhase(float DeltaTime);
 
-	// ─── HipSnap 재시도 내부 상태 ────────────────────────────────────────────
-	FVector      HipSnapPendingTarget;
-	int32        HipSnapRetryCount   = 0;
-	int32        HipSnapMaxRetries   = 20;
-	FTimerHandle HipSnapRetryTimer;
-	void         RetryHipSnap();
+	// ─── HipSnap 내부 상태 (타이머 제거로 간소화) ─────────────────────────────────
+	FTimerHandle HipSnapRetryTimer;  // 호환성을 위해 유지 (예시 호출 코드 대비)
 
 	// 매 Tick: 5개 트래커 데이터 갱신
 	void UpdateAllTrackers();
