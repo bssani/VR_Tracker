@@ -8,11 +8,12 @@
 //   Txt_TrackerStatus TextBlock — 트래커 연결 상태 요약
 //
 // [BP 연결 선택 위젯 이름 — VR 실시간 데이터 표시용]
-//   Txt_PresetInfo   TextBlock — 적용된 차종 프리셋 이름
-//   Txt_CalibResult  TextBlock — 캘리브레이션 결과 (OK / FAILED)
-//   Txt_ElapsedTime  TextBlock — 경과 시간 ("02:34")
-//   Txt_MinDistance  TextBlock — 세션 최소 거리 ("Min: 4.2 cm")
-//   VB_DistanceList  VerticalBox — 기준점별 거리 Row 자동 생성 영역
+//   Txt_PresetInfo      TextBlock — 적용된 차종 프리셋 이름
+//   Txt_CalibResult     TextBlock — 캘리브레이션 결과 (OK / FAILED)
+//   Txt_ElapsedTime     TextBlock — 경과 시간 ("02:34")
+//   Txt_MinDistance     TextBlock — 세션 최소 거리 ("Min: 4.2 cm")
+//   Txt_HipWaistDistance TextBlock — Hip ↔ Waist 실시간 거리 ("Hip↔Waist: 12.3 cm")
+//   VB_DistanceList     VerticalBox — 기준점별 거리 Row 자동 생성 영역
 //
 // [사용법]
 //   VTC_StatusActor에 부착된 WidgetComponent의 Widget Class로 지정.
@@ -46,6 +47,8 @@ public:
   UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock>   Txt_CalibResult;
   UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock>   Txt_ElapsedTime;
   UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock>   Txt_MinDistance;
+  // Hip ReferencePoint ↔ Waist tracker 실시간 거리 (경고 이벤트 없음)
+  UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock>   Txt_HipWaistDistance;
   UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UVerticalBox> VB_DistanceList;
 
   // ─── 외부에서 호출하는 업데이트 함수 ─────────────────────────────────────
@@ -76,6 +79,10 @@ public:
   // 세션 최소 거리 갱신
   UFUNCTION(BlueprintCallable, Category = "VTC|Status")
   void UpdateMinDistance(float MinDist_cm);
+
+  // Hip ReferencePoint ↔ Waist 실시간 거리 갱신 (경고 이벤트 없음)
+  UFUNCTION(BlueprintCallable, Category = "VTC|Status")
+  void UpdateHipWaistDistance(float Distance_cm);
 
   // 기준점별 거리 Row 갱신 — OperatorMonitorWidget과 동일한 Map 재사용 방식
   UFUNCTION(BlueprintCallable, Category = "VTC|Status")

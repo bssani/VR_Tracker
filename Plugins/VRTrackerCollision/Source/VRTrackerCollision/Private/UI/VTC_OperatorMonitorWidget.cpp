@@ -122,6 +122,13 @@ void UVTC_OperatorMonitorWidget::UpdateMinDistance(float MinDist_cm)
         FString::Printf(TEXT("Min: %.1f cm"), MinDist_cm)));
 }
 
+void UVTC_OperatorMonitorWidget::UpdateHipWaistDistance(float Distance_cm)
+{
+  if (Txt_HipWaistDistance)
+    Txt_HipWaistDistance->SetText(FText::FromString(
+        FString::Printf(TEXT("Hip↔Waist: %.1f cm"), Distance_cm)));
+}
+
 FString UVTC_OperatorMonitorWidget::MakeRowKey(EVTCTrackerRole BodyPart,
                                                 const FString& VehiclePartName)
 {

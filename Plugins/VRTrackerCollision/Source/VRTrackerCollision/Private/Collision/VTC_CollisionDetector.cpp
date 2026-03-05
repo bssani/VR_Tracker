@@ -111,6 +111,8 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
         const FString DistLabel = FString::Printf(TEXT("%.1f cm"), SafeDistanceResult);
         DrawDebugString(GetWorld(), MidPoint, DistLabel, nullptr,
                         FColor::Cyan, -1.0f, true, 1.2f);
+        // 거리만 브로드캐스트 (경고/충돌 이벤트 없음)
+        OnDisabledRefPointDistance.Broadcast(RefPoint->PartName, TrackerRole, SafeDistanceResult);
         continue;
       }
 

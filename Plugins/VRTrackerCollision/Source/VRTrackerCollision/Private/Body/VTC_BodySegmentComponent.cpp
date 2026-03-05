@@ -50,7 +50,11 @@ void UVTC_BodySegmentComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 
 void UVTC_BodySegmentComponent::UpdateSegmentTransform()
 {
-	if (!TrackerSource || !SegmentMesh) return;
+	if (!TrackerSource || !SegmentMesh) {
+		// TrackerSource 없으면 숨기기 (tracker 미연결 시 segment 노출 방지)
+		if (SegmentMesh) SegmentMesh->SetVisibility(false);
+		return;
+	}
 
 	// 두 Tracker 위치 가져오기
 	const FVTCTrackerData StartData = TrackerSource->GetTrackerData(RoleStart);

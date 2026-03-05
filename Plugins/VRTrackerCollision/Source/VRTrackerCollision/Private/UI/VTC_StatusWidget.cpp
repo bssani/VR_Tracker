@@ -87,6 +87,15 @@ void UVTC_StatusWidget::UpdateMinDistance(float MinDist_cm) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Hip ReferencePoint ↔ Waist 실시간 거리 (경고 이벤트 없음)
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_StatusWidget::UpdateHipWaistDistance(float Distance_cm) {
+  if (Txt_HipWaistDistance)
+    Txt_HipWaistDistance->SetText(FText::FromString(
+        FString::Printf(TEXT("Hip\u2194Waist: %.1f cm"), Distance_cm)));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  거리 Row 갱신 — OperatorMonitorWidget과 동일한 Map 재사용 방식 (30Hz)
 // ─────────────────────────────────────────────────────────────────────────────
 void UVTC_StatusWidget::UpdateDistanceRow(const FVTCDistanceResult &Result) {

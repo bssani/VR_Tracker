@@ -48,6 +48,9 @@ void AVTC_OperatorController::BeginPlay() {
     if (SessionManager->CollisionDetector) {
       SessionManager->CollisionDetector->OnDistanceUpdated.AddDynamic(
           this, &AVTC_OperatorController::OnDistanceUpdated);
+      // bCollisionDisabled 포인트(Vehicle_Hip) 거리 → HipWaistDistance 위젯 갱신
+      SessionManager->CollisionDetector->OnDisabledRefPointDistance.AddDynamic(
+          this, &AVTC_OperatorController::OnHipRefPointDistance);
     }
   }
 
@@ -142,6 +145,139 @@ void AVTC_OperatorController::SetupInputComponent() {
   InputComponent->BindKey(EKeys::Two,   IE_Pressed, this, &AVTC_OperatorController::Input_Two);
   InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AVTC_OperatorController::Input_Three);
   InputComponent->BindKey(EKeys::P,     IE_Pressed, this, &AVTC_OperatorController::Input_P);
+  InputComponent->BindKey(EKeys::G,     IE_Pressed, this, &AVTC_OperatorController::Input_G);
+
+  // NumPad: 실시간 Mount Offset 선택 (1/2/3) + 축 조절 (4~9)
+  InputComponent->BindKey(EKeys::NumPadOne,   IE_Pressed, this, &AVTC_OperatorController::Input_NumPad1);
+  InputComponent->BindKey(EKeys::NumPadTwo,   IE_Pressed, this, &AVTC_OperatorController::Input_NumPad2);
+  InputComponent->BindKey(EKeys::NumPadThree, IE_Pressed, this, &AVTC_OperatorController::Input_NumPad3);
+  InputComponent->BindKey(EKeys::NumPadFour,  IE_Pressed, this, &AVTC_OperatorController::Input_NumPad4);
+  InputComponent->BindKey(EKeys::NumPadFive,  IE_Pressed, this, &AVTC_OperatorController::Input_NumPad5);
+  InputComponent->BindKey(EKeys::NumPadSix,   IE_Pressed, this, &AVTC_OperatorController::Input_NumPad6);
+  InputComponent->BindKey(EKeys::NumPadSeven, IE_Pressed, this, &AVTC_OperatorController::Input_NumPad7);
+  InputComponent->BindKey(EKeys::NumPadEight, IE_Pressed, this, &AVTC_OperatorController::Input_NumPad8);
+  InputComponent->BindKey(EKeys::NumPadNine,  IE_Pressed, this, &AVTC_OperatorController::Input_NumPad9);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  G키 — 현재 SessionConfig(MountOffset 포함)를 JSON에 저장
+// ─────────────────────────────────────────────────────────────────────────────
+void AVTC_OperatorController::Input_G() {
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+
+  GI->SaveConfigToINI();
+  UE_LOG(LogTemp, Log, TEXT("[VTC] G key: Config saved to JSON."));
+
+  // Prompt 영역에 저장 완료 메시지 표시 (2초 후 원래 상태로 복원)
+  auto ShowMsg = [&](UVTC_StatusWidget* W) {
+    if (W) W->UpdateState(EVTCSessionState::Idle);
+  };
+  if (StatusActor) ShowMsg(StatusActor->GetStatusWidget());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  NumPad — 실시간 Mount Offset 선택 + 조절
+// ─────────────────────────────────────────────────────────────────────────────
+void AVTC_OperatorController::Input_NumPad1() {
+  SelectedOffsetGroup = EVTCOffsetGroup::Waist;
+  NotifyOffsetChanged();
+}
+void AVTC_OperatorController::Input_NumPad2() {
+  SelectedOffsetGroup = EVTCOffsetGroup::Knees;
+  NotifyOffsetChanged();
+}
+void AVTC_OperatorController::Input_NumPad3() {
+  SelectedOffsetGroup = EVTCOffsetGroup::Feet;
+  NotifyOffsetChanged();
+}
+
+void AVTC_OperatorController::Input_NumPad7() { AdjustSelectedOffset(FVector( OffsetAdjustStep, 0.f, 0.f)); }
+void AVTC_OperatorController::Input_NumPad8() { AdjustSelectedOffset(FVector(0.f,  OffsetAdjustStep, 0.f)); }
+void AVTC_OperatorController::Input_NumPad9() { AdjustSelectedOffset(FVector(0.f, 0.f,  OffsetAdjustStep)); }
+void AVTC_OperatorController::Input_NumPad4() { AdjustSelectedOffset(FVector(-OffsetAdjustStep, 0.f, 0.f)); }
+void AVTC_OperatorController::Input_NumPad5() { AdjustSelectedOffset(FVector(0.f, -OffsetAdjustStep, 0.f)); }
+void AVTC_OperatorController::Input_NumPad6() { AdjustSelectedOffset(FVector(0.f, 0.f, -OffsetAdjustStep)); }
+
+void AVTC_OperatorController::AdjustSelectedOffset(FVector Delta) {
+  if (SelectedOffsetGroup == EVTCOffsetGroup::None) {
+    UE_LOG(LogTemp, Warning, TEXT("[VTC] NumPad: 먼저 NumPad 1/2/3으로 그룹을 선택하세요."));
+    return;
+  }
+
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+
+  // BodyActor 탐색
+  AVTC_BodyActor* BA = nullptr;
+  for (TActorIterator<AVTC_BodyActor> It(GetWorld()); It; ++It) { BA = *It; break; }
+  if (!BA) return;
+
+  FVTCSessionConfig& C = GI->SessionConfig;
+
+  switch (SelectedOffsetGroup) {
+  case EVTCOffsetGroup::Waist:
+    C.MountOffset_Waist     += Delta;
+    BA->MountOffset_Waist    = C.MountOffset_Waist;
+    break;
+  case EVTCOffsetGroup::Knees:
+    C.MountOffset_LeftKnee  += Delta;
+    C.MountOffset_RightKnee += Delta;
+    BA->MountOffset_LeftKnee  = C.MountOffset_LeftKnee;
+    BA->MountOffset_RightKnee = C.MountOffset_RightKnee;
+    break;
+  case EVTCOffsetGroup::Feet:
+    C.MountOffset_LeftFoot  += Delta;
+    C.MountOffset_RightFoot += Delta;
+    BA->MountOffset_LeftFoot  = C.MountOffset_LeftFoot;
+    BA->MountOffset_RightFoot = C.MountOffset_RightFoot;
+    break;
+  default: return;
+  }
+  NotifyOffsetChanged();
+}
+
+void AVTC_OperatorController::NotifyOffsetChanged() {
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+  const FVTCSessionConfig& C = GI->SessionConfig;
+
+  FString GroupName;
+  FVector Offset = FVector::ZeroVector;
+  switch (SelectedOffsetGroup) {
+  case EVTCOffsetGroup::Waist: GroupName = TEXT("Waist"); Offset = C.MountOffset_Waist;     break;
+  case EVTCOffsetGroup::Knees: GroupName = TEXT("Knees"); Offset = C.MountOffset_LeftKnee;  break;
+  case EVTCOffsetGroup::Feet:  GroupName = TEXT("Feet");  Offset = C.MountOffset_LeftFoot;  break;
+  default: GroupName = TEXT("None"); break;
+  }
+
+  const FString Msg = FString::Printf(
+      TEXT("[%s] X:%.1f Y:%.1f Z:%.1f  (G=Save)"),
+      *GroupName, Offset.X, Offset.Y, Offset.Z);
+
+  if (StatusActor) {
+    if (UVTC_StatusWidget* W = StatusActor->GetStatusWidget())
+      if (W->Txt_Prompt) W->Txt_Prompt->SetText(FText::FromString(Msg));
+  }
+  UE_LOG(LogTemp, Log, TEXT("[VTC] Offset[%s] = %.1f, %.1f, %.1f"),
+      *GroupName, Offset.X, Offset.Y, Offset.Z);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Hip ReferencePoint 거리 → StatusWidget HipWaistDistance 갱신
+// ─────────────────────────────────────────────────────────────────────────────
+void AVTC_OperatorController::OnHipRefPointDistance(
+    const FString& PartName, EVTCTrackerRole BodyRole, float Distance_cm) {
+  // Vehicle_Hip ↔ Waist 거리만 처리
+  if (PartName != TEXT("Vehicle_Hip") || BodyRole != EVTCTrackerRole::Waist)
+    return;
+
+  if (StatusActor) {
+    if (UVTC_StatusWidget* W = StatusActor->GetStatusWidget())
+      W->UpdateHipWaistDistance(Distance_cm);
+  }
+  if (OperatorMonitorWidget)
+    OperatorMonitorWidget->UpdateHipWaistDistance(Distance_cm);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -181,6 +317,8 @@ void AVTC_OperatorController::EndPlay(
     if (SessionManager->CollisionDetector) {
       SessionManager->CollisionDetector->OnDistanceUpdated.RemoveDynamic(
           this, &AVTC_OperatorController::OnDistanceUpdated);
+      SessionManager->CollisionDetector->OnDisabledRefPointDistance.RemoveDynamic(
+          this, &AVTC_OperatorController::OnHipRefPointDistance);
     }
   }
 

@@ -21,6 +21,13 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnVTCWarningLevelChanged,
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnVTCDistanceUpdated,
 	const FVTCDistanceResult&, DistanceResult);
 
+// bCollisionDisabled=true 포인트의 거리 브로드캐스트 (경고 없이 표시만)
+// Vehicle_Hip ↔ Waist 실시간 거리 표시용
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnVTCDisabledRefPointDistance,
+	const FString&, PartName,
+	EVTCTrackerRole, BodyRole,
+	float, Distance_cm);
+
 UCLASS(BlueprintType, Blueprintable, meta=(BlueprintSpawnableComponent, DisplayName="VTC Collision Detector"))
 class VRTRACKERCOLLISION_API UVTC_CollisionDetector : public UActorComponent
 {
@@ -103,6 +110,11 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "VTC|Collision|Events")
 	FOnVTCDistanceUpdated OnDistanceUpdated;
+
+	// bCollisionDisabled=true 포인트(Vehicle_Hip 등)의 거리 전용 델리게이트
+	// 경고/충돌 판정 없이 실시간 거리만 전달
+	UPROPERTY(BlueprintAssignable, Category = "VTC|Collision|Events")
+	FOnVTCDisabledRefPointDistance OnDisabledRefPointDistance;
 
 #if WITH_EDITOR
 	// 에디터에서 값 변경 시 Warning/Collision 임계값 상호 클램프

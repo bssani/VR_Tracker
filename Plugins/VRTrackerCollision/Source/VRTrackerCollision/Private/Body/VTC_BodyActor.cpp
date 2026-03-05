@@ -142,8 +142,19 @@ void AVTC_BodyActor::Tick(float DeltaTime) {
 }
 
 void AVTC_BodyActor::SyncSpherePositions() {
-  if (!TrackerSource)
+  if (!TrackerSource) {
+    // TrackerSource 없으면 모두 숨기기 (tracker 미연결 시 mesh 노출 방지)
+    for (USphereComponent* S : { Sphere_Hip, Sphere_LeftKnee, Sphere_RightKnee,
+                                  Sphere_LeftFoot, Sphere_RightFoot }) {
+      if (S) { S->SetVisibility(false); S->SetCollisionEnabled(ECollisionEnabled::NoCollision); }
+    }
+    for (UStaticMeshComponent* V : { VisualSphere_Hip, VisualSphere_LeftKnee,
+                                      VisualSphere_RightKnee, VisualSphere_LeftFoot,
+                                      VisualSphere_RightFoot }) {
+      if (V) V->SetVisibility(false);
+    }
     return;
+  }
 
   auto SyncSphere = [&](USphereComponent* S, UStaticMeshComponent* Visual,
                         EVTCTrackerRole TrackerRole)
@@ -265,22 +276,19 @@ void AVTC_BodyActor::ApplySessionConfig(const FVTCSessionConfig& Config)
   // 가시성 상태 저장 (SyncSpherePositions Tick이 덮어쓰지 않도록)
   bShowCollisionSpheres = Config.bShowCollisionSpheres;
 
-  // Collision/Visual Sphere 가시성 적용
-  auto SetSphereGroupVisible = [&](USphereComponent* S, UStaticMeshComponent* V, bool bShow)
+  // Sphere 초기 상태: 모두 hidden으로 시작.
+  // 실제 visibility는 매 Tick의 SyncSpherePositions()에서 tracker active 여부에 따라 자동 결정.
+  // (tracker 미연결 시 mesh가 보이는 버그 방지)
+  auto HideSphereGroup = [&](USphereComponent* S, UStaticMeshComponent* V)
   {
-    if (S)
-    {
-      S->SetVisibility(bShow);
-      S->SetCollisionEnabled(bShow ? ECollisionEnabled::QueryAndPhysics
-                                   : ECollisionEnabled::NoCollision);
-    }
-    if (V) V->SetVisibility(bShow);
+    if (S) { S->SetVisibility(false); S->SetCollisionEnabled(ECollisionEnabled::NoCollision); }
+    if (V) V->SetVisibility(false);
   };
-  SetSphereGroupVisible(Sphere_Hip,       VisualSphere_Hip,       Config.bShowCollisionSpheres);
-  SetSphereGroupVisible(Sphere_LeftKnee,  VisualSphere_LeftKnee,  Config.bShowCollisionSpheres);
-  SetSphereGroupVisible(Sphere_RightKnee, VisualSphere_RightKnee, Config.bShowCollisionSpheres);
-  SetSphereGroupVisible(Sphere_LeftFoot,  VisualSphere_LeftFoot,  Config.bShowCollisionSpheres);
-  SetSphereGroupVisible(Sphere_RightFoot, VisualSphere_RightFoot, Config.bShowCollisionSpheres);
+  HideSphereGroup(Sphere_Hip,       VisualSphere_Hip);
+  HideSphereGroup(Sphere_LeftKnee,  VisualSphere_LeftKnee);
+  HideSphereGroup(Sphere_RightKnee, VisualSphere_RightKnee);
+  HideSphereGroup(Sphere_LeftFoot,  VisualSphere_LeftFoot);
+  HideSphereGroup(Sphere_RightFoot, VisualSphere_RightFoot);
 
   UE_LOG(LogTemp, Log, TEXT("[VTC] BodyActor: SessionConfig 적용 완료."));
 }

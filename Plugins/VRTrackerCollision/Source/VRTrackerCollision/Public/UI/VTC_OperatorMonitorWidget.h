@@ -14,7 +14,8 @@
 //   VB_DistanceList   VerticalBox — 거리 Row (TextBlock, Map 재사용)
 //
 // [BP 연결 선택 위젯 이름]
-//   Txt_PresetInfo    TextBlock  — 적용된 차종 프리셋 이름
+//   Txt_PresetInfo       TextBlock  — 적용된 차종 프리셋 이름
+//   Txt_HipWaistDistance TextBlock  — Hip ↔ Waist 실시간 거리
 //
 // [사용법]
 //   VTC_OperatorController가 BeginPlay에서 생성 → AddToViewport.
@@ -43,6 +44,7 @@ public:
   UPROPERTY(meta = (BindWidget))         TObjectPtr<UTextBlock>    Txt_SubjectInfo;
   UPROPERTY(meta = (BindWidget))         TObjectPtr<UTextBlock>    Txt_TrackerStatus;
   UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock>    Txt_PresetInfo;
+  UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock>    Txt_HipWaistDistance;
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock>    Txt_ElapsedTime;
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock>    Txt_MinDistance;
   UPROPERTY(meta = (BindWidget)) TObjectPtr<UVerticalBox>  VB_DistanceList;
@@ -67,6 +69,10 @@ public:
 
   UFUNCTION(BlueprintCallable, Category = "VTC|Monitor")
   void UpdateMinDistance(float MinDist_cm);
+
+  // Hip ReferencePoint ↔ Waist 실시간 거리 (경고 이벤트 없음)
+  UFUNCTION(BlueprintCallable, Category = "VTC|Monitor")
+  void UpdateHipWaistDistance(float Distance_cm);
 
   // 거리 측정 결과 1건 갱신 (30Hz OnDistanceUpdated에서 호출)
   // Row TextBlock을 Map으로 재사용 — ClearChildren 없음
