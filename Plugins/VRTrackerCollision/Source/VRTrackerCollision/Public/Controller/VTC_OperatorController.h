@@ -150,4 +150,9 @@ private:
   // bCollisionDisabled 포인트(Vehicle_Hip) 거리 → StatusWidget HipWaistDistance 갱신
   UFUNCTION()
   void OnHipRefPointDistance(const FString& PartName, EVTCTrackerRole BodyRole, float Distance_cm);
+
+  // OperatorMonitorWidget.OnProfileApplied 델리게이트 핸들러
+  // 프로파일 선택 적용 또는 TrackerMesh 체크박스 변경 시 호출됨
+  UFUNCTION()
+  void OnMonitorWidgetProfileApplied();
 };

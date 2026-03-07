@@ -6,6 +6,7 @@
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
 #include "VTC_VehiclePreset.h"
+#include "VTC_ProfileLibrary.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  라이프사이클
@@ -40,6 +41,13 @@ void UVTC_GameInstance::SaveConfigToINI()
   const bool bOK = FFileHelper::SaveStringToFile(JsonStr, *Path);
   UE_LOG(LogTemp, Log, TEXT("[VTC] Config %s → %s"),
       bOK ? TEXT("saved") : TEXT("SAVE FAILED"), *Path);
+
+  // LastSelectedProfileName 별도 저장 (VTCConfig/LastProfile.txt)
+  if (!LastSelectedProfileName.IsEmpty())
+  {
+    const FString ProfilePath = FPaths::ProjectSavedDir() / TEXT("VTCConfig/LastProfile.txt");
+    FFileHelper::SaveStringToFile(LastSelectedProfileName, *ProfilePath);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -109,6 +117,38 @@ void UVTC_GameInstance::LoadConfigFromINI()
 
   UE_LOG(LogTemp, Log, TEXT("[VTC] Config loaded ← %s  Subject=%s"),
       *Path, *SessionConfig.SubjectID);
+
+  // LastSelectedProfileName 복원
+  const FString ProfilePath = FPaths::ProjectSavedDir() / TEXT("VTCConfig/LastProfile.txt");
+  FFileHelper::LoadFileToString(LastSelectedProfileName, *ProfilePath);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  프로파일 적용
+// ─────────────────────────────────────────────────────────────────────────────
+bool UVTC_GameInstance::ApplyProfileByName(const FString& ProfileName)
+{
+  FVTCSessionConfig Loaded;
+  if (!UVTC_ProfileLibrary::LoadProfile(ProfileName, Loaded))
+  {
+    UE_LOG(LogTemp, Warning, TEXT("[VTC] ApplyProfileByName 실패: %s"), *ProfileName);
+    return false;
+  }
+
+  SessionConfig            = Loaded;
+  LastSelectedProfileName  = ProfileName;
+
+  // 즉시 INI에도 반영 (VRTestLevel 재시작 시 유지)
+  SaveConfigToINI();
+
+  UE_LOG(LogTemp, Log, TEXT("[VTC] Profile 적용됨: %s  Subject=%s"),
+      *ProfileName, *SessionConfig.SubjectID);
+  return true;
+}
+
+TArray<FString> UVTC_GameInstance::GetAvailableProfileNames() const
+{
+  return UVTC_ProfileLibrary::GetAvailableProfileNames();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

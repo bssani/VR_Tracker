@@ -86,4 +86,10 @@ struct VRTRACKERCOLLISION_API FVTCSessionConfig
   // Vive Tracker 하드웨어 3D 메시 표시 여부 (MC_* 의 DeviceModel)
   UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Visibility")
   bool bShowTrackerMesh = false;
+
+  // ── 프로파일 이름 ─────────────────────────────────────────────────────
+  // Saved/VTCProfiles/<ProfileName>.json 파일명으로 사용.
+  // 형식: "Subject01_VehicleA" 등 자유롭게 설정.
+  UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Profile")
+  FString ProfileName = TEXT("");
 };

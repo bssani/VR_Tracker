@@ -68,6 +68,10 @@ void AVTC_OperatorController::BeginPlay() {
       } else {
         UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorMonitorWidget 생성됨 (VR 모드 — 뷰포트 비표시)."));
       }
+
+      // 프로파일 적용 + TrackerMesh 토글 델리게이트 바인딩
+      OperatorMonitorWidget->OnProfileApplied.AddDynamic(
+          this, &AVTC_OperatorController::OnMonitorWidgetProfileApplied);
     }
   }
 
@@ -562,6 +566,39 @@ void AVTC_OperatorController::ApplyGameInstanceConfig() {
              *Preset.PresetName, Preset.ReferencePoints.Num());
     }
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  OnProfileApplied 핸들러 — 프로파일 선택 적용 또는 TrackerMesh 토글 시 호출
+// ─────────────────────────────────────────────────────────────────────────────
+void AVTC_OperatorController::OnMonitorWidgetProfileApplied() {
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+
+  // 기존 preset ref points 정리 (중복 스폰 방지)
+  for (auto& Ref : SpawnedPresetRefPoints) {
+    if (Ref) Ref->Destroy();
+  }
+  SpawnedPresetRefPoints.Empty();
+
+  // GameInstance SessionConfig → 모든 Actor 재적용
+  ApplyGameInstanceConfig();
+
+  // 위젯 정보 갱신
+  const FVTCSessionConfig& C = GI->SessionConfig;
+  if (StatusActor) {
+    if (UVTC_StatusWidget* W = StatusActor->GetStatusWidget()) {
+      W->UpdateSubjectInfo(C.SubjectID, C.Height_cm);
+      W->UpdatePresetInfo(C.bUseVehiclePreset, C.SelectedPresetName);
+    }
+  }
+  if (OperatorMonitorWidget) {
+    OperatorMonitorWidget->UpdateSubjectInfo(C.SubjectID, C.Height_cm);
+    OperatorMonitorWidget->UpdatePresetInfo(C.bUseVehiclePreset, C.SelectedPresetName);
+  }
+
+  UE_LOG(LogTemp, Log, TEXT("[VTC] Profile 적용됨 → Subject=%s  TrackerMesh=%s"),
+      *C.SubjectID, C.bShowTrackerMesh ? TEXT("ON") : TEXT("OFF"));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

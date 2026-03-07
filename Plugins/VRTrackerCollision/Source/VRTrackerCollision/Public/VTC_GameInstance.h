@@ -16,6 +16,7 @@
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
 #include "VTC_SessionConfig.h"
+#include "VTC_ProfileLibrary.h"
 #include "VTC_GameInstance.generated.h"
 
 UCLASS(BlueprintType, Blueprintable, meta = (DisplayName = "VTC Game Instance"))
@@ -42,6 +43,22 @@ public:
   // Config/VTCSettings.ini → SessionConfig 불러오기 (preset JSON 재로드 포함)
   UFUNCTION(BlueprintCallable, Category = "VTC|Config")
   void LoadConfigFromINI();
+
+  // ─── 프로파일 적용 ────────────────────────────────────────────────────────
+
+  // 마지막으로 선택된 프로파일 이름 (VTCSettings.json에 함께 저장됨)
+  UPROPERTY(BlueprintReadWrite, Category = "VTC|Profile")
+  FString LastSelectedProfileName = TEXT("");
+
+  // 프로파일 이름으로 SessionConfig 로드 + 현재 세션에 적용.
+  // VRTestLevel OperatorMonitorWidget의 드롭다운 Apply 버튼에서 호출.
+  // 성공 시 true 반환, 실패 시 SessionConfig 변경 없음.
+  UFUNCTION(BlueprintCallable, Category = "VTC|Profile")
+  bool ApplyProfileByName(const FString& ProfileName);
+
+  // 저장된 프로파일 이름 목록 반환 (ProfileLibrary 위임)
+  UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Profile")
+  TArray<FString> GetAvailableProfileNames() const;
 
 private:
   // JSON 파일 절대 경로 반환 (Saved/VTCConfig/VTCSettings.json)

@@ -1,8 +1,102 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "UI/VTC_OperatorMonitorWidget.h"
+#include "VTC_GameInstance.h"
+#include "VTC_ProfileLibrary.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
+#include "Components/Button.h"
+#include "Components/CheckBox.h"
+#include "Components/ComboBoxString.h"
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  초기화 — 프로파일 드롭다운 + 체크박스 바인딩
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_OperatorMonitorWidget::NativeConstruct()
+{
+  Super::NativeConstruct();
+
+  if (Btn_ApplyProfile)
+    Btn_ApplyProfile->OnClicked.AddDynamic(
+        this, &UVTC_OperatorMonitorWidget::OnApplyProfileClicked);
+
+  if (CB_TrackerMeshVisible)
+    CB_TrackerMeshVisible->OnCheckStateChanged.AddDynamic(
+        this, &UVTC_OperatorMonitorWidget::OnTrackerMeshVisibilityChanged);
+
+  // GameInstance의 현재 bShowTrackerMesh 값으로 체크박스 초기화
+  if (const UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>())
+  {
+    if (CB_TrackerMeshVisible)
+      CB_TrackerMeshVisible->SetIsChecked(GI->SessionConfig.bShowTrackerMesh);
+  }
+
+  RefreshProfileComboBox();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  프로파일 목록 갱신
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_OperatorMonitorWidget::RefreshProfileComboBox()
+{
+  if (!Combo_ProfileSelect) return;
+
+  const FString Current = Combo_ProfileSelect->GetSelectedOption();
+  Combo_ProfileSelect->ClearOptions();
+  Combo_ProfileSelect->AddOption(TEXT("(None)"));
+
+  for (const FString& Name : UVTC_ProfileLibrary::GetAvailableProfileNames())
+    Combo_ProfileSelect->AddOption(Name);
+
+  // 마지막 선택 복원
+  if (const UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>())
+  {
+    if (!GI->LastSelectedProfileName.IsEmpty())
+      Combo_ProfileSelect->SetSelectedOption(GI->LastSelectedProfileName);
+    else if (!Current.IsEmpty())
+      Combo_ProfileSelect->SetSelectedOption(Current);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  프로파일 Apply 버튼 핸들러
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_OperatorMonitorWidget::OnApplyProfileClicked()
+{
+  if (!Combo_ProfileSelect) return;
+
+  const FString ProfileName = Combo_ProfileSelect->GetSelectedOption();
+  if (ProfileName.IsEmpty() || ProfileName == TEXT("(None)")) return;
+
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+
+  if (GI->ApplyProfileByName(ProfileName))
+  {
+    // TrackerMesh 체크박스를 새 config 값으로 동기화
+    if (CB_TrackerMeshVisible)
+      CB_TrackerMeshVisible->SetIsChecked(GI->SessionConfig.bShowTrackerMesh);
+
+    // OperatorController에게 재적용하도록 알림
+    OnProfileApplied.Broadcast();
+    UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorMonitor: Profile Applied → %s"), *ProfileName);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Tracker 메시 가시성 체크박스 핸들러
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_OperatorMonitorWidget::OnTrackerMeshVisibilityChanged(bool bIsChecked)
+{
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+
+  GI->SessionConfig.bShowTrackerMesh = bIsChecked;
+
+  // TrackerMesh 가시성만 즉시 변경하기 위해 OnProfileApplied 재사용
+  // (OperatorController가 바인딩된 경우 SetTrackerMeshVisible을 호출함)
+  OnProfileApplied.Broadcast();
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  프리셋 정보
