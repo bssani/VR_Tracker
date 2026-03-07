@@ -19,7 +19,7 @@
 
 - **현재 브랜치:** `claude/fix-vr-pawn-switching-BafVI`
 - **Remote:** origin
-- **최근 커밋:** `7048ab3` — 피실험자+차량 프로파일 시스템 + TrackerMesh 가시성 토글
+- **최근 커밋:** `(pending)` — Level 1 / Simulation 코드 제거 + VehicleHipPosition 인-VR 캡처
 
 ---
 
@@ -30,7 +30,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 ├── Public/
 │   ├── VTC_SessionConfig.h         ← 세션 설정 구조체 (FVTCSessionConfig)
 │   ├── VTC_GameInstance.h          ← 설정 저장/불러오기 (INI + JSON)
-│   ├── VTC_GameMode.h / VTC_VRGameMode.h
+│   ├── VTC_VRGameMode.h            ← VRTestLevel 전용 GameMode (VR Only)
 │   ├── VTC_VehiclePreset.h         ← 차종 프리셋 구조체
 │   ├── VTC_ProfileLibrary.h        ← 피실험자+차량 프로파일 CRUD (JSON)
 │   ├── Body/
@@ -49,8 +49,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   │   ├── VTC_OperatorController.h
 │   │   └── VTC_SimPlayerController.h
 │   ├── UI/
-│   │   ├── VTC_SetupWidget.h
-│   │   ├── VTC_OperatorMonitorWidget.h  ← VRTestLevel 운영자 모니터 (프로파일 드롭다운 포함)
+│   │   ├── VTC_OperatorMonitorWidget.h  ← VRTestLevel 운영자 모니터 (프로파일 드롭다운 + Hip 캡처)
 │   │   ├── VTC_ProfileManagerWidget.h   ← Utility Editor 프로파일 관리 위젯 (신규)
 │   │   ├── VTC_StatusWidget.h
 │   │   └── VTC_SubjectInfoWidget.h
@@ -62,8 +61,15 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 ├── Private/
 │   ├── VTC_ProfileLibrary.cpp      ← SaveProfile/LoadProfile/GetAvailableProfileNames/DeleteProfile
 │   └── UI/
-│       └── VTC_ProfileManagerWidget.cpp
+│       ├── VTC_ProfileManagerWidget.cpp
+│       └── VTC_OperatorMonitorWidget.cpp
 ```
+
+**삭제된 파일 (v3.0):**
+- `VTC_SetupGameMode.h/.cpp` — Level 1 제거됨
+- `VTC_SetupWidget.h/.cpp` — Level 1 제거됨
+- `VTC_GameMode.h/.cpp` — 시뮬레이션 GameMode 제거됨
+- `VTC_SimPlayerController.h/.cpp` — WASD 데스크탑 시뮬레이션 제거됨
 
 **저장 경로:**
 - 프로파일: `Saved/VTCProfiles/<ProfileName>.json`
@@ -84,14 +90,16 @@ Safe (Green) / Warning (Yellow) / Collision (Red)
 ```
 
 ### FVTCSessionConfig (SessionConfig.h)
-세션 전체 설정. Level 1(Setup) → GameInstance → Level 2(VR) 로 전달됨.
-프로파일 시스템 도입 후 `VTCProfiles/<Name>.json`으로 저장/불러오기도 지원.
-- `ProfileName` — 이 설정을 저장한 프로파일 이름 (신규)
+세션 전체 설정. ProfileManager에서 저장 → GameInstance → VRTestLevel에서 읽어 적용.
+`VTCProfiles/<Name>.json`으로 저장/불러오기 지원.
+- `ProfileName` — 이 설정을 저장한 프로파일 이름
+- `SubjectID` / `Height_cm` — 피실험자 정보
 - `MountOffset_Waist/LeftKnee/RightKnee/LeftFoot/RightFoot` — 트래커 로컬 공간 오프셋 (cm)
-- `VehicleHipPosition` — 차량 설계 기준 Hip 좌표 (월드, cm)
+- `VehicleHipPosition` — 차량 Hip 기준점 (월드 좌표). **[Set Hip Here] 버튼으로 인-VR 캡처 가능**
 - `WarningThreshold_cm = 10.0f` / `CollisionThreshold_cm = 3.0f`
 - `bUseVehiclePreset` / `LoadedPresetJson`
 - `bShowCollisionSpheres` / `bShowTrackerMesh`
+- ~~`RunMode`~~ — **삭제됨** (항상 VR 모드)
 
 ---
 
@@ -154,6 +162,7 @@ MountOffset_Waist = (0, -15, 0)   // 트래커 로컬 Y 음수 = 등 방향 (확
 
 | 커밋 | 내용 |
 |------|------|
+| `(pending)` | Level 1 + Simulation 코드 전면 제거 + OperatorMonitor에 [Set Hip Here] 버튼 추가 |
 | `7048ab3` | 피실험자+차량 프로파일 시스템 (VTC_ProfileLibrary, VTC_ProfileManagerWidget) + TrackerMesh 가시성 토글 |
 | `247a85e` | 트래커 미연결 시 VisualMesh 숨김, Hip↔Waist 거리 위젯, NumPad 오프셋 실시간 조절 |
 | `31dca20` | VR에서 P키 이후 깜빡거림 해결 (SnapWaistToWithRetry 타이머 제거) |
@@ -175,12 +184,14 @@ MountOffset_Waist = (0, -15, 0)   // 트래커 로컬 Y 음수 = 등 방향 (확
 
 ## 주의사항
 
+- **Level 1 / Simulation 코드 제거됨**: `VTC_SetupGameMode`, `VTC_SetupWidget`, `VTC_GameMode`, `VTC_SimPlayerController` 삭제.
+  VRTestLevel이 유일한 진입점. Blueprint `.uasset` 파일도 정리 필요 (에디터에서 수동 삭제).
+- **[Set Hip Here] 버튼**: 피실험자가 차량 시트에 앉은 상태에서 누르면 Waist 트래커 위치를
+  `VehicleHipPosition`으로 캡처하고 현재 프로파일 JSON에 저장함 → 수동 좌표 입력 불필요.
 - **프로파일 시스템**: `WBP_VTC_ProfileManager` (Utility Editor 위젯)에서 사전 저장.
   VRTestLevel의 `WBP_VTC_OperatorMonitor` 드롭다운에서 선택 후 [Apply] → 즉시 적용.
   저장 경로: `Saved/VTCProfiles/<Name>.json`
 - **TrackerMesh 가시성**: `CB_TrackerMeshVisible` 체크박스로 런타임 토글 가능 (OperatorMonitor).
-  프로파일에 `bShowTrackerMesh` 플래그로 저장됨.
-- **NumPad로 실시간 오프셋 조절** 기능 있음 (247a85e에서 추가) — 런타임 디버깅용
-- **P키**: VR 레벨에서 INI 설정 수동 재로드 + 적용 (프로파일 드롭다운과 별개)
+- **P키**: VR 레벨에서 마지막 적용 설정 재적용 (프로파일 드롭다운과 별개)
 - Tracker 미연결 시 VisualSphere 자동 숨김 (트래커 연결 상태 = `bIsTracked` 기준)
 - `SyncSpherePositions()`는 Tick마다 실행됨 — 무거운 연산 추가 주의

@@ -20,6 +20,7 @@
 //   Combo_ProfileSelect    ComboBoxString — VRTestLevel 프로파일 드롭다운
 //   Btn_ApplyProfile       Button         — 선택한 프로파일 즉시 적용
 //   CB_TrackerMeshVisible  CheckBox       — Tracker 3D 메시 표시/숨김 토글
+//   Btn_CaptureHipPos      Button         — Waist 트래커 현재 위치를 VehicleHipPosition으로 캡처
 //
 // [사용법]
 //   VTC_OperatorController가 BeginPlay에서 생성 → AddToViewport.
@@ -66,6 +67,14 @@ public:
 
   // ─── Tracker 메시 가시성 토글 ─────────────────────────────────────────────
   UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UCheckBox> CB_TrackerMeshVisible;
+
+  // ─── VehicleHipPosition 캡처 (Waist 트래커 현재 위치를 Hip 기준점으로 저장) ─
+  // 피실험자가 차량 시트에 앉은 상태에서 누르면 현재 Waist 위치를
+  // SessionConfig.VehicleHipPosition으로 저장하고 현재 프로파일에도 반영한다.
+  UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UButton> Btn_CaptureHipPos;
+
+  // 캡처 결과를 표시하는 텍스트 (선택)
+  UPROPERTY(meta = (BindWidgetOptional)) TObjectPtr<UTextBlock> Txt_HipCapture;
 
   // ─── 프로파일 적용 완료 델리게이트 (OperatorController가 바인딩) ───────────
   UPROPERTY(BlueprintAssignable, Category = "VTC|Profile")
@@ -117,6 +126,8 @@ private:
   UFUNCTION() void OnApplyProfileClicked();
   // TrackerMesh 체크박스 변경 핸들러
   UFUNCTION() void OnTrackerMeshVisibilityChanged(bool bIsChecked);
+  // Waist 트래커 현재 위치를 VehicleHipPosition으로 캡처
+  UFUNCTION() void OnCaptureHipPositionClicked();
 
   // (BodyPart + "_" + VehiclePartName) → TextBlock 재사용 맵
   TMap<FString, TObjectPtr<UTextBlock>> DistanceRowMap;

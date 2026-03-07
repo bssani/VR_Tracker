@@ -14,11 +14,10 @@
 void UVTC_GameInstance::Init()
 {
   Super::Init();
-  // 어떤 레벨보다 먼저 실행되므로, Level 1 없이 VR/Sim 레벨을 직접 실행해도
-  // 이전에 저장한 MountOffset / VehicleHipPosition / Threshold 등이 복원된다.
+  // VRTestLevel 실행 전에 이전에 저장한 프로파일(MountOffset / VehicleHipPosition / Threshold 등)이 복원된다.
   LoadConfigFromINI();
-  UE_LOG(LogTemp, Log, TEXT("[VTC] GameInstance::Init — config loaded. RunMode=%s"),
-      SessionConfig.RunMode == EVTCRunMode::VR ? TEXT("VR") : TEXT("Simulation"));
+  UE_LOG(LogTemp, Log, TEXT("[VTC] GameInstance::Init — config loaded. Profile=%s"),
+      *SessionConfig.ProfileName);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

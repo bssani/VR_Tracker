@@ -17,7 +17,6 @@
 //     TB_SubjectID           EditableTextBox
 //     TB_Height              EditableTextBox
 //   모드:
-//     Toggle_VRMode          CheckBox  (Checked=VR / Unchecked=Simulation)
 //   Mount Offsets (트래커별 X/Y/Z):
 //     TB_Offset_Waist_X/Y/Z
 //     TB_Offset_LKnee_X/Y/Z
@@ -70,9 +69,6 @@ public:
 	// ─── 피실험자 정보 ──────────────────────────────────────────────────────
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TB_SubjectID;
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TB_Height;
-
-	// ─── 모드 ──────────────────────────────────────────────────────────────
-	UPROPERTY(meta = (BindWidget)) TObjectPtr<UCheckBox> Toggle_VRMode;
 
 	// ─── Mount Offset ────────────────────────────────────────────────────────
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TB_Offset_Waist_X;

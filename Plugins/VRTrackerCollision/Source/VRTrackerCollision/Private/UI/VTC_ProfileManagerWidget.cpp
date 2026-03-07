@@ -39,7 +39,7 @@ void UVTC_ProfileManagerWidget::NativeConstruct()
 			this, &UVTC_ProfileManagerWidget::OnPresetSelectionChanged);
 
 	// 초기 기본값
-	if (Toggle_VRMode) Toggle_VRMode->SetIsChecked(true);
+	// (VR 전용으로 고정됨 — 모드 토글 제거)
 	if (Slider_Warning) { Slider_Warning->SetValue(10.f); OnWarningSliderChanged(10.f); }
 	if (Slider_Collision) { Slider_Collision->SetValue(3.f); OnCollisionSliderChanged(3.f); }
 	if (CB_ShowCollisionSpheres) CB_ShowCollisionSpheres->SetIsChecked(true);
@@ -65,11 +65,6 @@ FVTCSessionConfig UVTC_ProfileManagerWidget::BuildConfigFromInputs() const
 	if (TB_SubjectID)
 		C.SubjectID = TB_SubjectID->GetText().ToString().TrimStartAndEnd();
 	C.Height_cm = ParseFloat(TB_Height, 170.0f);
-
-	// 모드
-	C.RunMode = (Toggle_VRMode && Toggle_VRMode->IsChecked())
-		? EVTCRunMode::VR
-		: EVTCRunMode::Simulation;
 
 	// Mount Offsets
 	C.MountOffset_Waist     = ParseVector(TB_Offset_Waist_X, TB_Offset_Waist_Y, TB_Offset_Waist_Z);
@@ -114,8 +109,6 @@ void UVTC_ProfileManagerWidget::PopulateFromConfig(const FVTCSessionConfig& C)
 	if (TB_ProfileName) TB_ProfileName->SetText(FText::FromString(C.ProfileName));
 	if (TB_SubjectID)   TB_SubjectID->SetText(FText::FromString(C.SubjectID));
 	SetFloat(TB_Height, C.Height_cm);
-
-	if (Toggle_VRMode) Toggle_VRMode->SetIsChecked(C.RunMode == EVTCRunMode::VR);
 
 	SetVector(TB_Offset_Waist_X, TB_Offset_Waist_Y, TB_Offset_Waist_Z, C.MountOffset_Waist);
 	SetVector(TB_Offset_LKnee_X, TB_Offset_LKnee_Y, TB_Offset_LKnee_Z, C.MountOffset_LeftKnee);

@@ -18,22 +18,15 @@
 // [사용법]
 //   BP_VTC_TrackerPawn을 GameMode의 DefaultPawnClass로 설정하면
 //   게임 시작 시 자동 스폰된다.
-//
-// [시뮬레이션 모드]
-//   bSimulationMode = true 이면 VR 장비 없이 데스크탑에서 테스트 가능.
-//   WASD 이동 + 마우스 룩 + 착석 자세 시뮬레이션.
-//   bAutoDetectSimulation = true면 HMD 미감지 시 자동 전환.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
-#include "GameFramework/FloatingPawnMovement.h"
 #include "Camera/CameraComponent.h"
 #include "MotionControllerComponent.h"
 #include "Tracker/VTC_TrackerTypes.h"
 #include "Tracker/VTC_TrackerInterface.h"
-#include "InputActionValue.h"
 #include "VTC_TrackerPawn.generated.h"
 
 UCLASS(BlueprintType, Blueprintable, meta=(DisplayName="VTC Tracker Pawn"))
@@ -80,7 +73,6 @@ public:
 
 	// ─── MotionSource 이름 (SteamVR Tracker Role과 일치시켜야 함) ────────────
 	// SteamVR → Settings → Controllers → Manage Trackers에서 할당한 Role과 맞춰야 한다.
-	// 언리얼 엔진 최신 버전에서는 Special_X 대신 역할 이름으로 바로 매핑 가능.
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Tracker Config")
 	FName MotionSource_Waist = FName("Waist");
@@ -154,7 +146,7 @@ public:
 	// ─── Tracker Mesh 가시성 ────────────────────────────────────────────────
 
 	// Vive Tracker 하드웨어 3D 메시(DeviceModel) 표시 여부.
-	// Level 2 시작 시 GameInstance 설정에 따라 자동 적용된다.
+	// VRTestLevel 시작 시 GameInstance 설정에 따라 자동 적용된다.
 	UFUNCTION(BlueprintCallable, Category = "VTC|Trackers")
 	void SetTrackerMeshVisible(bool bVisible);
 
@@ -166,79 +158,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Debug")
 	float DebugSphereRadius = 5.0f;
 
-	// ═══════════════════════════════════════════════════════════════════════
-	//  시뮬레이션 모드 (VR 장비 없이 데스크탑에서 테스트)
-	// ═══════════════════════════════════════════════════════════════════════
-
-	// true면 VR 트래커 대신 시뮬레이션된 좌표를 사용
-	// HMD가 감지되지 않으면 자동으로 true가 될 수 있음 (bAutoDetectSimulation)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation")
-	bool bSimulationMode = false;
-
-	// true면 BeginPlay 시점에 HMD 감지 여부를 확인하고
-	// 감지되지 않으면 자동으로 시뮬레이션 모드로 전환
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation")
-	bool bAutoDetectSimulation = true;
-
-	// ─── 시뮬레이션 이동 설정 ───────────────────────────────────────────────
-
-	// WASD 이동 속도 (cm/s)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Movement",
-		meta=(ClampMin=50.0f, ClampMax=1000.0f, EditCondition="bSimulationMode"))
-	float SimMoveSpeed = 200.0f;
-
-	// 마우스 감도
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Movement",
-		meta=(ClampMin=0.1f, ClampMax=5.0f, EditCondition="bSimulationMode"))
-	float SimMouseSensitivity = 1.0f;
-
-	// ─── 시뮬레이션 신체 오프셋 (카메라 기준 상대 위치, cm) ─────────────────
-
-	// 착석 자세 기준:
-	// 카메라(머리)로부터의 상대 오프셋으로 각 트래커 위치를 시뮬레이션
-	// X = 전방(+)/후방(-), Y = 우측(+)/좌측(-), Z = 위(+)/아래(-)
-
-	// Waist: 머리 아래 약 40cm, 약간 뒤쪽
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Body Offsets",
-		meta=(EditCondition="bSimulationMode"))
-	FVector SimOffset_Waist = FVector(-15.0f, 0.0f, -40.0f);
-
-	// Left Knee: 허리 아래 약 45cm, 전방으로 나옴, 왼쪽으로 15cm
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Body Offsets",
-		meta=(EditCondition="bSimulationMode"))
-	FVector SimOffset_LeftKnee = FVector(20.0f, -15.0f, -65.0f);
-
-	// Right Knee: 허리 아래 약 45cm, 전방으로 나옴, 오른쪽으로 15cm
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Body Offsets",
-		meta=(EditCondition="bSimulationMode"))
-	FVector SimOffset_RightKnee = FVector(20.0f, 15.0f, -65.0f);
-
-	// Left Foot: 무릎 아래 약 40cm, 전방으로 더 나옴, 왼쪽
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Body Offsets",
-		meta=(EditCondition="bSimulationMode"))
-	FVector SimOffset_LeftFoot = FVector(40.0f, -15.0f, -100.0f);
-
-	// Right Foot: 무릎 아래 약 40cm, 전방으로 더 나옴, 오른쪽
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Body Offsets",
-		meta=(EditCondition="bSimulationMode"))
-	FVector SimOffset_RightFoot = FVector(40.0f, 15.0f, -100.0f);
-
-	// ─── 시뮬레이션 무릎 조작 (키보드) ──────────────────────────────────────
-
-	// 무릎 추가 오프셋 — 런타임에 키보드로 조절됨
-	// NumPad 4/6: 왼쪽 무릎 좌우 (Y축), NumPad 8/2: 왼쪽 무릎 위아래 (Z축)
-	// Arrow Left/Right: 오른쪽 무릎 좌우 (Y축), Arrow Up/Down: 오른쪽 무릎 위아래 (Z축)
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Simulation|Runtime")
-	FVector SimKneeAdjust_Left = FVector::ZeroVector;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Simulation|Runtime")
-	FVector SimKneeAdjust_Right = FVector::ZeroVector;
-
-	// 무릎 조절 속도 (cm/s)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Simulation|Movement",
-		meta=(ClampMin=5.0f, ClampMax=100.0f, EditCondition="bSimulationMode"))
-	float SimKneeAdjustSpeed = 30.0f;
-
 	// ─── 착석 정렬 ──────────────────────────────────────────────────────────
 
 	// true면 BeginPlay 시 SeatHipWorldPosition으로 자동 스냅
@@ -246,53 +165,26 @@ public:
 	bool bAutoSnapOnBeginPlay = false;
 
 	// 차량 Hip의 월드 좌표. 에디터 Details에서 직접 입력.
-	// 예) 차량 DriverHip 위치가 (50, 20, 100)이면 그대로 입력.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Seating",
 		meta=(EditCondition="bAutoSnapOnBeginPlay"))
 	FVector SeatHipWorldPosition = FVector::ZeroVector;
 
 	// Waist tracker가 WorldPos에 오도록 Pawn 전체를 이동.
-	// 런타임에서도 호출 가능 (블루프린트에서 직접 벡터 지정).
 	UFUNCTION(BlueprintCallable, Category = "VTC|Seating")
 	void SnapWaistTo(const FVector& WorldPos);
 
 	// Waist tracker가 아직 비활성 상태인 경우 RetryInterval(초)마다 재시도.
-	// MaxRetries 회 이후에도 실패하면 경고 로그 출력. VR 모드 시작 시 사용.
 	UFUNCTION(BlueprintCallable, Category = "VTC|Seating")
 	void SnapWaistToWithRetry(const FVector& WorldPos,
 	                          float RetryInterval = 0.5f,
 	                          int32 MaxRetries    = 20);
-
-	// ─── 시뮬레이션 제어 함수 (PlayerController에서 호출) ─────────────────
-
-	// 시뮬레이션 모드 토글 (Backspace 키 → PlayerController → 여기 호출)
-	UFUNCTION(BlueprintCallable, Category = "VTC|Simulation")
-	void ToggleSimulationMode();
-
-	// 무릎 위치를 기본값으로 리셋 (R 키)
-	UFUNCTION(BlueprintCallable, Category = "VTC|Simulation")
-	void ResetKneeAdjustments();
-
-	// 현재 시뮬레이션 모드 여부 조회
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Simulation")
-	bool IsInSimulationMode() const { return bSimulationMode; }
-
-	// ─── 입력 핸들러 (PlayerController가 포워딩) ──────────────────────────
-	// VTC_SimPlayerController가 Enhanced Input 바인딩 후 이 함수들을 직접 호출한다.
-	void SimMove(const FInputActionValue& Value);
-	void SimMoveUp(const FInputActionValue& Value);
-	void SimLook(const FInputActionValue& Value);
-	void SimAdjustLeftKnee(const FInputActionValue& Value);
-	void SimAdjustRightKnee(const FInputActionValue& Value);
 
 private:
 	// TrackerRole → TrackerData 캐시 맵
 	TMap<EVTCTrackerRole, FVTCTrackerData> TrackerDataMap;
 
 	// ─── Dropout 보간 내부 상태 (Feature C) ─────────────────────────────────
-	// 트래커별 이전 위치 히스토리 (최근 2개)
 	TMap<EVTCTrackerRole, TArray<FVector>> TrackerLocationHistory;
-	// 트래커별 연속 dropout 프레임 카운터
 	TMap<EVTCTrackerRole, int32> DropoutFrameCount;
 
 	// ─── Phase 감지 내부 상태 (Feature E) ───────────────────────────────────
@@ -301,34 +193,12 @@ private:
 
 	void DetectMovementPhase(float DeltaTime);
 
-	// ─── HipSnap 내부 상태 (타이머 제거로 간소화) ─────────────────────────────────
-	FTimerHandle HipSnapRetryTimer;  // 호환성을 위해 유지 (예시 호출 코드 대비)
+	// HipSnap 타이머 핸들 (호환성)
+	FTimerHandle HipSnapRetryTimer;
 
 	// 매 Tick: 5개 트래커 데이터 갱신
 	void UpdateAllTrackers();
 	void UpdateTracker(EVTCTrackerRole TrackerRole, UMotionControllerComponent* MC);
 
 	UMotionControllerComponent* GetMotionController(EVTCTrackerRole TrackerRole) const;
-
-	// ─── 시뮬레이션 Private ─────────────────────────────────────────────────
-
-	// 시뮬레이션 모드용 이동 컴포넌트
-	UPROPERTY(VisibleAnywhere, Category = "VTC|Simulation")
-	TObjectPtr<UFloatingPawnMovement> SimMovement;
-
-	// 시뮬레이션 모드 Tick: 카메라 기준 상대 좌표로 트래커 위치 계산
-	void UpdateSimulatedTrackers();
-
-	// 시뮬레이션 모드에서 단일 트래커 데이터 갱신
-	void UpdateSimulatedTracker(EVTCTrackerRole TrackerRole, const FVector& WorldLocation);
-
-	// 카메라 기준 상대 오프셋을 월드 좌표로 변환
-	FVector SimOffsetToWorld(const FVector& LocalOffset) const;
-
-	// 마우스 룩 입력 누적값 (Tick에서 소비)
-	float SimYawInput = 0.0f;
-	float SimPitchInput = 0.0f;
-
-	// HMD 감지 확인
-	bool DetectHMDPresence() const;
 };

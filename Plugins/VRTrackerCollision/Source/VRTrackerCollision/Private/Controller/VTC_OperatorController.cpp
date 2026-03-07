@@ -54,20 +54,14 @@ void AVTC_OperatorController::BeginPlay() {
     }
   }
 
-  // ── 운영자 데스크탑 모니터링 위젯 생성 (OperatorMonitorWidgetClass 할당 시)
-  // 시뮬레이션(데스크탑) 모드에서만 화면에 추가. VR 모드에서는 HMD 뷰를 가리지 않도록 숨김.
+  // ── 운영자 모니터링 위젯 생성 (OperatorMonitorWidgetClass 할당 시)
+  // 별도 운영자 모니터(PC 화면)에 표시. VR HMD 뷰와 별개로 뷰포트에 추가.
   if (OperatorMonitorWidgetClass) {
     OperatorMonitorWidget = CreateWidget<UVTC_OperatorMonitorWidget>(
         this, OperatorMonitorWidgetClass);
     if (OperatorMonitorWidget) {
-      const UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
-      const bool bIsSimMode = GI && (GI->SessionConfig.RunMode == EVTCRunMode::Simulation);
-      if (bIsSimMode) {
-        OperatorMonitorWidget->AddToViewport(1); // ZOrder 1: StatusWidget 위
-        UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorMonitorWidget 생성 완료 (Simulation 모드)."));
-      } else {
-        UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorMonitorWidget 생성됨 (VR 모드 — 뷰포트 비표시)."));
-      }
+      OperatorMonitorWidget->AddToViewport(1); // ZOrder 1: StatusWidget 위
+      UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorMonitorWidget 생성 완료."));
 
       // 프로파일 적용 + TrackerMesh 토글 델리게이트 바인딩
       OperatorMonitorWidget->OnProfileApplied.AddDynamic(
@@ -368,7 +362,7 @@ void AVTC_OperatorController::Input_P() {
   SpawnedPresetRefPoints.Empty();
 
   // 3) 모든 Actor에 설정 재적용
-  //    TrackerPawn: RunMode, TrackerMesh, SnapWaistTo(VehicleHipPosition)
+  //    TrackerPawn: TrackerMesh, SnapWaistTo(VehicleHipPosition)
   //    BodyActor: MountOffset, Sphere 가시성, VehicleHipMarker
   //    CollisionDetector: 임계값
   //    HipRefPoint: 스폰 또는 위치 업데이트
@@ -459,14 +453,13 @@ void AVTC_OperatorController::ApplyGameInstanceConfig() {
     return;
   const FVTCSessionConfig &C = GI->SessionConfig;
 
-  // ── TrackerPawn: 시뮬레이션 모드 + 트래커 메시 가시성 ───────────────────
+  // ── TrackerPawn: 트래커 메시 가시성 ─────────────────────────────────────
   if (AVTC_TrackerPawn *TP = Cast<AVTC_TrackerPawn>(GetPawn())) {
-    TP->bSimulationMode = (C.RunMode == EVTCRunMode::Simulation);
     TP->SetTrackerMeshVisible(C.bShowTrackerMesh);
 
     // VehicleHipPosition이 설정된 경우 Hip 위치로 Waist 스냅.
     // VR 모드에서는 트래커가 처음 프레임에 비활성 상태일 수 있으므로
-    // SnapWaistToWithRetry로 최대 10초(0.5s × 20회) 재시도한다.
+    // SnapWaistToWithRetry로 한 번 시도한다.
     if (!C.VehicleHipPosition.IsNearlyZero())
       TP->SnapWaistToWithRetry(C.VehicleHipPosition);
   }

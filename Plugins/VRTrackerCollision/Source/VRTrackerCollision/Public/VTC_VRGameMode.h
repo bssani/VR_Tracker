@@ -2,14 +2,9 @@
 // VTC_VRGameMode.h — VR 전용 GameMode
 //
 // [역할]
-//   VR 레벨(VTC_VRTestLevel)에서만 사용하는 GameMode.
-//   SimPlayerController 대신 OperatorController를 기본 컨트롤러로 사용해
-//   WASD 입력 없이 세션 관리(1/2/3/4 키)만 활성화한다.
-//
-//   InitGame()에서 GameInstance.RunMode를 VR로 강제 설정:
-//   - INI에 Simulation 모드가 저장되어 있어도 VR 레벨에서는 무조건 VR로 동작.
-//   - BeginPlay()보다 먼저 실행되므로 TrackerPawn/OperatorController BeginPlay에서
-//     올바른 RunMode를 읽게 된다.
+//   VRTestLevel에서 사용하는 GameMode.
+//   OperatorController를 기본 컨트롤러로 사용해
+//   세션 관리(프로파일 로드/적용, P키 재적용)만 활성화한다.
 //
 // [Blueprint]
 //   BP_VTC_VRGameMode 생성 후 VR 테스트 레벨의 World Settings > GameMode Override
@@ -28,9 +23,4 @@ class VRTRACKERCOLLISION_API AVTC_VRGameMode : public AGameModeBase
 
 public:
 	AVTC_VRGameMode();
-
-protected:
-	// BeginPlay()보다 훨씬 먼저 호출됨 — RunMode 강제 설정에 최적
-	virtual void InitGame(const FString& MapName, const FString& Options,
-	                      FString& ErrorMessage) override;
 };
