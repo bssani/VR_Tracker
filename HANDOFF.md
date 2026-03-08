@@ -54,7 +54,6 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   ├── Vehicle/
 │   │   └── VTC_ReferencePoint.h    ← 차량 기준점 Actor
 │   └── World/
-│       ├── VTC_OperatorViewActor.h
 │       └── VTC_StatusActor.h
 ├── Private/
 │   ├── VTC_ProfileLibrary.cpp      ← SaveProfile/LoadProfile/GetAvailableProfileNames/DeleteProfile
@@ -68,6 +67,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 - `VTC_GameMode.h/.cpp` — 시뮬레이션 GameMode 제거됨
 - `VTC_SimPlayerController.h/.cpp` — WASD 데스크탑 시뮬레이션 제거됨
 - `VTC_OperatorMonitorWidget.h/.cpp` — Screen Space UI (VR에서 미작동) 제거됨
+- `VTC_OperatorViewActor.h/.cpp` — Spectator Screen SceneCapture Actor 제거됨
 
 **저장 경로:**
 - 프로파일: `Saved/VTCProfiles/<ProfileName>.json`

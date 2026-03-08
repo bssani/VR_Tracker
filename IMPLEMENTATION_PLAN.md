@@ -18,15 +18,12 @@
 | F | 최악 순간 자동 스크린샷 | Low | - | CollisionDetector, DataLogger | ✅ 완료 (CollisionDetector) |
 | G | VR 거리 라인 + 수치 | Low | - | CollisionDetector | ✅ 완료 |
 | H | 음성 카운트다운 | Low | - | CalibrationComponent | ✅ C++ 완료 (Blueprint에서 SFX 에셋 연결 필요) |
-| I | Operator View (Spectator) | Mid | VTC_OperatorViewActor.h/cpp | OperatorController | ⚠️ 클래스 구조 완료 / Spectator Screen 연결 미테스트 |
-
-**신규 파일 2개 / 수정 파일 10개**
+**신규 파일 1개 / 수정 파일 10개**
 
 > **전체 완료 현황 (2026-03-08 기준)**
 > - **A~H**: C++ 코드 모두 완료. Blueprint 에셋 연결만 남은 항목: H(SFX)
-> - **I**: VTC_OperatorViewActor.h/cpp 구조 완성. Spectator Screen API 연결 현장 테스트 필요
 > - **v3.0 추가**: VTC_ProfileLibrary + VTC_ProfileManagerWidget (프로파일 시스템) 신규 구현 완료
-> - **v3.0 제거**: VTC_SetupGameMode, VTC_SetupWidget, VTC_GameMode, VTC_SimPlayerController 전면 삭제
+> - **v3.0 제거**: VTC_SetupGameMode, VTC_SetupWidget, VTC_GameMode, VTC_SimPlayerController, VTC_OperatorMonitorWidget, VTC_OperatorViewActor 전면 삭제
 >
 > **실제 구현 차이점 (계획 vs 실제)**
 > - **A**: SetupWidget 삭제로 슬라이더 UI 제거됨. 임계값은 프로파일 JSON에서 직접 설정
@@ -59,9 +56,6 @@ Step 3 — 상호 의존하는 기능
 Step 4 — UI 및 데이터 흐름
   ├─ A: SetupWidget + SessionConfig → 임계값 슬라이더
   └─ B: VTC_VehiclePreset (신규) + SetupWidget + OperatorController → 프리셋 시스템
-
-Step 5 — Operator View
-  └─ I: VTC_OperatorViewActor (신규) + OperatorController → Spectator Screen
 ```
 
 ---
@@ -767,163 +761,13 @@ void AVTC_OperatorController::SpawnReferencePointsFromPreset(const FVTCVehiclePr
 
 ---
 
-## Step 5 — 기능 I: Operator View (Spectator Screen) ⚠️ 클래스 완성 / Spectator Screen 연결 미테스트
-
-### 신규 파일: `VTC_OperatorViewActor.h`
-
-```cpp
-UCLASS(BlueprintType, Blueprintable)
-class VRTRACKERCOLLISION_API AVTC_OperatorViewActor : public AActor
-{
-    GENERATED_BODY()
-public:
-    AVTC_OperatorViewActor();
-    virtual void BeginPlay() override;
-
-    // 탑뷰 카메라 (SceneCapture)
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|OperatorView")
-    TObjectPtr<USceneCaptureComponent2D> TopDownCapture;
-
-    // 사이드뷰 카메라 (선택사항)
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|OperatorView")
-    TObjectPtr<USceneCaptureComponent2D> SideCapture;
-
-    // 렌더 타겟 (Blueprint에서 UMG Image에 연결)
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|OperatorView")
-    TObjectPtr<UTextureRenderTarget2D> TopDownRenderTarget;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|OperatorView")
-    TObjectPtr<UTextureRenderTarget2D> SideRenderTarget;
-
-    // 탑뷰 높이 (cm)
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|OperatorView")
-    float TopDownHeight = 300.0f;
-
-    // 추적 대상 Actor (TrackerPawn)
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|OperatorView")
-    TObjectPtr<AActor> FollowTarget;
-
-    // Spectator Screen에 표시할 위젯 클래스
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|OperatorView")
-    TSubclassOf<UUserWidget> OperatorWidgetClass;
-
-    UPROPERTY(BlueprintReadOnly, Category = "VTC|OperatorView")
-    TObjectPtr<UUserWidget> OperatorWidget;
-
-    virtual void Tick(float DeltaTime) override;
-
-private:
-    void SetupSpectatorScreen();
-};
-```
-
-### `VTC_OperatorViewActor.cpp` 핵심 로직
-
-**BeginPlay:**
-```cpp
-// RenderTarget 동적 생성 (Blueprint에서 미리 설정하지 않은 경우)
-if (!TopDownRenderTarget)
-{
-    TopDownRenderTarget = NewObject<UTextureRenderTarget2D>(this);
-    TopDownRenderTarget->InitAutoFormat(1280, 720);
-    TopDownRenderTarget->UpdateResourceImmediate(true);
-}
-TopDownCapture->TextureTarget = TopDownRenderTarget;
-TopDownCapture->CaptureSource  = SCS_FinalColorLDR;
-
-// Spectator Screen에 위젯 표시
-SetupSpectatorScreen();
-```
-
-**Tick: FollowTarget 위치 기반 카메라 갱신**
-```cpp
-if (FollowTarget)
-{
-    const FVector TargetLoc = FollowTarget->GetActorLocation();
-    TopDownCapture->SetWorldLocation(TargetLoc + FVector(0, 0, TopDownHeight));
-    TopDownCapture->SetWorldRotation(FRotator(-90.0f, 0.0f, 0.0f));   // 수직 하향
-}
-```
-
-**SetupSpectatorScreen:**
-```cpp
-void AVTC_OperatorViewActor::SetupSpectatorScreen()
-{
-    if (!OperatorWidgetClass) return;
-
-    OperatorWidget = CreateWidget<UUserWidget>(GetWorld()->GetFirstPlayerController(), OperatorWidgetClass);
-    if (!OperatorWidget) return;
-    OperatorWidget->AddToViewport();
-
-    // IHeadMountedDisplay API로 Spectator Screen에 위젯 지정
-    if (GEngine && GEngine->XRSystem.IsValid())
-    {
-        // Spectator Screen Mode: SingleEyeCroppedToFill + Custom Widget 오버레이
-        UHeadMountedDisplayFunctionLibrary::SetSpectatorScreenMode(
-            ESpectatorScreenMode::TexturePlusEye);
-        UHeadMountedDisplayFunctionLibrary::SetSpectatorScreenTexture(
-            TopDownRenderTarget);
-    }
-}
-```
-
-### `WBP_OperatorView` Widget (Blueprint에서 구현)
-
-```
-[Canvas Panel]
-  ├─ [Image] (RenderTarget 연결) — 탑뷰 카메라 피드 (좌측 70%)
-  └─ [VerticalBox] (우측 30%)
-       ├─ TextBlock "● TESTING"         ← 세션 상태
-       ├─ TextBlock "Min: 8.2 cm"       ← 현재 최소 거리
-       ├─ TextBlock "Trackers: 5/5"     ← 연결 상태
-       └─ [ListView] ← 실시간 거리 목록 (OnDistanceUpdated 바인딩)
-```
-
-### `VTC_OperatorController.h` 추가
-
-```cpp
-// Operator View Actor 참조 (BeginPlay에서 자동 탐색 또는 수동 연결)
-UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Operator")
-TObjectPtr<AVTC_OperatorViewActor> OperatorViewActor;
-
-// Spectator Screen 활성화 여부
-UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Operator")
-bool bEnableSpectatorView = true;
-```
-
-**BeginPlay에서:**
-```cpp
-if (bEnableSpectatorView)
-{
-    // 레벨에서 OperatorViewActor 자동 탐색
-    if (!OperatorViewActor)
-    {
-        TArray<AActor*> Found;
-        UGameplayStatics::GetAllActorsOfClass(GetWorld(),
-            AVTC_OperatorViewActor::StaticClass(), Found);
-        if (Found.Num() > 0)
-            OperatorViewActor = Cast<AVTC_OperatorViewActor>(Found[0]);
-    }
-    // FollowTarget 설정
-    if (OperatorViewActor)
-        OperatorViewActor->FollowTarget = GetPawn();
-}
-```
-
-**Level 2 레벨 배치 추가:**
-- `BP_VTC_OperatorViewActor` 1개 배치 → OperatorWidgetClass = WBP_OperatorView
-
----
-
 ## 최종 파일 변경 목록
 
-### 신규 파일 (2개)
+### 신규 파일 (1개)
 | 파일 | 목적 |
 |------|------|
 | `Public/VTC_VehiclePreset.h` | 프리셋 구조체 + Manager 클래스 |
 | `Private/VTC_VehiclePreset.cpp` | JSON 저장/불러오기 |
-| `Public/World/VTC_OperatorViewActor.h` | Spectator Screen SceneCapture Actor |
-| `Private/World/VTC_OperatorViewActor.cpp` | RenderTarget + Spectator Screen 설정 |
 
 ### 수정 파일 (10개)
 | 파일 | 변경 내용 |
@@ -934,7 +778,7 @@ if (bEnableSpectatorView)
 | `Body/VTC_CalibrationComponent.h/cpp` | 유효성 강화, 음성 카운트다운 |
 | `Collision/VTC_CollisionDetector.h/cpp` | DrawDebugString, 자동 스크린샷 |
 | `Data/VTC_DataLogger.h/cpp` | 단계별 MinClearance, 스크린샷 경로 |
-| `Controller/VTC_OperatorController.h/cpp` | 임계값 적용, Spectator View, 프리셋 스폰 |
+| `Controller/VTC_OperatorController.h/cpp` | 임계값 적용, 프리셋 스폰 |
 | `UI/VTC_SetupWidget.h/cpp` | 임계값 슬라이더, 프리셋 UI |
 
 ---
@@ -943,7 +787,4 @@ if (bEnableSpectatorView)
 
 | 작업 | 설명 |
 |------|------|
-| `WBP_OperatorView` 생성 | RenderTarget Image + 거리 목록 |
-| `BP_VTC_OperatorViewActor` 생성 | OperatorWidgetClass 연결 |
 | `BP_VTC_SessionManager` CalibrationComp | CountdownSFX 4개 연결 |
-| `VTC_SetupLevel` SetupWidget | 슬라이더 + 프리셋 UI BindWidget |

@@ -66,7 +66,6 @@
 │    │    └─ VTC_DataLogger (컴포넌트)                                     │
 │    ├─ VTC_StatusActor (3D 월드 위젯 — 상태/키 안내)                     │
 │    ├─ VTC_ReferencePoint × N (차량 기준점)                              │
-│    ├─ VTC_OperatorViewActor (SceneCapture → Spectator Screen)          │
 │    └─ PostProcessVolume (Vignette 피드백용)                             │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -218,8 +217,7 @@ Plugins/
     │       │   │   └── VTC_ProfileManagerWidget.h  ← 프로파일 Utility Editor
     │       │   │
     │       │   └── World/
-    │       │       ├── VTC_StatusActor.h        ← 3D 월드 위젯 Actor
-    │       │       └── VTC_OperatorViewActor.h  ← SceneCapture → Spectator Screen
+    │       │       └── VTC_StatusActor.h        ← 3D 월드 위젯 Actor
     │       │
     │       └── Private/
     │           ├── VRTrackerCollisionModule.cpp
@@ -245,8 +243,7 @@ Plugins/
     │           │   ├── VTC_SubjectInfoWidget.cpp
     │           │   └── VTC_ProfileManagerWidget.cpp
     │           └── World/
-    │               ├── VTC_StatusActor.cpp
-    │               └── VTC_OperatorViewActor.cpp
+    │               └── VTC_StatusActor.cpp
     │
     └── Content/                          ← Blueprint/Asset은 여기서 제작 예정
         ├── Blueprints/
@@ -266,7 +263,7 @@ Plugins/
             └── WBP_VTC_HUD.uasset
 ```
 
-> **삭제된 파일 (v3.0):** `VTC_SetupGameMode`, `VTC_SetupWidget`, `VTC_GameMode`, `VTC_SimPlayerController`, `VTC_OperatorMonitorWidget`
+> **삭제된 파일 (v3.0):** `VTC_SetupGameMode`, `VTC_SetupWidget`, `VTC_GameMode`, `VTC_SimPlayerController`, `VTC_OperatorMonitorWidget`, `VTC_OperatorViewActor`
 
 ---
 
@@ -289,7 +286,7 @@ Plugins/
     ├─ 단축키: 1(캘리브레이션) / 2(테스트) / 3(CSV+종료) / P(프로파일 재적용) / G(JSON저장)
     ├─ ApplyGameInstanceConfig() → TrackerPawn, BodyActor, CollisionDetector
     ├─ VehicleHipPosition → ReferencePoint 런타임 스폰
-    ├─ StatusActor/StatusWidget 갱신 (Tick 1초마다)
+    ├─ StatusWidget 갱신 (Tick 1초마다)
     └─ EndPlay → SpawnedHipRefPoint 정리
 
   VTC_TrackerPawn (APawn, IVTC_TrackerInterface)
@@ -581,7 +578,6 @@ CollisionOccurred, CollisionPartName
 | VTC_ProfileManagerWidget | UI | 프로파일 Utility Editor 위젯 (사전 설정 저장/불러오기/삭제) |
 | VTC_StatusActor | World | 3D 월드 위젯 Actor |
 | VTC_VehiclePreset | Core | JSON 차종 프리셋 구조체 + 파일 I/O Manager |
-| VTC_OperatorViewActor | World | SceneCapture2D → TextureRenderTarget → Spectator Screen |
 
 ### Blueprint / Asset 작업 필요
 
@@ -599,7 +595,6 @@ CollisionOccurred, CollisionPartName
 | Material (Body Segment Safe/Warning/Collision) | 중간 |
 | Niagara FX 설정 (CollisionImpact, WarningPulse) | 낮음 |
 | Sound Cue 설정 + CountdownSFX 배열 4개 연결 | 낮음 |
-| BP_VTC_OperatorViewActor (SceneCapture 설정) | 중간 |
 
 ---
 
@@ -614,20 +609,6 @@ CollisionOccurred, CollisionPartName
 | **자동 스크린샷** | VTC_CollisionDetector | 세션 최악 클리어런스 갱신 시 PNG 자동 저장 |
 | **VR 거리 라인 라벨** | VTC_CollisionDetector | DrawDebugLine + DrawDebugString으로 거리(cm) 실시간 표시 |
 | **음성 카운트다운** | VTC_CalibrationComponent | USoundBase 배열로 3초 카운트다운 + 완료 음성 재생 |
-| **Operator View** | VTC_OperatorViewActor | SceneCapture2D(탑다운) → TextureRenderTarget2D → Spectator Screen |
-
-### Operator View 연결 구조
-
-```
-VTC_OperatorViewActor
-  │
-  ├─ SceneCaptureComponent2D (탑다운 직교, -90° Pitch)
-  │   └─ TextureRenderTarget2D (1280×720 기본)
-  │
-  └─ BeginPlay → SetupSpectatorScreen()
-       └─ ISpectatorScreenController::SetSpectatorScreenTexture(RenderTarget)
-            └─ 운영자 모니터(Companion Screen)에 실시간 전시 장면 표시
-```
 
 ### CSV 출력 변경사항 (v2.0 추가 컬럼)
 

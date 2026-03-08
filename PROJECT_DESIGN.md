@@ -28,7 +28,6 @@
   │    ├─ 1 캘리브레이션 / 2 테스트 / 3 CSV 내보내기
   │    └─ P키: 마지막 적용 프로파일 재적용
   ├─ 3D WorldSpace 위젯 (VTC_StatusActor → VTC_StatusWidget)
-  ├─ VTC_OperatorViewActor (SceneCapture → Spectator Screen)
   └─ 세션 상태머신: IDLE → CALIBRATING → TESTING → REVIEWING
 ```
 
@@ -294,7 +293,7 @@ IDLE → CALIBRATING → TESTING → REVIEWING → IDLE
 
 ## C++ Source Structure
 
-> **삭제된 파일 (v3.0):** `VTC_SetupGameMode`, `VTC_SetupWidget`, `VTC_GameMode`, `VTC_SimPlayerController`, `VTC_OperatorMonitorWidget`
+> **삭제된 파일 (v3.0):** `VTC_SetupGameMode`, `VTC_SetupWidget`, `VTC_GameMode`, `VTC_SimPlayerController`, `VTC_OperatorMonitorWidget`, `VTC_OperatorViewActor`
 
 ```
 Plugins/VRTrackerCollision/Source/VRTrackerCollision/
@@ -329,8 +328,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   │   ├── VTC_SubjectInfoWidget.h
 │   │   └── VTC_ProfileManagerWidget.h  ← 프로파일 Utility Editor
 │   └── World/
-│       ├── VTC_StatusActor.h
-│       └── VTC_OperatorViewActor.h  ← SceneCapture → Spectator Screen
+│       └── VTC_StatusActor.h
 └── Private/
     └── (각 .cpp 파일, Public과 동일 구조)
 ```
@@ -350,7 +348,6 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 7. **VRTestLevel** — 맵 파일 생성 + GameMode Override = BP_VTC_VRGameMode
 8. **PostProcessVolume** — Infinite Extent, WarningFeedback에 연결
 9. **WBP_VTC_ProfileManager** (Utility Editor 위젯) — 피실험자+차량 프로파일 사전 저장
-10. **BP_VTC_OperatorViewActor** — VRTestLevel에 배치, SceneCapture → Spectator Screen
 
 ### 있으면 좋음
 

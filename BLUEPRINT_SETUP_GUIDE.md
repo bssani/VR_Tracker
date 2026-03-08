@@ -33,7 +33,6 @@ C++ 클래스들은 이미 완성되어 있고, **Blueprint로 래핑**하고 **
     ├─ BP_VTC_SessionManager
     ├─ BP_VTC_StatusActor (3D 월드 위젯)
     ├─ BP_VTC_ReferencePoint × N (차량 측정 지점)
-    ├─ BP_VTC_OperatorViewActor (Spectator Screen)
     └─ PostProcessVolume (Infinite Extent)
 ```
 
@@ -70,7 +69,6 @@ ApplyGameInstanceConfig()
   BP_VTC_SessionManager       (VTC_SessionManager 기반)
   BP_VTC_StatusActor          (VTC_StatusActor 기반)
   WBP_VTC_StatusWidget        (VTC_StatusWidget 기반)
-  BP_VTC_OperatorViewActor    (VTC_OperatorViewActor 기반)
 
 [프로파일 관리 — Utility Editor]
   WBP_VTC_ProfileManager      (VTC_ProfileManagerWidget 기반) ← 에디터에서 사전 실행
@@ -586,48 +584,6 @@ SessionManager → BodyActor → **CalibrationComp** 컴포넌트에서 (Feature
 | WarningFeedback.CollisionImpactFX | **자동 탐색 없음** | Optional |
 | WarningFeedback.WarningPulseFX | **자동 탐색 없음** | Optional |
 | CalibrationComp.CountdownSFX | **자동 탐색 없음** | Optional — 4개 음성 에셋 (Feature H) |
-| OperatorController.OperatorViewActor | `GetAllActorsOfClass()` 자동 탐색 | No — 자동 탐색됨 (Feature I) |
-
----
-
-## 7. BP_VTC_OperatorViewActor (운영자 탑다운 뷰 — Feature I)
-
-운영자 모니터(Companion Screen / Spectator Screen)에 탑다운 뷰를 실시간으로 전송하는 Actor입니다.
-VR 사용자는 HMD를 쓰고, 운영자는 외부 모니터에서 세션 장면을 탑뷰로 확인합니다.
-
-### 생성 방법
-1. Blueprint Class → **All Classes** → `VTC_OperatorViewActor` 검색
-2. 이름: `BP_VTC_OperatorViewActor`
-
-### Level 2에 배치
-- 차량 위 상공에 배치 (Z = 차량 루프 높이 + 200~300 cm 권장)
-- `BP_VTC_OperatorViewActor`를 드래그 앤 드롭
-- 모든 프로퍼티를 비워두면 자동 동작 (RenderTarget은 BeginPlay에서 자동 생성)
-
-### Details 패널 설정
-
-| 카테고리 | 프로퍼티 | 기본값 | 설명 |
-|---------|---------|-------|------|
-| VTC\|OperatorView | CaptureWidth | `1280` | RenderTarget 가로 해상도 |
-| VTC\|OperatorView | CaptureHeight | `720` | RenderTarget 세로 해상도 |
-| VTC\|OperatorView | CaptureOrthoWidth | `500` | 직교 투영 캡처 너비 (cm, 클수록 넓은 영역) |
-| VTC\|OperatorView | bOrthographic | `true` | true=직교 투영(탑다운), false=원근 투영 |
-| VTC\|OperatorView | RenderTarget | *비워두기* | BeginPlay에서 자동 생성 |
-
-### 자동 동작 원리
-- **BeginPlay**: RenderTarget 자동 생성 → SceneCaptureComponent2D에 연결 → `SetupSpectatorScreen()` 호출
-- **Spectator Screen 연결**: `GEngine->XRSystem->GetHMDDevice()->GetSpectatorScreenController()` 경로로 HMD의 Companion Screen에 RenderTarget 출력
-- **VR 장비 없음**: XRSystem 없으면 자동으로 RenderTarget만 활성화 (데스크탑에서 UMG Image로 연결 가능)
-- **OperatorController**: BeginPlay에서 `GetAllActorsOfClass(VTC_OperatorViewActor)`로 자동 탐색
-
-### 데스크탑 모드 대체 (VR 장비 없이 테스트 시)
-RenderTarget을 UMG Image 위젯에 직접 연결하면 화면에 탑다운 뷰를 표시할 수 있습니다:
-
-```
-WBP_OperatorView (새 위젯 생성)
-  └─ Image 위젯
-       └─ Brush → Texture = BP_VTC_OperatorViewActor.RenderTarget
-```
 
 ---
 
