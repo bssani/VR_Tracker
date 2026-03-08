@@ -82,7 +82,6 @@
 │          └──────────────────┘   └────────────────────┘  │
 │                                                         │
 │  VTC_StatusActor → VTC_StatusWidget (WorldSpace 3D)    │
-│  VTC_OperatorMonitorWidget (Screen Space — 운영자 데스크탑) │
 │  VTC_ReferencePoint × N + VehicleHipPosition (동적)     │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -138,9 +137,8 @@ VTC_OperatorController → APlayerController
 - **VR Map 시작 시 아무것도 하지 않음** — Pawn은 PlayerStart에서 대기
 - P키 누를 때만: JSON 재로드 → Pawn을 VehicleHipPosition으로 이동 → offset 적용 → widget 업데이트
 - VehicleHipPosition → ReferencePoint 런타임 스폰 + CollisionDetector 등록 (`bCollisionDisabled=true`)
-- VehicleHipPosition ↔ Waist 실시간 거리 → StatusWidget + OperatorMonitorWidget에 표시
+- VehicleHipPosition ↔ Waist 실시간 거리 → StatusWidget에 표시
 - StatusActor (3D 월드 위젯) 갱신: 상태, 트래커, 경과시간, 최소거리, 거리Row, 프리셋 정보, Hip↔Waist 거리
-- OperatorMonitorWidget (운영자 데스크탑) 갱신: 상태, 트래커, 경과시간, 거리Row, 프리셋 드롭다운, Hip캡처 버튼
 - EndPlay에서 SpawnedHipRefPoint 명시적 정리
 
 ---
@@ -292,20 +290,11 @@ IDLE → CALIBRATING → TESTING → REVIEWING → IDLE
 - 키 안내: 1(캘리브레이션) / 2(테스트) / 3(CSV저장+게임종료)
 - **Txt_HipWaistDistance**: VehicleHip ↔ Waist 실시간 거리 표시 ("Hip↔Waist: 4.2 cm"), 경고/충돌 이벤트 없음
 
-#### VTC_OperatorMonitorWidget (Screen Space — 운영자 데스크탑)
-
-- 운영자 데스크탑 모니터에 표시되는 Screen Space UI
-- **필수 BindWidget** 6개: Txt_State, Txt_SubjectInfo, Txt_TrackerStatus, Txt_ElapsedTime, Txt_MinDistance, VB_DistanceList
-- **선택 BindWidgetOptional**: Txt_PresetInfo, Txt_HipWaistDistance, Txt_HipCapture, Combo_ProfileSelect, Btn_ApplyProfile, CB_TrackerMeshVisible, Btn_CaptureHipPos
-- `DistanceRowMap` (TMap): Row TextBlock을 재사용하여 30Hz에 ClearChildren 없이 갱신
-- `DistanceValueMap` (TMap<FString, float>): 거리 원본 값 저장, `UpdateMinDistanceFromMap()`에서 최솟값 계산 후 Txt_MinDistance 자동 갱신
-- OperatorController::BeginPlay에서 OperatorMonitorWidgetClass 지정 시 자동 생성
-
 ---
 
 ## C++ Source Structure
 
-> **삭제된 파일 (v3.0):** `VTC_SetupGameMode`, `VTC_SetupWidget`, `VTC_GameMode`, `VTC_SimPlayerController`
+> **삭제된 파일 (v3.0):** `VTC_SetupGameMode`, `VTC_SetupWidget`, `VTC_GameMode`, `VTC_SimPlayerController`, `VTC_OperatorMonitorWidget`
 
 ```
 Plugins/VRTrackerCollision/Source/VRTrackerCollision/
@@ -338,7 +327,6 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   ├── UI/
 │   │   ├── VTC_StatusWidget.h
 │   │   ├── VTC_SubjectInfoWidget.h
-│   │   ├── VTC_OperatorMonitorWidget.h  ← 운영자 데스크탑 모니터링 (Screen Space)
 │   │   └── VTC_ProfileManagerWidget.h  ← 프로파일 Utility Editor
 │   └── World/
 │       ├── VTC_StatusActor.h
@@ -361,10 +349,8 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 6. **BP_VTC_StatusActor + WBP_VTC_StatusWidget** — 3D 월드 위젯
 7. **VRTestLevel** — 맵 파일 생성 + GameMode Override = BP_VTC_VRGameMode
 8. **PostProcessVolume** — Infinite Extent, WarningFeedback에 연결
-9. **WBP_VTC_OperatorMonitor** (VTC_OperatorMonitorWidget 기반) — 운영자 데스크탑 모니터링 UI
-    - `BP_VTC_OperatorController` → OperatorMonitorWidgetClass에 할당하면 BeginPlay에서 자동 생성
-10. **WBP_VTC_ProfileManager** (Utility Editor 위젯) — 피실험자+차량 프로파일 사전 저장
-11. **BP_VTC_OperatorViewActor** — VRTestLevel에 배치, SceneCapture → Spectator Screen
+9. **WBP_VTC_ProfileManager** (Utility Editor 위젯) — 피실험자+차량 프로파일 사전 저장
+10. **BP_VTC_OperatorViewActor** — VRTestLevel에 배치, SceneCapture → Spectator Screen
 
 ### 있으면 좋음
 
@@ -402,7 +388,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 - `bCollisionDisabled = true`로 설정되어 항상 시안색 라인 + 거리 수치만 표시
 - Warning/Collision 판정, 마커 색상 변경, OnWarningLevelChanged 이벤트 없음
 - P키 → ApplyGameInstanceConfig() → `SnapWaistToWithRetry()` 호출로 Waist를 Hip 위치로 이동
-- `OnDisabledRefPointDistance` 델리게이트로 실시간 거리를 StatusWidget + OperatorMonitorWidget에 전달 (Feature K)
+- `OnDisabledRefPointDistance` 델리게이트로 실시간 거리를 StatusWidget에 전달 (Feature K)
 
 **TrackerPawn Hip Snap (SnapWaistTo)**
 - `SnapWaistToWithRetry()`는 타이머 없이 1회만 스냅 시도 (VR flickering 방지)
@@ -419,7 +405,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 **Feature K — Hip↔Waist 실시간 거리 위젯**
 - CollisionDetector의 `OnDisabledRefPointDistance` 델리게이트: bCollisionDisabled=true 포인트(Vehicle_Hip)의 거리만 별도 브로드캐스트
 - OperatorController의 `OnHipRefPointDistance()`: PartName=="Vehicle_Hip" && BodyRole==Waist 필터링
-- StatusWidget의 `Txt_HipWaistDistance`, OperatorMonitorWidget의 `Txt_HipWaistDistance`에 "Hip↔Waist: X.X cm" 형식으로 표시
+- StatusWidget의 `Txt_HipWaistDistance`에 "Hip↔Waist: X.X cm" 형식으로 표시
 - 충돌 감지와 완전히 분리 — Warning/Collision 이벤트 발생하지 않음
 
 **SteamVR 룸 세팅 가이드**

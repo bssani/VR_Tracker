@@ -48,7 +48,6 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   ├── Controller/
 │   │   └── VTC_OperatorController.h
 │   ├── UI/
-│   │   ├── VTC_OperatorMonitorWidget.h  ← VRTestLevel 운영자 모니터 (프로파일 드롭다운 + Hip 캡처)
 │   │   ├── VTC_ProfileManagerWidget.h   ← Utility Editor 프로파일 관리 위젯 (신규)
 │   │   ├── VTC_StatusWidget.h
 │   │   └── VTC_SubjectInfoWidget.h
@@ -60,8 +59,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 ├── Private/
 │   ├── VTC_ProfileLibrary.cpp      ← SaveProfile/LoadProfile/GetAvailableProfileNames/DeleteProfile
 │   └── UI/
-│       ├── VTC_ProfileManagerWidget.cpp
-│       └── VTC_OperatorMonitorWidget.cpp
+│       └── VTC_ProfileManagerWidget.cpp
 ```
 
 **삭제된 파일 (v3.0):**
@@ -69,6 +67,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 - `VTC_SetupWidget.h/.cpp` — Level 1 제거됨
 - `VTC_GameMode.h/.cpp` — 시뮬레이션 GameMode 제거됨
 - `VTC_SimPlayerController.h/.cpp` — WASD 데스크탑 시뮬레이션 제거됨
+- `VTC_OperatorMonitorWidget.h/.cpp` — Screen Space UI (VR에서 미작동) 제거됨
 
 **저장 경로:**
 - 프로파일: `Saved/VTCProfiles/<ProfileName>.json`
@@ -162,7 +161,7 @@ MountOffset_Waist = (0, -15, 0)   // 트래커 로컬 Y 음수 = 등 방향 (확
 | 커밋 | 내용 |
 |------|------|
 | `a3bf467` | TextBlock.h include 누락으로 인한 UTextBlock 빌드 에러 수정 |
-| `(이전)` | Level 1 + Simulation 코드 전면 제거 + OperatorMonitor에 [Set Hip Here] 버튼 추가 |
+| `(이전)` | Level 1 + Simulation 코드 전면 제거 + OperatorMonitorWidget 제거 |
 | `7048ab3` | 피실험자+차량 프로파일 시스템 (VTC_ProfileLibrary, VTC_ProfileManagerWidget) + TrackerMesh 가시성 토글 |
 | `247a85e` | 트래커 미연결 시 VisualMesh 숨김, Hip↔Waist 거리 위젯, NumPad 오프셋 실시간 조절 |
 | `31dca20` | VR에서 P키 이후 깜빡거림 해결 (SnapWaistToWithRetry 타이머 제거) |
@@ -189,9 +188,8 @@ MountOffset_Waist = (0, -15, 0)   // 트래커 로컬 Y 음수 = 등 방향 (확
 - **[Set Hip Here] 버튼**: 피실험자가 차량 시트에 앉은 상태에서 누르면 Waist 트래커 위치를
   `VehicleHipPosition`으로 캡처하고 현재 프로파일 JSON에 저장함 → 수동 좌표 입력 불필요.
 - **프로파일 시스템**: `WBP_VTC_ProfileManager` (Utility Editor 위젯)에서 사전 저장.
-  VRTestLevel의 `WBP_VTC_OperatorMonitor` 드롭다운에서 선택 후 [Apply] → 즉시 적용.
+  VRTestLevel에서 **P키**로 마지막 저장 프로파일 즉시 적용.
   저장 경로: `Saved/VTCProfiles/<Name>.json`
-- **TrackerMesh 가시성**: `CB_TrackerMeshVisible` 체크박스로 런타임 토글 가능 (OperatorMonitor).
-- **P키**: VR 레벨에서 마지막 적용 설정 재적용 (프로파일 드롭다운과 별개)
+- **P키**: VR 레벨에서 마지막 저장 프로파일 재적용 (JSON 재로드 + Pawn Hip 스냅 + 전체 설정 적용)
 - Tracker 미연결 시 VisualSphere 자동 숨김 (트래커 연결 상태 = `bIsTracked` 기준)
 - `SyncSpherePositions()`는 Tick마다 실행됨 — 무거운 연산 추가 주의

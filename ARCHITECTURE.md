@@ -69,15 +69,6 @@
 │    ├─ VTC_OperatorViewActor (SceneCapture → Spectator Screen)          │
 │    └─ PostProcessVolume (Vignette 피드백용)                             │
 │                                                                         │
-│  Screen Space UI (운영자 데스크탑):                                      │
-│    └─ VTC_OperatorMonitorWidget (OperatorController가 자동 생성)        │
-│         ├─ 세션 상태 + 피실험자 정보 + 트래커 수                         │
-│         ├─ 프로파일 드롭다운 (Combo_ProfileSelect) + [Apply] 버튼       │
-│         ├─ [Set Hip Here] 버튼 → Waist 위치를 VehicleHipPosition으로 캡처│
-│         ├─ 실시간 거리 목록 (30Hz, DistanceRowMap 재사용)                │
-│         ├─ 세션 최솟값 거리 (DistanceValueMap 기반 자동 갱신)            │
-│         └─ 경과 시간 (Testing 중 1초마다)                                │
-│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -90,22 +81,15 @@
 
 [VRTestLevel 실행]
     OperatorController::BeginPlay → GameInstance 로드
-    OperatorMonitorWidget.Combo_ProfileSelect → 프로파일 선택
-    [Apply] 클릭 → ApplyGameInstanceConfig()
+
+[P키를 누를 때] ApplyGameInstanceConfig()
          ├─ TrackerPawn.SetTrackerMeshVisible(bShowTrackerMesh)
          ├─ BodyActor.ApplySessionConfig(Config)
          │    ├─ MountOffset 5개 적용
          │    └─ bShowCollisionSpheres → 멤버 변수 저장 (Tick 덮어쓰기 방지)
          ├─ CollisionDetector.WarningThreshold/CollisionThreshold 적용
-         ├─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰 (순수 위치 마커)
-         │    └─ RelevantBodyParts 비움 → 충돌 감지 없음, 시안색 마커만 표시
-         └─ 차종 프리셋 JSON → 추가 ReferencePoint 스폰
-              └─ CollisionDetector.ReferencePoints.AddUnique()
-
-[Set Hip Here] 버튼
-    → 피실험자가 차량 시트에 앉은 상태에서 클릭
-    → 현재 Waist 트래커 위치를 VehicleHipPosition으로 캡처
-    → 현재 프로파일 JSON에 즉시 저장
+         └─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰 (순수 위치 마커)
+              └─ RelevantBodyParts 비움 → 충돌 감지 없음, 시안색 마커만 표시
 ```
 
 ### 삭제된 파일 (v3.0)
@@ -176,9 +160,7 @@
 │  │       + VehicleHipPosition (런타임 동적 스폰)               │    │
 │  └────────────────────────────────────────────────────────────┘    │
 │                                                                     │
-│  [Level 1 UI: VTC_SetupWidget (Desktop)]                           │
-│  [Level 2 UI: VTC_StatusWidget (WorldSpace 3D)]                    │
-│  [Level 2 UI: VTC_OperatorMonitorWidget (Screen Space — 운영자)]    │
+│  [UI: VTC_StatusWidget (WorldSpace 3D — VR 내 상태 표시)]           │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -233,7 +215,6 @@ Plugins/
     │       │   ├── UI/
     │       │   │   ├── VTC_StatusWidget.h       ← VR 3D WorldSpace 상태 표시 위젯
     │       │   │   ├── VTC_SubjectInfoWidget.h  ← 피실험자 입력 위젯
-    │       │   │   ├── VTC_OperatorMonitorWidget.h ← 운영자 모니터 (프로파일 드롭다운 + HipCapture)
     │       │   │   └── VTC_ProfileManagerWidget.h  ← 프로파일 Utility Editor
     │       │   │
     │       │   └── World/
@@ -262,7 +243,6 @@ Plugins/
     │           ├── UI/
     │           │   ├── VTC_StatusWidget.cpp
     │           │   ├── VTC_SubjectInfoWidget.cpp
-    │           │   ├── VTC_OperatorMonitorWidget.cpp
     │           │   └── VTC_ProfileManagerWidget.cpp
     │           └── World/
     │               ├── VTC_StatusActor.cpp
@@ -286,7 +266,7 @@ Plugins/
             └── WBP_VTC_HUD.uasset
 ```
 
-> **삭제된 파일 (v3.0):** `VTC_SetupGameMode`, `VTC_SetupWidget`, `VTC_GameMode`, `VTC_SimPlayerController`
+> **삭제된 파일 (v3.0):** `VTC_SetupGameMode`, `VTC_SetupWidget`, `VTC_GameMode`, `VTC_SimPlayerController`, `VTC_OperatorMonitorWidget`
 
 ---
 
@@ -310,7 +290,6 @@ Plugins/
     ├─ ApplyGameInstanceConfig() → TrackerPawn, BodyActor, CollisionDetector
     ├─ VehicleHipPosition → ReferencePoint 런타임 스폰
     ├─ StatusActor/StatusWidget 갱신 (Tick 1초마다)
-    ├─ OperatorMonitorWidget 생성 + 거리/상태/시간 갱신 (Screen Space)
     └─ EndPlay → SpawnedHipRefPoint 정리
 
   VTC_TrackerPawn (APawn, IVTC_TrackerInterface)
@@ -340,17 +319,6 @@ Plugins/
               ├─ 피실험자 정보
               └─ 트래커 연결 수
 
-  VTC_OperatorMonitorWidget (UUserWidget, Screen Space)
-    ├─ OperatorController::BeginPlay에서 자동 생성 + AddToViewport
-    ├─ 세션 상태 + 피실험자 정보 + 트래커 수
-    ├─ 실시간 거리 목록 (30Hz, DistanceRowMap 재사용)
-    ├─ 세션 최솟값 거리 (DistanceValueMap → UpdateMinDistanceFromMap)
-    ├─ 경과 시간 (MM:SS)
-    ├─ Combo_ProfileSelect — Saved/VTCProfiles/*.json 드롭다운
-    ├─ Btn_ApplyProfile → GameInstance.ApplyProfileByName() → OnProfileApplied 브로드캐스트
-    │         → OperatorController.OnMonitorWidgetProfileApplied() → ApplyGameInstanceConfig()
-    ├─ CB_TrackerMeshVisible → SessionConfig.bShowTrackerMesh 즉시 변경 + TrackerPawn에 적용
-    └─ Btn_CaptureHipPos → 현재 Waist 위치를 VehicleHipPosition으로 캡처 + 프로파일 JSON 저장
 ```
 
 ### 주요 타입 (VTC_TrackerTypes.h)
@@ -443,13 +411,7 @@ FVTCPresetRefPoint    — 프리셋 내 단일 ReferencePoint 데이터
 │            + MinClearance 갱신 시 Timestamp 기록
 │
 └─ [7] VTC_OperatorController::Tick() (1초마다)
-        ├─ StatusWidget 갱신 (TrackerStatus)
-        └─ OperatorMonitorWidget 갱신 (TrackerStatus, ElapsedTime)
-│
-├─ [8] VTC_OperatorMonitorWidget (OnDistanceUpdated Delegate, 30Hz)
-│       └─ UpdateDistanceRow() → DistanceRowMap 텍스트 갱신
-│            └─ DistanceValueMap에 거리값 저장 → UpdateMinDistanceFromMap()
-│                 └─ 전체 최솟값 계산 → Txt_MinDistance 갱신
+        └─ StatusWidget 갱신 (TrackerStatus)
 ```
 
 ---
@@ -605,7 +567,7 @@ CollisionOccurred, CollisionPartName
 | VTC_GameInstance | Core | 설정 저장/불러오기 (JSON) + ApplyProfileByName |
 | VTC_SessionConfig | Core | FVTCSessionConfig 구조체 (WarningThreshold, CollisionThreshold, ProfileName 포함) |
 | VTC_ProfileLibrary | Core | 피실험자+차량 조합 프로파일 CRUD (Saved/VTCProfiles/) |
-| VTC_OperatorController | Controller | 세션 제어 + 설정 적용 + 동적 스폰 + OnMonitorWidgetProfileApplied |
+| VTC_OperatorController | Controller | 세션 제어 + 설정 적용 + 동적 스폰 |
 | VTC_BodyActor | Body | 가상 신체 (세그먼트+Sphere+VisualSphere) |
 | VTC_BodySegmentComponent | Body | Dynamic Cylinder |
 | VTC_CalibrationComponent | Body | T-Pose 캘리브레이션 |
@@ -616,7 +578,6 @@ CollisionOccurred, CollisionPartName
 | VTC_SessionManager | Data | 세션 상태머신 |
 | VTC_StatusWidget | UI | VR 3D WorldSpace 상태 표시 위젯 |
 | VTC_SubjectInfoWidget | UI | 피실험자 입력 위젯 |
-| VTC_OperatorMonitorWidget | UI | 운영자 모니터 (프로파일 드롭다운 + HipCapture + TrackerMesh 토글) |
 | VTC_ProfileManagerWidget | UI | 프로파일 Utility Editor 위젯 (사전 설정 저장/불러오기/삭제) |
 | VTC_StatusActor | World | 3D 월드 위젯 Actor |
 | VTC_VehiclePreset | Core | JSON 차종 프리셋 구조체 + 파일 I/O Manager |
@@ -633,7 +594,6 @@ CollisionOccurred, CollisionPartName
 | BP_VTC_ReferencePoint (차량 위 배치) | 높음 |
 | BP_VTC_SessionManager (시스템 자동 탐색) | 높음 |
 | BP_VTC_StatusActor + WBP_VTC_StatusWidget | 높음 |
-| WBP_VTC_OperatorMonitor (OperatorMonitorWidgetClass에 할당) | 높음 |
 | WBP_VTC_ProfileManager (Utility Editor 사전 설정) | 높음 |
 | VRTestLevel 맵 파일 GameMode Override = VTC_VRGameMode | 높음 |
 | Material (Body Segment Safe/Warning/Collision) | 중간 |
@@ -647,8 +607,7 @@ CollisionOccurred, CollisionPartName
 
 | Feature | 구현 위치 | 설명 |
 |---------|----------|------|
-| **프로파일 시스템** | VTC_ProfileLibrary + ProfileManagerWidget | WBP_VTC_ProfileManager에서 사전 저장, VRTestLevel에서 드롭다운 선택+적용 |
-| **Set Hip Here** | OperatorMonitorWidget | 피실험자 착석 시 Waist 위치→VehicleHipPosition 캡처+저장 |
+| **프로파일 시스템** | VTC_ProfileLibrary + ProfileManagerWidget | WBP_VTC_ProfileManager에서 사전 저장, VRTestLevel에서 P키로 적용 |
 | **Dropout 보간** | VTC_TrackerPawn | 추적 실패 시 최근 2프레임 선형 외삽으로 최대 5프레임 유지 |
 | **캘리브레이션 검증 강화** | VTC_CalibrationComponent | 좌우 비대칭 25% 초과, 다리 길이 범위, 대퇴/하퇴 비율 검증 |
 | **이동 단계 자동 감지** | VTC_TrackerPawn + DataLogger | Hip Z 속도 기반 Entering/Seated/Exiting 전환 + 단계별 MinClearance |
