@@ -31,7 +31,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   ├── VTC_SessionConfig.h         ← 세션 설정 구조체 (FVTCSessionConfig)
 │   ├── VTC_GameInstance.h          ← 설정 저장/불러오기 (INI + JSON)
 │   ├── VTC_VRGameMode.h            ← VRTestLevel 전용 GameMode (VR Only)
-│   ├── VTC_VehiclePreset.h         ← 차종 프리셋 구조체
+│   ├── VTC_VehiclePreset.h         ← 차량 프리셋 구조체 (VehicleName + HipPosition만 저장)
 │   ├── VTC_ProfileLibrary.h        ← 피실험자+차량 프로파일 CRUD (JSON)
 │   ├── Body/
 │   │   ├── VTC_BodyActor.h         ← 핵심: 신체 전체 Actor (Sphere 5개)
@@ -70,8 +70,9 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 - `VTC_OperatorViewActor.h/.cpp` — Spectator Screen SceneCapture Actor 제거됨
 
 **저장 경로:**
-- 프로파일: `Saved/VTCProfiles/<ProfileName>.json`
-- 마지막 선택 프로파일: `Saved/VTCConfig/LastProfile.txt`
+- Vehicle Preset: `Saved/VTCPresets/<VehicleName>.json` (차량별 HipPosition)
+- Profile Preset: `Saved/VTCProfiles/<ProfileName>.json` (피실험자 전체 설정)
+- Active Profile: `Saved/VTCConfig/ActiveProfile.txt` (VRTestLevel 시작 시 로드할 프로파일 이름)
 
 ---
 
@@ -88,16 +89,21 @@ Safe (Green) / Warning (Yellow) / Collision (Red)
 ```
 
 ### FVTCSessionConfig (SessionConfig.h)
-세션 전체 설정. ProfileManager에서 저장 → GameInstance → VRTestLevel에서 읽어 적용.
-`VTCProfiles/<Name>.json`으로 저장/불러오기 지원.
+세션 전체 설정. ProfileManager (Editor Utility Widget)에서 저장 → `ActiveProfile.txt` 지정 → VRTestLevel BeginPlay에서 자동 로드.
+`Saved/VTCProfiles/<Name>.json`으로 저장/불러오기.
 - `ProfileName` — 이 설정을 저장한 프로파일 이름
 - `SubjectID` / `Height_cm` — 피실험자 정보
 - `MountOffset_Waist/LeftKnee/RightKnee/LeftFoot/RightFoot` — 트래커 로컬 공간 오프셋 (cm)
-- `VehicleHipPosition` — 차량 Hip 기준점 (월드 좌표). **[Set Hip Here] 버튼으로 인-VR 캡처 가능**
+- `VehicleHipPosition` — 차량 Hip 기준점 (월드 좌표). Vehicle Preset 선택 시 값이 복사되어 저장됨
+- `VehiclePresetName` — 참조한 차량 이름 (표시용, 런타임에 별도 파일 로드 없음)
 - `WarningThreshold_cm = 10.0f` / `CollisionThreshold_cm = 3.0f`
-- `bUseVehiclePreset` / `LoadedPresetJson`
 - `bShowCollisionSpheres` / `bShowTrackerMesh`
-- ~~`RunMode`~~ — **삭제됨** (항상 VR 모드)
+
+### FVTCVehiclePreset (VehiclePreset.h)
+차량별 Hip Position만 저장하는 경량 구조체. `Saved/VTCPresets/<VehicleName>.json`.
+- `VehicleName` — 차량 이름 (파일명과 동일)
+- `VehicleHipPosition` — 차량 Hip 기준 좌표 (월드 좌표)
+> Profile 생성 시 이 값을 `FVTCSessionConfig.VehicleHipPosition`에 복사. 런타임에는 참조하지 않음.
 
 ---
 
@@ -183,13 +189,12 @@ MountOffset_Waist = (0, -15, 0)   // 트래커 로컬 Y 음수 = 등 방향 (확
 
 ## 주의사항
 
-- **Level 1 / Simulation 코드 제거됨**: `VTC_SetupGameMode`, `VTC_SetupWidget`, `VTC_GameMode`, `VTC_SimPlayerController` 삭제.
+- **SetupLevel / Simulation 코드 제거됨**: `VTC_SetupGameMode`, `VTC_SetupWidget`, `VTC_GameMode`, `VTC_SimPlayerController` 삭제.
   VRTestLevel이 유일한 진입점. Blueprint `.uasset` 파일도 정리 필요 (에디터에서 수동 삭제).
-- **[Set Hip Here] 버튼**: 피실험자가 차량 시트에 앉은 상태에서 누르면 Waist 트래커 위치를
-  `VehicleHipPosition`으로 캡처하고 현재 프로파일 JSON에 저장함 → 수동 좌표 입력 불필요.
-- **프로파일 시스템**: `WBP_VTC_ProfileManager` (Editor Utility Widget)에서 사전 저장.
-  VRTestLevel에서 **P키**로 마지막 저장 프로파일 즉시 적용.
-  저장 경로: `Saved/VTCProfiles/<Name>.json`
-- **P키**: VR 레벨에서 마지막 저장 프로파일 재적용 (JSON 재로드 + Pawn Hip 스냅 + 전체 설정 적용)
+- **프로파일 시스템 (두 파일 구분)**:
+  - **Vehicle Preset** (`Saved/VTCPresets/`) — 차량별 Hip Position 저장. `WBP_VTC_ProfileManager` Vehicle Preset 탭에서 관리.
+  - **Profile Preset** (`Saved/VTCProfiles/`) — 피실험자 전체 설정. Vehicle Preset 선택 시 HipPosition 값이 복사됨.
+  - **Active Profile** (`Saved/VTCConfig/ActiveProfile.txt`) — [Set as Active] 버튼이 기록. VRTestLevel BeginPlay에서 이 파일을 읽어 해당 프로파일 자동 로드.
+- **P키**: VRTestLevel에서 ActiveProfile을 재적용 (JSON 재로드 + Pawn Hip 스냅 + 전체 설정 적용). 설정 리셋 또는 재보정 후 사용.
 - Tracker 미연결 시 VisualSphere 자동 숨김 (트래커 연결 상태 = `bIsTracked` 기준)
 - `SyncSpherePositions()`는 Tick마다 실행됨 — 무거운 연산 추가 주의

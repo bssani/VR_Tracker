@@ -675,10 +675,15 @@ SessionManager 내 CollisionDetector 컴포넌트에서:
 
 ---
 
-## [신규] WBP_VTC_ProfileManager — Editor Utility Widget
+## WBP_VTC_ProfileManager — Editor Utility Widget
 
-피실험자·차량 조합별 설정을 사전에 저장하는 **오프라인 설정 도구**입니다.
+피실험자·차량 설정을 사전에 저장하는 **오프라인 설정 도구**입니다.
 레벨과 무관하게 **에디터에서 직접 실행**하는 Editor Utility Widget입니다.
+
+> **설정 파일 구조:**
+> - **Vehicle Preset** (`Saved/VTCPresets/<VehicleName>.json`) — 차량별 Hip Position 저장
+> - **Profile Preset** (`Saved/VTCProfiles/<ProfileName>.json`) — 피실험자별 전체 설정 + 차량 선택
+> - **Active Profile** (`Saved/VTCConfig/ActiveProfile.txt`) — VRTestLevel이 시작 시 불러올 프로파일 이름
 
 ### 생성 방법
 
@@ -686,57 +691,175 @@ SessionManager 내 CollisionDetector 컴포넌트에서:
 2. Parent Class: **All Classes** → `VTC_ProfileManagerWidget` 검색 후 선택
 3. 이름: `WBP_VTC_ProfileManager`
 
-> **실행 방법:** Content Browser에서 `WBP_VTC_ProfileManager`를 **더블클릭** 하면
-> 에디터 탭으로 열립니다. 별도의 레벨 없이 에디터 안에서 바로 사용합니다.
+> **실행 방법:** Content Browser에서 `WBP_VTC_ProfileManager`를 **더블클릭** →
+> 에디터 탭으로 열립니다. 별도 레벨 없이 에디터 안에서 바로 사용합니다.
 
-### 필수 BindWidget 목록
+---
+
+### [Vehicle Preset 탭] BindWidget 목록
+
+차량별 Hip Position을 저장·관리합니다. Profile 생성 시 선택하면 HipPosition이 자동 입력됩니다.
 
 | 위젯 타입 | 이름 (정확히) | 역할 |
 |---------|------------|-----|
-| ComboBoxString | `Combo_ProfileSelect` | 저장된 프로파일 목록 |
-| EditableTextBox | `TB_ProfileName` | 저장할 프로파일 이름 입력 |
-| Button | `Btn_NewProfile` | 입력란 초기화 (새 프로파일 준비) |
-| Button | `Btn_LoadProfile` | 선택한 프로파일 불러오기 |
-| Button | `Btn_SaveProfile` | 현재 입력값을 프로파일로 저장 |
-| Button | `Btn_DeleteProfile` | 선택한 프로파일 삭제 |
+| ComboBoxString | `Combo_VehiclePresetList` | 저장된 Vehicle Preset 목록 |
+| EditableTextBox | `TB_VehicleName` | 차량 이름 입력 (예: "SantaFe") |
+| EditableTextBox | `TB_HipPos_X` | VehicleHipPosition X (cm) |
+| EditableTextBox | `TB_HipPos_Y` | VehicleHipPosition Y (cm) |
+| EditableTextBox | `TB_HipPos_Z` | VehicleHipPosition Z (cm) |
+| Button | `Btn_SaveVehiclePreset` | 현재 입력값으로 Vehicle Preset 저장 |
+| Button | `Btn_DeleteVehiclePreset` | 선택한 Vehicle Preset 삭제 |
+| TextBlock | `Txt_VehicleStatus` | 저장/삭제 결과 메시지 (선택) |
+
+**Designer 탭 예시 레이아웃 (Vehicle Preset 탭):**
+```
+[Vertical Box]
+  ├─ TextBlock "차량 프리셋 관리"            (헤더)
+  ├─ ComboBoxString  Combo_VehiclePresetList  (저장된 차량 목록)
+  ├─ EditableTextBox TB_VehicleName          "차량 이름 (예: SantaFe)"
+  ├─ [Horizontal Box] Hip Position 입력
+  │    ├─ TextBlock "Hip X"
+  │    ├─ EditableTextBox TB_HipPos_X
+  │    ├─ TextBlock "Y"
+  │    ├─ EditableTextBox TB_HipPos_Y
+  │    ├─ TextBlock "Z"
+  │    └─ EditableTextBox TB_HipPos_Z
+  ├─ [Horizontal Box] 버튼
+  │    ├─ Button Btn_SaveVehiclePreset   "Save Vehicle Preset"
+  │    └─ Button Btn_DeleteVehiclePreset "Delete"
+  └─ TextBlock Txt_VehicleStatus        (결과 메시지)
+```
+
+---
+
+### [Profile 탭] BindWidget 목록
+
+피실험자별 세션 설정 전체를 저장·관리합니다.
+
+| 위젯 타입 | 이름 (정확히) | 역할 |
+|---------|------------|-----|
+| ComboBoxString | `Combo_ProfileSelect` | 저장된 Profile 목록 |
+| EditableTextBox | `TB_ProfileName` | 저장할 Profile 이름 입력 |
+| Button | `Btn_SaveProfile` | 현재 입력값으로 Profile 저장 |
+| Button | `Btn_LoadProfile` | 선택한 Profile 불러오기 |
+| Button | `Btn_DeleteProfile` | 선택한 Profile 삭제 |
+| Button | `Btn_SetAsActive` | **선택한 Profile을 Active로 지정** (VRTestLevel 시작 시 자동 로드) |
+| TextBlock | `Txt_ActiveProfile` | 현재 Active Profile 이름 표시 |
 | EditableTextBox | `TB_SubjectID` | 피실험자 ID |
-| EditableTextBox | `TB_Height` | 키(cm) |
-| CheckBox | `Toggle_VRMode` | VR/Simulation 모드 |
-| EditableTextBox | `TB_Offset_Waist_X/Y/Z` | Waist 오프셋 |
-| EditableTextBox | `TB_Offset_LKnee_X/Y/Z` | 왼무릎 오프셋 |
-| EditableTextBox | `TB_Offset_RKnee_X/Y/Z` | 오른무릎 오프셋 |
-| EditableTextBox | `TB_Offset_LFoot_X/Y/Z` | 왼발 오프셋 |
-| EditableTextBox | `TB_Offset_RFoot_X/Y/Z` | 오른발 오프셋 |
-| EditableTextBox | `TB_HipRef_X/Y/Z` | 차량 Hip 기준점 |
-| Slider | `Slider_Warning` | Warning 임계값 (3~50cm) |
-| Slider | `Slider_Collision` | Collision 임계값 (1~20cm) |
-| TextBlock | `Txt_WarningVal` | Warning 슬라이더 현재값 |
-| TextBlock | `Txt_CollisionVal` | Collision 슬라이더 현재값 |
-| ComboBoxString | `Combo_VehiclePreset` | 차종 프리셋 선택 |
-| CheckBox | `CB_ShowCollisionSpheres` | 충돌 구 표시 |
-| CheckBox | `CB_ShowTrackerMesh` | Tracker 메시 표시 |
+| EditableTextBox | `TB_Height` | 키 (cm) |
+| EditableTextBox | `TB_Offset_Waist_X/Y/Z` | Waist 트래커 오프셋 |
+| EditableTextBox | `TB_Offset_LKnee_X/Y/Z` | 왼무릎 트래커 오프셋 |
+| EditableTextBox | `TB_Offset_RKnee_X/Y/Z` | 오른무릎 트래커 오프셋 |
+| EditableTextBox | `TB_Offset_LFoot_X/Y/Z` | 왼발 트래커 오프셋 |
+| EditableTextBox | `TB_Offset_RFoot_X/Y/Z` | 오른발 트래커 오프셋 |
+| ComboBoxString | `Combo_VehiclePresetSelect` | Vehicle Preset 선택 → HipPosition 자동 입력 |
+| EditableTextBox | `TB_HipRef_X/Y/Z` | VehicleHipPosition (Combo 선택 시 자동 입력, 수동 수정 가능) |
+| Slider | `Slider_Warning` | Warning 임계값 (3~50 cm) |
+| Slider | `Slider_Collision` | Collision 임계값 (1~20 cm) |
+| TextBlock | `Txt_WarningVal` | Warning 슬라이더 현재값 표시 |
+| TextBlock | `Txt_CollisionVal` | Collision 슬라이더 현재값 표시 |
+| CheckBox | `CB_ShowCollisionSpheres` | 충돌 구 표시 여부 |
+| CheckBox | `CB_ShowTrackerMesh` | Tracker 메시 표시 여부 |
 | TextBlock | `Txt_Status` | 저장/불러오기 결과 메시지 (선택) |
 
-### 워크플로우
+**Designer 탭 예시 레이아웃 (Profile 탭):**
+```
+[Vertical Box]
+  ├─ [Section] 프로파일 목록
+  │    ├─ ComboBoxString Combo_ProfileSelect
+  │    ├─ EditableTextBox TB_ProfileName      "저장할 이름 입력"
+  │    └─ [Horizontal Box]
+  │         ├─ Btn_LoadProfile  "Load"
+  │         ├─ Btn_SaveProfile  "Save"
+  │         └─ Btn_DeleteProfile "Delete"
+  │
+  ├─ [Section] Active Profile
+  │    ├─ TextBlock "Active: " + Txt_ActiveProfile   (굵게, 강조색)
+  │    └─ Btn_SetAsActive  "▶ Set as Active"         (가장 눈에 띄는 버튼)
+  │
+  ├─ [Section] 피실험자 정보
+  │    ├─ EditableTextBox TB_SubjectID
+  │    └─ EditableTextBox TB_Height
+  │
+  ├─ [Section] 차량 선택
+  │    ├─ ComboBoxString Combo_VehiclePresetSelect   (선택 시 TB_HipRef 자동 입력)
+  │    └─ [Horizontal Box] HipRef X / Y / Z
+  │         ├─ EditableTextBox TB_HipRef_X
+  │         ├─ EditableTextBox TB_HipRef_Y
+  │         └─ EditableTextBox TB_HipRef_Z
+  │
+  ├─ [Section] MountOffset (각 부위별 X/Y/Z)
+  │    ├─ Waist  : TB_Offset_Waist_X / Y / Z
+  │    ├─ L.Knee : TB_Offset_LKnee_X / Y / Z
+  │    ├─ R.Knee : TB_Offset_RKnee_X / Y / Z
+  │    ├─ L.Foot : TB_Offset_LFoot_X / Y / Z
+  │    └─ R.Foot : TB_Offset_RFoot_X / Y / Z
+  │
+  ├─ [Section] 임계값
+  │    ├─ Slider_Warning  + Txt_WarningVal   (3~50 cm)
+  │    └─ Slider_Collision + Txt_CollisionVal (1~20 cm)
+  │
+  ├─ [Section] 표시 설정
+  │    ├─ CB_ShowCollisionSpheres
+  │    └─ CB_ShowTrackerMesh
+  │
+  └─ TextBlock Txt_Status                    (결과 메시지)
+```
+
+---
+
+### 전체 워크플로우
 
 ```
-1. WBP_VTC_ProfileManager 열기
-2. [New Profile] → 입력란 초기화
-3. TB_ProfileName 입력: "Subject01_SantaFe"
-4. SubjectID, Height, 각종 오프셋, 차량 프리셋 선택
-5. [Save Profile] → Saved/VTCProfiles/Subject01_SantaFe.json 생성
+[1단계] 차량 등록 (최초 1회 또는 차량 추가 시)
+────────────────────────────────────────────
+Vehicle Preset 탭
+  → TB_VehicleName: "SantaFe"
+  → TB_HipPos_X/Y/Z: 차량 Hip 기준 좌표 입력
+  → [Save Vehicle Preset]
+  → Saved/VTCPresets/SantaFe.json 생성
 
-6. VRTestLevel 실행 → P키로 "Subject01_SantaFe" 프로파일 적용
+[2단계] 피실험자 프로파일 생성
+────────────────────────────────────────────
+Profile 탭
+  → TB_ProfileName: "Subject01_SantaFe"
+  → SubjectID, Height 입력
+  → Combo_VehiclePresetSelect: "SantaFe" 선택
+      → TB_HipRef_X/Y/Z 자동 입력
+  → MountOffset × 5 입력
+  → Warning/Collision 임계값 설정
+  → [Save Profile]
+  → Saved/VTCProfiles/Subject01_SantaFe.json 생성
+
+[3단계] VRTestLevel 실행 준비
+────────────────────────────────────────────
+Profile 탭
+  → Combo_ProfileSelect: "Subject01_SantaFe" 선택
+  → [▶ Set as Active]
+  → Saved/VTCConfig/ActiveProfile.txt = "Subject01_SantaFe"
+  → Txt_ActiveProfile 갱신
+
+[4단계] VRTestLevel 실행
+────────────────────────────────────────────
+BeginPlay → ActiveProfile.txt 읽기
+         → Subject01_SantaFe.json 로드 → 자동 적용
+P키      → 재적용 (설정 리셋 / 재보정 후 사용)
 ```
 
 ### 파일 저장 위치
 
 ```
-[프로젝트]/Saved/VTCProfiles/
-  ├── Subject01_SantaFe.json
-  ├── Subject01_GrandStarex.json
-  ├── Subject02_SantaFe.json
-  └── ...
+[프로젝트]/Saved/
+  ├── VTCPresets/
+  │    ├── SantaFe.json
+  │    ├── GrandStarex.json
+  │    └── ...
+  ├── VTCProfiles/
+  │    ├── Subject01_SantaFe.json
+  │    ├── Subject01_GrandStarex.json
+  │    └── ...
+  └── VTCConfig/
+       └── ActiveProfile.txt      ← [Set as Active]이 기록하는 파일
 ```
 
 
