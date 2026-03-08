@@ -17,8 +17,8 @@
 
 ## 레벨 아키텍처 (VRTestLevel 단일 진입점)
 
-> **v3.0부터 Level 1 (SetupLevel) 및 Simulation 코드 전면 제거.**
-> VRTestLevel이 유일한 진입점. 설정은 `WBP_VTC_ProfileManager` (Utility Editor 위젯)에서 사전 저장.
+> **v3.0: SetupLevel 및 Simulation 코드 전면 제거.**
+> VRTestLevel이 유일한 진입점. 설정은 `WBP_VTC_ProfileManager` (Editor Utility Widget)에서 사전 저장.
 
 ```
 [VRTestLevel]
@@ -179,7 +179,7 @@ VTC_OperatorController → APlayerController
 - 마커 색상이 경고 단계에 따라 변경됨 (`bCollisionDisabled=false`인 경우)
 
 **VehicleHipPosition (동적 스폰):**
-- Level 1에서 입력한 차량 설계 기준 Hip 좌표
+- WBP_VTC_ProfileManager에서 설정한 차량 설계 기준 Hip 좌표
 - OperatorController::ApplyGameInstanceConfig()에서 ReferencePoint를 런타임 스폰
 - `bCollisionDisabled = true` 자동 설정 → 시안색 라인 + 거리만 표시, 경고 없음
 - CollisionDetector.ReferencePoints.AddUnique()로 수동 등록 (AutoFind 이후이므로)
@@ -220,7 +220,7 @@ VTC_OperatorController → APlayerController
 ```
 IDLE → CALIBRATING → TESTING → REVIEWING → IDLE
                    ↕ (RequestReCalibration)
-모든 상태에서 Escape → Level 1 복귀
+Escape → 세션 중단 / IDLE 복귀
 ```
 
 **주요 함수:**
@@ -271,15 +271,13 @@ IDLE → CALIBRATING → TESTING → REVIEWING → IDLE
 
 ### 9. UI System
 
-#### Level 1 — VTC_SetupWidget (Desktop UMG)
+#### VTC_ProfileManagerWidget (Editor Utility Widget — 사전 설정)
 
-- `VTC_SetupGameMode::BeginPlay()`에서 자동 생성 + AddToViewport
-- `VTC_SetupGameMode::EndPlay()`에서 RemoveFromParent + null 처리 (레벨 전환 시 정리)
-- BindWidget 패턴으로 C++ ↔ Designer 연결
-- NativeConstruct에서 INI 자동 로드
-- CB_ModeVR ↔ CB_ModeSimulation 상호 배타 자동 처리
+- **레벨과 무관**하게 에디터에서 더블클릭으로 직접 실행 (별도 맵 불필요)
+- `Saved/VTCProfiles/<Name>.json` 형식으로 피실험자+차량 조합 프로파일 저장/불러오기/삭제
+- VRTestLevel 실행 전 프로파일을 미리 준비해두는 오프라인 설정 도구
 
-#### Level 2 — VTC_StatusWidget (WorldSpace 3D)
+#### VTC_StatusWidget (VRTestLevel — WorldSpace 3D)
 
 - `VTC_StatusActor`의 WidgetComponent에 WorldSpace로 렌더링
 - **필수 BindWidget** 4개: Txt_State, Txt_Prompt, Txt_SubjectInfo, Txt_TrackerStatus
@@ -326,7 +324,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   ├── UI/
 │   │   ├── VTC_StatusWidget.h
 │   │   ├── VTC_SubjectInfoWidget.h
-│   │   └── VTC_ProfileManagerWidget.h  ← 프로파일 Utility Editor
+│   │   └── VTC_ProfileManagerWidget.h  ← 프로파일 Editor Utility Widget
 │   └── World/
 │       └── VTC_StatusActor.h
 └── Private/
@@ -347,7 +345,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 6. **BP_VTC_StatusActor + WBP_VTC_StatusWidget** — 3D 월드 위젯
 7. **VRTestLevel** — 맵 파일 생성 + GameMode Override = BP_VTC_VRGameMode
 8. **PostProcessVolume** — Infinite Extent, WarningFeedback에 연결
-9. **WBP_VTC_ProfileManager** (Utility Editor 위젯) — 피실험자+차량 프로파일 사전 저장
+9. **WBP_VTC_ProfileManager** (Editor Utility Widget) — 피실험자+차량 프로파일 사전 저장
 
 ### 있으면 좋음
 

@@ -95,7 +95,7 @@ bool bIsInterpolated = false;
 
 **`FVTCSessionConfig`에 추가:**
 ```cpp
-// ── 거리 임계값 (Level 1에서 설정, CollisionDetector에 적용) ────────────
+// ── 거리 임계값 (ProfileManagerWidget에서 설정, CollisionDetector에 적용) ─
 UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Thresholds")
 float WarningThreshold_cm = 10.0f;      // 이 거리 이하 → Warning
 
@@ -516,50 +516,10 @@ FString WorstClearanceScreenshotPath = TEXT("");
 
 ---
 
-## Step 4A — 기능 A: Level 1 임계값 슬라이더
+## Step 4A — 기능 A: 거리 임계값 적용 (ProfileManagerWidget → OperatorController)
 
-### `VTC_SetupWidget.h` 추가
-
-```cpp
-// BindWidget: 임계값 슬라이더
-UPROPERTY(meta=(BindWidget))
-TObjectPtr<USlider> Slider_Warning;      // 범위: 3~50cm, 기본 10
-
-UPROPERTY(meta=(BindWidget))
-TObjectPtr<USlider> Slider_Collision;    // 범위: 1~20cm, 기본 3
-
-// 슬라이더 현재값 표시
-UPROPERTY(meta=(BindWidget))
-TObjectPtr<UTextBlock> Txt_WarningVal;   // "10.0 cm"
-
-UPROPERTY(meta=(BindWidget))
-TObjectPtr<UTextBlock> Txt_CollisionVal; // "3.0 cm"
-```
-
-**NativeConstruct()에서:**
-```cpp
-Slider_Warning->OnValueChanged.AddDynamic(this, &ThisClass::OnWarningSliderChanged);
-Slider_Collision->OnValueChanged.AddDynamic(this, &ThisClass::OnCollisionSliderChanged);
-```
-
-**콜백:**
-```cpp
-void UVTC_SetupWidget::OnWarningSliderChanged(float Value)
-{
-    // Collision 임계값보다 항상 크게 유지
-    const float CollisionVal = Slider_Collision->GetValue();
-    const float ClampedVal   = FMath::Max(Value, CollisionVal + 1.0f);
-    Slider_Warning->SetValue(ClampedVal);
-    Txt_WarningVal->SetText(FText::FromString(
-        FString::Printf(TEXT("%.0f cm"), ClampedVal)));
-}
-```
-
-**`BuildConfigFromInputs()`에 추가:**
-```cpp
-Config.WarningThreshold_cm   = Slider_Warning->GetValue();
-Config.CollisionThreshold_cm = Slider_Collision->GetValue();
-```
+> **v3.0:** 임계값 슬라이더는 VRTestLevel이 아닌 `WBP_VTC_ProfileManager` (Editor Utility Widget)에서 사전 설정.
+> `VTC_SetupWidget`은 삭제됨. OperatorController가 프로파일 JSON을 읽어 임계값을 CollisionDetector에 적용.
 
 **`VTC_OperatorController.cpp` — `ApplyGameInstanceConfig()`에 추가:**
 ```cpp
@@ -571,7 +531,7 @@ if (UVTC_CollisionDetector* Detector = /* SessionManager->CollisionDetector */)
 }
 ```
 
-**Designer 레이아웃 (Level 1 SetupWidget에 추가):**
+**WBP_VTC_ProfileManager BindWidget (거리 임계값 슬라이더 — v3.0 이전 SetupWidget 대체):**
 ```
 [Section] 거리 임계값 설정
   ├─ HorizontalBox
@@ -669,49 +629,19 @@ public:
 > UE5의 `FJsonObjectConverter`가 USTRUCT를 JSON으로 자동 변환해줌 (TArray, FVector 포함).
 > `EVTCTrackerRole` enum은 `EnumToString` 헬퍼로 직렬화.
 
-### `VTC_SetupWidget.h` 추가
-
-```cpp
-// BindWidget: 프리셋 UI
-UPROPERTY(meta=(BindWidget))
-TObjectPtr<UComboBoxString> Combo_VehiclePreset;
-
-UPROPERTY(meta=(BindWidget))
-TObjectPtr<UEditableTextBox> TB_NewPresetName;
-
-UPROPERTY(meta=(BindWidget))
-TObjectPtr<UButton> Btn_SavePreset;
-
-UPROPERTY(meta=(BindWidget))
-TObjectPtr<UButton> Btn_DeletePreset;
+**동작 흐름 (WBP_VTC_ProfileManager — Editor Utility Widget):**
 ```
+> v3.0: VTC_SetupWidget 삭제됨. 프리셋 선택은 WBP_VTC_ProfileManager에서 사전 저장.
 
-**동작 흐름:**
-```
-NativeConstruct → UVTC_VehiclePresetManager::GetAllPresetNames() → Combo_VehiclePreset 채우기
+[에디터에서 사전 설정]
+WBP_VTC_ProfileManager → Combo_VehiclePreset 선택 → 프로파일에 프리셋 정보 포함하여 저장
 
-[프리셋 선택]
-Combo_VehiclePreset.OnSelectionChanged
-  → LoadPreset(선택된 이름) → PopulateFromPreset()
-     → VehicleHipPosition 자동 입력
-     → WarningThreshold, CollisionThreshold 자동 입력
-     → Config.bUseVehiclePreset = true
+[VRTestLevel 실행 후 P키]
+GameInstance.ApplyProfileByName() → SessionConfig 로드
+  → Config.SelectedPresetName 포함 → ApplyGameInstanceConfig() 호출
 
-[Start Session]
-BuildConfigFromInputs()
-  → Config.SelectedPresetName = 선택된 프리셋 이름
-  → Config.LoadedPresetJson = PresetToJson(LoadedPreset)
-  → Level 2로 OpenLevel
-
-[프리셋 저장] (Level 2에서 돌아온 후, 또는 Level 1에서 수동 입력)
-Btn_SavePreset.OnClicked
-  → TB_NewPresetName.Text = 프리셋 이름
-  → BuildPresetFromInputs() → SavePreset()
-  → Combo 갱신
-
-[프리셋 삭제]
-Btn_DeletePreset.OnClicked
-  → DeletePreset(선택된 이름) → Combo 갱신
+[프리셋 저장/삭제]
+WBP_VTC_ProfileManager에서 직접 관리 (에디터에서 실행)
 ```
 
 ### `VTC_OperatorController.cpp` — `ApplyGameInstanceConfig()` 추가
@@ -749,7 +679,7 @@ void AVTC_OperatorController::SpawnReferencePointsFromPreset(const FVTCVehiclePr
 }
 ```
 
-**Designer 레이아웃 (Level 1 SetupWidget에 추가):**
+**WBP_VTC_ProfileManager BindWidget (차종 프리셋 선택 — v3.0 이전 SetupWidget 대체):**
 ```
 [Section] 차종 프리셋
   ├─ ComboBoxString Combo_VehiclePreset  "프리셋 선택..."
@@ -779,7 +709,6 @@ void AVTC_OperatorController::SpawnReferencePointsFromPreset(const FVTCVehiclePr
 | `Collision/VTC_CollisionDetector.h/cpp` | DrawDebugString, 자동 스크린샷 |
 | `Data/VTC_DataLogger.h/cpp` | 단계별 MinClearance, 스크린샷 경로 |
 | `Controller/VTC_OperatorController.h/cpp` | 임계값 적용, 프리셋 스폰 |
-| `UI/VTC_SetupWidget.h/cpp` | 임계값 슬라이더, 프리셋 UI |
 
 ---
 

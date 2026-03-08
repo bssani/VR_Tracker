@@ -48,7 +48,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   ├── Controller/
 │   │   └── VTC_OperatorController.h
 │   ├── UI/
-│   │   ├── VTC_ProfileManagerWidget.h   ← Utility Editor 프로파일 관리 위젯 (신규)
+│   │   ├── VTC_ProfileManagerWidget.h   ← Editor Utility Widget 프로파일 관리 (신규)
 │   │   ├── VTC_StatusWidget.h
 │   │   └── VTC_SubjectInfoWidget.h
 │   ├── Vehicle/
@@ -187,7 +187,7 @@ MountOffset_Waist = (0, -15, 0)   // 트래커 로컬 Y 음수 = 등 방향 (확
   VRTestLevel이 유일한 진입점. Blueprint `.uasset` 파일도 정리 필요 (에디터에서 수동 삭제).
 - **[Set Hip Here] 버튼**: 피실험자가 차량 시트에 앉은 상태에서 누르면 Waist 트래커 위치를
   `VehicleHipPosition`으로 캡처하고 현재 프로파일 JSON에 저장함 → 수동 좌표 입력 불필요.
-- **프로파일 시스템**: `WBP_VTC_ProfileManager` (Utility Editor 위젯)에서 사전 저장.
+- **프로파일 시스템**: `WBP_VTC_ProfileManager` (Editor Utility Widget)에서 사전 저장.
   VRTestLevel에서 **P키**로 마지막 저장 프로파일 즉시 적용.
   저장 경로: `Saved/VTCProfiles/<Name>.json`
 - **P키**: VR 레벨에서 마지막 저장 프로파일 재적용 (JSON 재로드 + Pawn Hip 스냅 + 전체 설정 적용)

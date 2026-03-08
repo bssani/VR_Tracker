@@ -10,8 +10,8 @@
 
 C++ 클래스들은 이미 완성되어 있고, **Blueprint로 래핑**하고 **레벨에 배치 및 연결**하면 동작합니다.
 
-> **v3.0부터 Level 1 (SetupLevel) 및 Simulation 코드 전면 제거.**
-> VRTestLevel이 유일한 진입점. 설정은 `WBP_VTC_ProfileManager` (Utility Editor 위젯)에서 사전 저장.
+> **v3.0: SetupLevel 및 Simulation 코드 전면 제거.**
+> VRTestLevel이 유일한 진입점. 설정은 `WBP_VTC_ProfileManager` (Editor Utility Widget)에서 사전 저장.
 
 ```
 [VRTestLevel]  ← VR 전용, 유일한 진입점
@@ -40,7 +40,7 @@ C++ 클래스들은 이미 완성되어 있고, **Blueprint로 래핑**하고 **
 
 ```
 [사전 설정 — 에디터에서]
-WBP_VTC_ProfileManager (Utility Editor 위젯)
+WBP_VTC_ProfileManager (Editor Utility Widget)
     ├─ SubjectID, Height, MountOffset × 5, VehicleHipPosition 입력
     ├─ WarningThreshold_cm / CollisionThreshold_cm 설정
     └─ Saved/VTCProfiles/<ProfileName>.json 저장
@@ -70,7 +70,7 @@ ApplyGameInstanceConfig()
   BP_VTC_StatusActor          (VTC_StatusActor 기반)
   WBP_VTC_StatusWidget        (VTC_StatusWidget 기반)
 
-[프로파일 관리 — Utility Editor]
+[프로파일 관리 — Editor Utility Widget]
   WBP_VTC_ProfileManager      (VTC_ProfileManagerWidget 기반) ← 에디터에서 사전 실행
 
 [공통]
@@ -499,7 +499,7 @@ SessionManager → BodyActor → **CalibrationComp** 컴포넌트에서 (Feature
 
 #### VRTestLevel 실행 워크플로우
 
-1. **에디터에서 사전 설정 (1회):** `WBP_VTC_ProfileManager` (Utility Editor 위젯) 실행 → SubjectID, Height, MountOffset, VehicleHipPosition 입력 → 프로파일 JSON 저장
+1. **에디터에서 사전 설정 (1회):** `WBP_VTC_ProfileManager` (Editor Utility Widget) 실행 → SubjectID, Height, MountOffset, VehicleHipPosition 입력 → 프로파일 JSON 저장
 2. **매 세션:** `VRTestLevel` 열기 → **VR Preview(Alt+P)** 실행
 3. VR 진입 후: **P키**로 마지막 저장 프로파일 적용
 
@@ -675,19 +675,19 @@ SessionManager 내 CollisionDetector 컴포넌트에서:
 
 ---
 
-## [신규] WBP_VTC_ProfileManager — 프로파일 Utility Editor
+## [신규] WBP_VTC_ProfileManager — Editor Utility Widget
 
 피실험자·차량 조합별 설정을 사전에 저장하는 **오프라인 설정 도구**입니다.
-Level 1(SetupLevel)을 열지 않고도 프로파일을 관리할 수 있습니다.
+레벨과 무관하게 **에디터에서 직접 실행**하는 Editor Utility Widget입니다.
 
 ### 생성 방법
 
-1. Content Browser → **User Interface → Widget Blueprint**
+1. Content Browser → 우클릭 → **Editor Utilities → Editor Utility Widget**
 2. Parent Class: **All Classes** → `VTC_ProfileManagerWidget` 검색 후 선택
 3. 이름: `WBP_VTC_ProfileManager`
 
-> 이 위젯은 에디터용 맵(예: `VTC_ProfileEditorLevel`)에서 실행하거나,
-> Level 1 SetupLevel에 함께 배치해 사용할 수 있습니다.
+> **실행 방법:** Content Browser에서 `WBP_VTC_ProfileManager`를 **더블클릭** 하면
+> 에디터 탭으로 열립니다. 별도의 레벨 없이 에디터 안에서 바로 사용합니다.
 
 ### 필수 BindWidget 목록
 

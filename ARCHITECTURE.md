@@ -45,8 +45,8 @@
 
 ## 2. 레벨 아키텍처 (VRTestLevel 단일 진입점)
 
-> **v3.0부터 Level 1 (SetupLevel) 및 Simulation 코드 전면 제거.**
-> VRTestLevel이 유일한 진입점. 설정은 `WBP_VTC_ProfileManager` (Utility Editor 위젯)에서 사전 저장.
+> **v3.0: SetupLevel 및 Simulation 코드 전면 제거.**
+> VRTestLevel이 유일한 진입점. 설정은 `WBP_VTC_ProfileManager` (Editor Utility Widget)에서 사전 저장.
 
 ```
 ┌─ VRTestLevel ──────────────────────────────────────────────────────────┐
@@ -74,7 +74,7 @@
 ### 프로파일 워크플로우
 
 ```
-[사전 설정] WBP_VTC_ProfileManager (Utility Editor 위젯)
+[사전 설정] WBP_VTC_ProfileManager (Editor Utility Widget)
     → SubjectID, Height, MountOffset × 5, VehicleHipPosition 등 입력
     → Saved/VTCProfiles/<ProfileName>.json 저장
 
@@ -214,7 +214,7 @@ Plugins/
     │       │   ├── UI/
     │       │   │   ├── VTC_StatusWidget.h       ← VR 3D WorldSpace 상태 표시 위젯
     │       │   │   ├── VTC_SubjectInfoWidget.h  ← 피실험자 입력 위젯
-    │       │   │   └── VTC_ProfileManagerWidget.h  ← 프로파일 Utility Editor
+    │       │   │   └── VTC_ProfileManagerWidget.h  ← 프로파일 Editor Utility Widget
     │       │   │
     │       │   └── World/
     │       │       └── VTC_StatusActor.h        ← 3D 월드 위젯 Actor
@@ -345,7 +345,7 @@ enum class EVTCMovementPhase : uint8
 // Hip Z 속도로 자동 감지. DataLogger의 Phase별 최소 클리어런스 추적에 사용.
 
 // 주요 Struct
-FVTCSessionConfig     — Level 1↔Level 2 설정 전달 (SubjectID, Height, Offsets, 모드 등)
+FVTCSessionConfig     — 세션 설정 구조체 (SubjectID, Height, Offsets, 모드 등)
                         WarningThreshold_cm, CollisionThreshold_cm
                         bUseVehiclePreset, SelectedPresetName, LoadedPresetJson
                         bShowCollisionSpheres, bShowTrackerMesh
@@ -545,7 +545,7 @@ CollisionOccurred, CollisionPartName
    b. BP_VTC_SessionManager, BP_VTC_BodyActor, BP_VTC_StatusActor 배치
    c. 차량 Interior Mesh 위에 BP_VTC_ReferencePoint 배치 (PartName 설정)
    d. PostProcessVolume (Infinite Extent) 배치
-4. WBP_VTC_ProfileManager (Utility Editor)에서 피실험자+차량 프로파일 사전 저장
+4. WBP_VTC_ProfileManager (Editor Utility Widget)에서 피실험자+차량 프로파일 사전 저장
 5. 차량 모델만 교체 + ReferencePoint 재배치하면 다른 차종에 바로 적용 가능
 ```
 
@@ -575,7 +575,7 @@ CollisionOccurred, CollisionPartName
 | VTC_SessionManager | Data | 세션 상태머신 |
 | VTC_StatusWidget | UI | VR 3D WorldSpace 상태 표시 위젯 |
 | VTC_SubjectInfoWidget | UI | 피실험자 입력 위젯 |
-| VTC_ProfileManagerWidget | UI | 프로파일 Utility Editor 위젯 (사전 설정 저장/불러오기/삭제) |
+| VTC_ProfileManagerWidget | UI | 프로파일 Editor Utility Widget (사전 설정 저장/불러오기/삭제) |
 | VTC_StatusActor | World | 3D 월드 위젯 Actor |
 | VTC_VehiclePreset | Core | JSON 차종 프리셋 구조체 + 파일 I/O Manager |
 
@@ -590,7 +590,7 @@ CollisionOccurred, CollisionPartName
 | BP_VTC_ReferencePoint (차량 위 배치) | 높음 |
 | BP_VTC_SessionManager (시스템 자동 탐색) | 높음 |
 | BP_VTC_StatusActor + WBP_VTC_StatusWidget | 높음 |
-| WBP_VTC_ProfileManager (Utility Editor 사전 설정) | 높음 |
+| WBP_VTC_ProfileManager (Editor Utility Widget 사전 설정) | 높음 |
 | VRTestLevel 맵 파일 GameMode Override = VTC_VRGameMode | 높음 |
 | Material (Body Segment Safe/Warning/Collision) | 중간 |
 | Niagara FX 설정 (CollisionImpact, WarningPulse) | 낮음 |
