@@ -212,9 +212,10 @@ Plugins/
     │       │   │
     │       │   ├── VTC_GameMode.h              ← Level 2 GameMode
     │       │   ├── VTC_SetupGameMode.h         ← Level 1 GameMode (SetupWidget 생성)
-    │       │   ├── VTC_GameInstance.h           ← 레벨 간 설정 전달 + INI
-    │       │   ├── VTC_SessionConfig.h          ← FVTCSessionConfig 구조체
+    │       │   ├── VTC_GameInstance.h           ← 레벨 간 설정 전달 + INI + ApplyProfileByName
+    │       │   ├── VTC_SessionConfig.h          ← FVTCSessionConfig 구조체 (ProfileName 추가)
     │       │   ├── VTC_VehiclePreset.h          ← JSON 차종 프리셋 구조체 + Manager (Feature B)
+    │       │   ├── VTC_ProfileLibrary.h         ← [NEW] 피실험자+차량 프로파일 CRUD
     │       │   │
     │       │   ├── Tracker/
     │       │   │   ├── VTC_TrackerTypes.h       ← 공통 Enum/Struct
@@ -247,7 +248,8 @@ Plugins/
     │       │   │   ├── VTC_SetupWidget.h        ← Level 1 설정 위젯
     │       │   │   ├── VTC_StatusWidget.h       ← Level 2 상태 표시 위젯
     │       │   │   ├── VTC_SubjectInfoWidget.h  ← 피실험자 입력 위젯
-    │       │   │   └── VTC_OperatorMonitorWidget.h ← Level 2 운영자 데스크탑 모니터링 위젯
+    │       │   │   ├── VTC_OperatorMonitorWidget.h ← Level 2 운영자 모니터 (프로파일 드롭다운+TrackerMesh 토글 추가)
+    │       │   │   └── VTC_ProfileManagerWidget.h  ← [NEW] 프로파일 Utility Editor
     │       │   │
     │       │   └── World/
     │       │       ├── VTC_StatusActor.h        ← 3D 월드 위젯 Actor
@@ -259,6 +261,7 @@ Plugins/
     │           ├── VTC_SetupGameMode.cpp
     │           ├── VTC_GameInstance.cpp
     │           ├── VTC_VehiclePreset.cpp
+    │           ├── VTC_ProfileLibrary.cpp     ← [NEW]
     │           │
     │           ├── Pawn/VTC_TrackerPawn.cpp
     │           ├── Controller/
@@ -279,7 +282,8 @@ Plugins/
     │           │   ├── VTC_SetupWidget.cpp
     │           │   ├── VTC_StatusWidget.cpp
     │           │   ├── VTC_SubjectInfoWidget.cpp
-    │           │   └── VTC_OperatorMonitorWidget.cpp
+    │           │   ├── VTC_OperatorMonitorWidget.cpp
+    │           │   └── VTC_ProfileManagerWidget.cpp  ← [NEW]
     │           └── World/
     │               ├── VTC_StatusActor.cpp
     │               └── VTC_OperatorViewActor.cpp
@@ -367,7 +371,11 @@ Plugins/
     ├─ 세션 상태 + 피실험자 정보 + 트래커 수
     ├─ 실시간 거리 목록 (30Hz, DistanceRowMap 재사용)
     ├─ 세션 최솟값 거리 (DistanceValueMap → UpdateMinDistanceFromMap)
-    └─ 경과 시간 (MM:SS)
+    ├─ 경과 시간 (MM:SS)
+    ├─ [NEW] Combo_ProfileSelect — Saved/VTCProfiles/*.json 드롭다운
+    ├─ [NEW] Btn_ApplyProfile → GameInstance.ApplyProfileByName() → OnProfileApplied 브로드캐스트
+    │         → OperatorController.OnMonitorWidgetProfileApplied() → ApplyGameInstanceConfig()
+    └─ [NEW] CB_TrackerMeshVisible → SessionConfig.bShowTrackerMesh 즉시 변경 + TrackerPawn에 적용
 ```
 
 ### 주요 타입 (VTC_TrackerTypes.h)
@@ -398,15 +406,17 @@ enum class EVTCMovementPhase : uint8
 
 // 주요 Struct
 FVTCSessionConfig     — Level 1↔Level 2 설정 전달 (SubjectID, Height, Offsets, 모드 등)
-                        [NEW] WarningThreshold_cm, CollisionThreshold_cm
-                        [NEW] bUseVehiclePreset, SelectedPresetName, LoadedPresetJson
+                        WarningThreshold_cm, CollisionThreshold_cm
+                        bUseVehiclePreset, SelectedPresetName, LoadedPresetJson
+                        bShowCollisionSpheres, bShowTrackerMesh
+                        [NEW] ProfileName — Saved/VTCProfiles/<ProfileName>.json 파일명
 FVTCTrackerData       — 단일 Tracker 위치/회전/추적여부
-                        [NEW] bIsInterpolated (dropout 보간 중 여부)
+                        bIsInterpolated (dropout 보간 중 여부)
 FVTCBodyMeasurements  — 캘리브레이션 결과 (세그먼트 길이, 키)
 FVTCDistanceResult    — 신체부위 ↔ 기준점 거리 측정 결과
 FVTCCollisionEvent    — 충돌 이벤트 기록 (시간, 부위, 부품명, 거리, 밀리초 정밀도)
-FVTCVehiclePreset     — [NEW] 차종 프리셋 (PresetName + ReferencePoint 배열)
-FVTCPresetRefPoint    — [NEW] 프리셋 내 단일 ReferencePoint 데이터
+FVTCVehiclePreset     — 차종 프리셋 (PresetName + ReferencePoint 배열)
+FVTCPresetRefPoint    — 프리셋 내 단일 ReferencePoint 데이터
 ```
 
 ---
@@ -620,8 +630,9 @@ CollisionOccurred, CollisionPartName
 | VTC_GameMode | Core | Level 2 GameMode | |
 | VTC_SetupGameMode | Core | Level 1 GameMode (위젯 생성/정리) | |
 | VTC_GameInstance | Core | 레벨 간 설정 전달 + INI | |
-| VTC_SessionConfig | Core | FVTCSessionConfig 구조체 | WarningThreshold_cm, CollisionThreshold_cm, bUseVehiclePreset, SelectedPresetName, LoadedPresetJson |
-| VTC_OperatorController | Controller | F키 세션 제어 + 설정 적용 + 동적 스폰 | |
+| VTC_SessionConfig | Core | FVTCSessionConfig 구조체 | WarningThreshold_cm, CollisionThreshold_cm, bUseVehiclePreset, SelectedPresetName, LoadedPresetJson, **ProfileName** |
+| VTC_ProfileLibrary | Core | **[NEW]** 피실험자+차량 조합 프로파일 CRUD (Saved/VTCProfiles/) | 신규 ✅ |
+| VTC_OperatorController | Controller | F키 세션 제어 + 설정 적용 + 동적 스폰 + OnMonitorWidgetProfileApplied | |
 | VTC_SimPlayerController | Controller | WASD/마우스 시뮬레이션 (OperatorController 상속) | |
 | VTC_BodyActor | Body | 가상 신체 (세그먼트+Sphere+VisualSphere) | |
 | VTC_BodySegmentComponent | Body | Dynamic Cylinder | |
@@ -634,7 +645,8 @@ CollisionOccurred, CollisionPartName
 | VTC_SetupWidget | UI | Level 1 설정 위젯 | **A** 임계값 슬라이더 ✅ / **B** 차종 프리셋 ComboBox ✅ |
 | VTC_StatusWidget | UI | Level 2 상태 표시 위젯 | |
 | VTC_SubjectInfoWidget | UI | 피실험자 입력 위젯 | |
-| VTC_OperatorMonitorWidget | UI | Level 2 운영자 데스크탑 모니터링 위젯 (Screen Space) — 거리 실시간 표시 + DistanceValueMap 기반 최솟값 자동 갱신 | 신규 ✅ |
+| VTC_OperatorMonitorWidget | UI | Level 2 운영자 모니터 (프로파일 드롭다운, Apply 버튼, TrackerMesh 체크박스 추가) | 신규+갱신 ✅ |
+| VTC_ProfileManagerWidget | UI | **[NEW]** 프로파일 Utility Editor 위젯 (사전 설정 저장/불러오기/삭제) | 신규 ✅ |
 | VTC_StatusActor | World | 3D 월드 위젯 Actor | |
 | VTC_VehiclePreset | Core | JSON 차종 프리셋 구조체 + 파일 I/O Manager | **B** ✅ |
 | VTC_OperatorViewActor | World | SceneCapture2D → TextureRenderTarget → Spectator Screen | **I** |

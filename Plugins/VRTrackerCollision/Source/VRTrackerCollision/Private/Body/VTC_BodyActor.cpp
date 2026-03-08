@@ -95,17 +95,17 @@ void AVTC_BodyActor::BeginPlay() {
   Super::BeginPlay();
 
   // TrackerSource 자동 탐색 (에디터에서 설정하지 않은 경우)
+  // FindTrackerSource() 성공 시 세그먼트/캘리브레이션도 함께 연결됨.
+  // TrackerPawn이 BeginPlay 이후 스폰될 때는 Tick()에서 재시도.
   if (!TrackerSource) {
     FindTrackerSource();
-  }
-
-  // 모든 세그먼트와 캘리브레이션에 TrackerSource 연결
-  if (TrackerSource) {
-    Seg_Hip_LeftKnee->TrackerSource = TrackerSource;
-    Seg_Hip_RightKnee->TrackerSource = TrackerSource;
-    Seg_LeftKnee_LeftFoot->TrackerSource = TrackerSource;
-    Seg_RightKnee_RightFoot->TrackerSource = TrackerSource;
-    CalibrationComp->TrackerSource = TrackerSource;
+  } else {
+    // 에디터에서 직접 할당된 경우 세그먼트에도 전파
+    if (Seg_Hip_LeftKnee)        Seg_Hip_LeftKnee->TrackerSource        = TrackerSource;
+    if (Seg_Hip_RightKnee)       Seg_Hip_RightKnee->TrackerSource       = TrackerSource;
+    if (Seg_LeftKnee_LeftFoot)   Seg_LeftKnee_LeftFoot->TrackerSource   = TrackerSource;
+    if (Seg_RightKnee_RightFoot) Seg_RightKnee_RightFoot->TrackerSource = TrackerSource;
+    if (CalibrationComp)         CalibrationComp->TrackerSource         = TrackerSource;
   }
 
   // Sphere 반경 초기화
@@ -131,12 +131,30 @@ void AVTC_BodyActor::BeginPlay() {
 
 void AVTC_BodyActor::Tick(float DeltaTime) {
   Super::Tick(DeltaTime);
+
+  // TrackerPawn은 GameMode DefaultPawn으로 BeginPlay 이후에 스폰됨.
+  // 찾을 때까지 매 프레임 재시도 — 찾으면 TrackerSource != null이 되어 즉시 통과.
+  if (!TrackerSource) {
+    FindTrackerSource();
+  }
+
   SyncSpherePositions();
 }
 
 void AVTC_BodyActor::SyncSpherePositions() {
-  if (!TrackerSource)
+  if (!TrackerSource) {
+    // TrackerSource 없으면 모두 숨기기 (tracker 미연결 시 mesh 노출 방지)
+    for (USphereComponent* S : { Sphere_Hip, Sphere_LeftKnee, Sphere_RightKnee,
+                                  Sphere_LeftFoot, Sphere_RightFoot }) {
+      if (S) { S->SetVisibility(false); S->SetCollisionEnabled(ECollisionEnabled::NoCollision); }
+    }
+    for (UStaticMeshComponent* V : { VisualSphere_Hip, VisualSphere_LeftKnee,
+                                      VisualSphere_RightKnee, VisualSphere_LeftFoot,
+                                      VisualSphere_RightFoot }) {
+      if (V) V->SetVisibility(false);
+    }
     return;
+  }
 
   auto SyncSphere = [&](USphereComponent* S, UStaticMeshComponent* Visual,
                         EVTCTrackerRole TrackerRole)
@@ -248,30 +266,29 @@ void AVTC_BodyActor::ApplySessionConfig(const FVTCSessionConfig& Config)
   MountOffset_RightFoot  = Config.MountOffset_RightFoot;
 
   // Vehicle Hip Reference Position 적용 및 마커 이동
+  // VehicleHipMarker: 차량 설계 기준 Hip 위치를 시각적으로 표시 (정적 마커)
+  // Sphere_Hip: 매 Tick SyncSpherePositions()에서 실제 waist tracker 위치로 자동 갱신
+  //             → 여기서 SetWorldLocation하면 다음 Tick에 덮어씌워지므로 설정하지 않음
   VehicleHipPosition = Config.VehicleHipPosition;
   if (VehicleHipMarker)
     VehicleHipMarker->SetWorldLocation(Config.VehicleHipPosition);
-  Sphere_Hip->SetWorldLocation(Config.VehicleHipPosition);  // Hip Sphere도 함께 이동
 
   // 가시성 상태 저장 (SyncSpherePositions Tick이 덮어쓰지 않도록)
   bShowCollisionSpheres = Config.bShowCollisionSpheres;
 
-  // Collision/Visual Sphere 가시성 적용
-  auto SetSphereGroupVisible = [&](USphereComponent* S, UStaticMeshComponent* V, bool bShow)
+  // Sphere 초기 상태: 모두 hidden으로 시작.
+  // 실제 visibility는 매 Tick의 SyncSpherePositions()에서 tracker active 여부에 따라 자동 결정.
+  // (tracker 미연결 시 mesh가 보이는 버그 방지)
+  auto HideSphereGroup = [&](USphereComponent* S, UStaticMeshComponent* V)
   {
-    if (S)
-    {
-      S->SetVisibility(bShow);
-      S->SetCollisionEnabled(bShow ? ECollisionEnabled::QueryAndPhysics
-                                   : ECollisionEnabled::NoCollision);
-    }
-    if (V) V->SetVisibility(bShow);
+    if (S) { S->SetVisibility(false); S->SetCollisionEnabled(ECollisionEnabled::NoCollision); }
+    if (V) V->SetVisibility(false);
   };
-  SetSphereGroupVisible(Sphere_Hip,       VisualSphere_Hip,       Config.bShowCollisionSpheres);
-  SetSphereGroupVisible(Sphere_LeftKnee,  VisualSphere_LeftKnee,  Config.bShowCollisionSpheres);
-  SetSphereGroupVisible(Sphere_RightKnee, VisualSphere_RightKnee, Config.bShowCollisionSpheres);
-  SetSphereGroupVisible(Sphere_LeftFoot,  VisualSphere_LeftFoot,  Config.bShowCollisionSpheres);
-  SetSphereGroupVisible(Sphere_RightFoot, VisualSphere_RightFoot, Config.bShowCollisionSpheres);
+  HideSphereGroup(Sphere_Hip,       VisualSphere_Hip);
+  HideSphereGroup(Sphere_LeftKnee,  VisualSphere_LeftKnee);
+  HideSphereGroup(Sphere_RightKnee, VisualSphere_RightKnee);
+  HideSphereGroup(Sphere_LeftFoot,  VisualSphere_LeftFoot);
+  HideSphereGroup(Sphere_RightFoot, VisualSphere_RightFoot);
 
   UE_LOG(LogTemp, Log, TEXT("[VTC] BodyActor: SessionConfig 적용 완료."));
 }
@@ -342,6 +359,12 @@ void AVTC_BodyActor::FindTrackerSource() {
       GetWorld(), UVTC_TrackerInterface::StaticClass(), Found);
   if (Found.Num() > 0) {
     TrackerSource = TScriptInterface<IVTC_TrackerInterface>(Found[0]);
+    // 세그먼트 + 캘리브레이션에도 즉시 전파 (Tick retry 포함 모든 경로 공통)
+    if (Seg_Hip_LeftKnee)        Seg_Hip_LeftKnee->TrackerSource        = TrackerSource;
+    if (Seg_Hip_RightKnee)       Seg_Hip_RightKnee->TrackerSource       = TrackerSource;
+    if (Seg_LeftKnee_LeftFoot)   Seg_LeftKnee_LeftFoot->TrackerSource   = TrackerSource;
+    if (Seg_RightKnee_RightFoot) Seg_RightKnee_RightFoot->TrackerSource = TrackerSource;
+    if (CalibrationComp)         CalibrationComp->TrackerSource         = TrackerSource;
     UE_LOG(LogTemp, Log, TEXT("[VTC] BodyActor found tracker source: %s"),
            *Found[0]->GetName());
   } else {

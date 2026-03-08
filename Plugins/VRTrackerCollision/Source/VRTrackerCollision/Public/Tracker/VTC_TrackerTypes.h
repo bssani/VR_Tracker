@@ -121,11 +121,12 @@ struct VRTRACKERCOLLISION_API FVTCBodyMeasurements
 	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
 	bool bIsCalibrated = false;
 
-	// 유효성 검사 (모든 세그먼트가 최소 10cm 이상인지)
+	// 유효성 검사: 캘리브레이션 완료 + 하나 이상의 세그먼트 측정됨 (부분 캘리브레이션 포함)
 	bool IsValid() const
 	{
-		return Hip_LeftKnee > 10.0f && Hip_RightKnee > 10.0f
-			&& LeftKnee_LeftFoot > 10.0f && RightKnee_RightFoot > 10.0f;
+		return bIsCalibrated &&
+			(Hip_LeftKnee > 10.0f || Hip_RightKnee > 10.0f ||
+			 LeftKnee_LeftFoot > 10.0f || RightKnee_RightFoot > 10.0f);
 	}
 };
 

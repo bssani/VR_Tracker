@@ -5,7 +5,6 @@
 #include "DrawDebugHelpers.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/FileHelper.h"
-#include "UnrealClient.h"
 #include "Vehicle/VTC_ReferencePoint.h"
 
 UVTC_CollisionDetector::UVTC_CollisionDetector() {
@@ -102,45 +101,27 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
       Result.ReferencePointLocation = RefPoint->GetReferenceLocation();
       CurrentDistanceResults.Add(Result);
 
-      // Vehicle_Hip는 거리만 재고(시안색 라인) 임계값/데이터최솟값 등 로직
-      // 건너뜀
-      if (RefPoint->PartName == TEXT("Vehicle_Hip")) {
-        if (bShowDistanceLabels) {
-          const FVector MidPoint =
-              (BodyLocation + RefPoint->GetReferenceLocation()) * 0.5f;
-          const FString DistLabel =
-              FString::Printf(TEXT("%.1f cm"), SafeDistanceResult);
-          DrawDebugString(GetWorld(), MidPoint, DistLabel, nullptr,
-                          FColor::Cyan, -1.0f, true, 1.2f);
-          DrawDebugLine(GetWorld(), BodyLocation,
-                        RefPoint->GetReferenceLocation(), FColor::Cyan, true,
-                        -1.0f, 0, DebugLineThickness);
-        }
+      // bCollisionDisabled = true: 거리 시각화만 하고 임계값/색상/Delegate 건너뜀.
+      // Vehicle_Hip 등 참조용 마커에 사용. 라인은 항상(bShowDistanceLabels 무관) 표시.
+      if (RefPoint->bCollisionDisabled) {
+        const FVector RefLoc = RefPoint->GetReferenceLocation();
+        DrawDebugLine(GetWorld(), BodyLocation, RefLoc, FColor::Cyan, true,
+                      -1.0f, 0, DebugLineThickness);
+        const FVector MidPoint = (BodyLocation + RefLoc) * 0.5f;
+        const FString DistLabel = FString::Printf(TEXT("%.1f cm"), SafeDistanceResult);
+        DrawDebugString(GetWorld(), MidPoint, DistLabel, nullptr,
+                        FColor::Cyan, -1.0f, true, 1.2f);
+        // 거리만 브로드캐스트 (경고/충돌 이벤트 없음)
+        OnDisabledRefPointDistance.Broadcast(RefPoint->PartName, TrackerRole, SafeDistanceResult);
         continue;
       }
 
-      // 최소 거리 갱신 + 자동 스크린샷
+      // 최소 거리 갱신
       if (SafeDistanceResult < SessionMinDistance) {
         SessionMinDistance = SafeDistanceResult;
-
-        if (bAutoScreenshotOnWorstClearance) {
-          FString Dir = ScreenshotDirectory;
-          if (Dir.IsEmpty()) {
-            Dir = FPaths::ProjectSavedDir() / TEXT("VTCLogs") /
-                  TEXT("Screenshots");
-          }
-          IFileManager::Get().MakeDirectory(*Dir, true);
-          const FString Filename = FString::Printf(
-              TEXT("VTC_Worst_%.1fcm_%s.png"), SafeDistanceResult,
-              *FDateTime::Now().ToString(TEXT("%Y%m%d_%H%M%S")));
-          LastScreenshotPath = Dir / Filename;
-          FScreenshotRequest::RequestScreenshot(LastScreenshotPath, false,
-                                                false);
-          UE_LOG(
-              LogTemp, Log,
-              TEXT("[VTC] Worst clearance updated: %.1f cm — screenshot: %s"),
-              SafeDistanceResult, *LastScreenshotPath);
-        }
+        UE_LOG(LogTemp, Log,
+               TEXT("[VTC] Worst clearance updated: %.1f cm"),
+               SafeDistanceResult);
       }
 
       // 전체 경고 레벨 갱신 (더 심각한 쪽으로)

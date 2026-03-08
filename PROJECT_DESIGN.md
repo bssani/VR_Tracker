@@ -37,9 +37,8 @@
   VR/시뮬레이션 테스트 환경
   ├─ GameMode: VTC_GameMode
   ├─ PlayerController: VTC_SimPlayerController (→ VTC_OperatorController 상속)
-  │    ├─ F1 캘리브레이션 / F2 테스트 / F3 CSV 내보내기
-  │    ├─ Escape → Level 1 복귀
-  │    └─ WASD + 마우스 시뮬레이션 이동
+  │    ├─ 1 캘리브레이션 / 2 테스트 / 3 CSV 내보내기 + 게임 종료
+  │    └─ WASD + 마우스 시뮬레이션 이동 (SimPlayerController)
   ├─ 3D WorldSpace 위젯 (VTC_StatusActor → VTC_StatusWidget)
   ├─ [NEW] VTC_OperatorViewActor (SceneCapture → Spectator Screen) (Feature I)
   └─ 세션 상태머신: IDLE → CALIBRATING → TESTING → REVIEWING
@@ -146,12 +145,18 @@ VTC_SimPlayerController → VTC_OperatorController → APlayerController
 ```
 
 **VTC_OperatorController (부모):**
-- F1/F2/F3/Escape 단축키 바인딩
-- GameInstance 설정 → TrackerPawn, BodyActor, CollisionDetector에 일괄 적용
-- VehicleHipPosition → ReferencePoint 런타임 스폰 + CollisionDetector 등록
-- StatusActor (3D 월드 위젯) 갱신 (Tick 1초마다)
+- **단축키:** 1(캘리브레이션) / 2(테스트) / 3(CSV저장+게임종료) / P(INI재로드+전체적용) / G(JSON저장)
+- **NumPad 마운트 오프셋 실시간 조절 (Feature J):**
+  - NumPad 1 = Waist 그룹 선택, NumPad 2 = 양쪽 무릎 선택, NumPad 3 = 양쪽 발 선택
+  - NumPad 7/8/9 = 선택 그룹 X+1 / Y+1 / Z+1 (cm), NumPad 4/5/6 = X-1 / Y-1 / Z-1 (cm)
+  - G키 = 현재 SessionConfig(MountOffset 포함)를 JSON에 저장
+- **VR Map 시작 시 아무것도 하지 않음** — Pawn은 PlayerStart에서 대기
+- P키 누를 때만: JSON 재로드 → Pawn을 VehicleHipPosition으로 이동 → offset 적용 → widget 업데이트
+- VehicleHipPosition → ReferencePoint 런타임 스폰 + CollisionDetector 등록 (`bCollisionDisabled=true`)
+- VehicleHipPosition ↔ Waist 실시간 거리 → StatusWidget + OperatorMonitorWidget에 표시 (Feature K)
+- StatusActor (3D 월드 위젯) 갱신: 상태, 트래커, 경과시간, 최소거리, 거리Row, **프리셋 정보**, **캘리브레이션 결과**, **Hip↔Waist 거리**
+- OperatorMonitorWidget (운영자 데스크탑) 갱신: 상태, 트래커, 경과시간, 거리Row, **프리셋 정보**, **Hip↔Waist 거리**
 - EndPlay에서 SpawnedHipRefPoint 명시적 정리
-- BeginPlay / OnPossess 이중 설정 적용 방지 (bConfigApplied 플래그)
 
 **VTC_SimPlayerController (자식):**
 - WASD + 마우스 시뮬레이션 이동
@@ -191,14 +196,17 @@ VTC_SimPlayerController → VTC_OperatorController → APlayerController
 
 ### 4. Vehicle Reference Point — `VTC_ReferencePoint`
 
-- 차량 Interior 돌출 부위에 에디터에서 수동 배치
+- 차량 Interior 돌출 부위에 에디터에서 수동 배치 또는 런타임 동적 스폰
 - `PartName`: 데이터 로그에 기록 ("AC Unit", "Dashboard" 등)
 - `RelevantBodyParts`: 어느 신체 부위와 측정할지 지정
-- 마커 색상이 경고 단계에 따라 변경됨
+- `bActive`: false이면 CollisionDetector가 완전히 무시 (측정 없음)
+- `bCollisionDisabled`: true이면 거리 시각화(시안색 라인 + 수치)만 하고 Warning/Collision 판정·색상변경·이벤트 없음
+- 마커 색상이 경고 단계에 따라 변경됨 (`bCollisionDisabled=false`인 경우)
 
 **VehicleHipPosition (동적 스폰):**
 - Level 1에서 입력한 차량 설계 기준 Hip 좌표
 - OperatorController::ApplyGameInstanceConfig()에서 ReferencePoint를 런타임 스폰
+- `bCollisionDisabled = true` 자동 설정 → 시안색 라인 + 거리만 표시, 경고 없음
 - CollisionDetector.ReferencePoints.AddUnique()로 수동 등록 (AutoFind 이후이므로)
 - EndPlay에서 명시적 Destroy + null 처리
 
@@ -299,14 +307,18 @@ IDLE → CALIBRATING → TESTING → REVIEWING → IDLE
 #### Level 2 — VTC_StatusWidget (WorldSpace 3D)
 
 - `VTC_StatusActor`의 WidgetComponent에 WorldSpace로 렌더링
-- 4개 TextBlock: Txt_State, Txt_Prompt, Txt_SubjectInfo, Txt_TrackerStatus
+- **필수 BindWidget** 4개: Txt_State, Txt_Prompt, Txt_SubjectInfo, Txt_TrackerStatus
+- **선택 BindWidgetOptional** 6개: Txt_PresetInfo, Txt_CalibResult, Txt_ElapsedTime, Txt_MinDistance, VB_DistanceList, **Txt_HipWaistDistance** (Feature K)
 - OperatorController가 세션 상태 변경 시 자동 갱신
-- 모든 상태에서 "ESC — Return to Setup" 안내 표시
+- 캘리브레이션 결과: Calibrating→Testing 시 "Cal: OK ✓" / Calibrating→Idle 시 "Cal: FAILED"
+- 키 안내: 1(캘리브레이션) / 2(테스트) / 3(CSV저장+게임종료)
+- **Txt_HipWaistDistance**: VehicleHip ↔ Waist 실시간 거리 표시 ("Hip↔Waist: 4.2 cm"), 경고/충돌 이벤트 없음
 
 #### Level 2 — VTC_OperatorMonitorWidget (Screen Space — 운영자 데스크탑)
 
 - 운영자 데스크탑 모니터에 표시되는 Screen Space UI
-- 6개 BindWidget: Txt_State, Txt_SubjectInfo, Txt_TrackerStatus, Txt_ElapsedTime, Txt_MinDistance, VB_DistanceList
+- **필수 BindWidget** 6개: Txt_State, Txt_SubjectInfo, Txt_TrackerStatus, Txt_ElapsedTime, Txt_MinDistance, VB_DistanceList
+- **선택 BindWidgetOptional** 2개: Txt_PresetInfo, **Txt_HipWaistDistance** (Feature K)
 - `DistanceRowMap` (TMap): Row TextBlock을 재사용하여 30Hz에 ClearChildren 없이 갱신
 - `DistanceValueMap` (TMap<FString, float>): 거리 원본 값 저장, `UpdateMinDistanceFromMap()`에서 최솟값 계산 후 Txt_MinDistance 자동 갱신
 - OperatorController::BeginPlay에서 OperatorMonitorWidgetClass 지정 시 자동 생성
@@ -408,10 +420,30 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 - CollisionThreshold = 3cm (Sphere Overlap 이전에 경고 제공)
 - 충돌 이벤트 타임스탬프: 밀리초 정밀도
 
-**VehicleHipPosition (순수 위치 마커 및 Waist 거리 측정)**
-- SetupWidget에서 입력한 좌표에 시안색 ReferencePoint가 스폰됨
-- `RelevantBodyParts`에 Waist가 등록되어 거리를 계산하고 시안색 텍스트로 표시함
-- 단, CollisionDetector의 특수 예외 처리로 인해 충돌/경고는 발생하지 않음
+**VehicleHipPosition (참조용 마커 — bCollisionDisabled=true)**
+- SetupWidget에서 입력한 좌표에 시안색 ReferencePoint가 런타임 스폰됨
+- `bCollisionDisabled = true`로 설정되어 항상 시안색 라인 + 거리 수치만 표시
+- Warning/Collision 판정, 마커 색상 변경, OnWarningLevelChanged 이벤트 없음
+- P키 → ApplyGameInstanceConfig() → `SnapWaistToWithRetry()` 호출로 Waist를 Hip 위치로 이동
+- `OnDisabledRefPointDistance` 델리게이트로 실시간 거리를 StatusWidget + OperatorMonitorWidget에 전달 (Feature K)
+
+**TrackerPawn Hip Snap (SnapWaistTo)**
+- `SnapWaistToWithRetry()`는 타이머 없이 1회만 스냅 시도 (VR flickering 방지)
+- Waist tracker 위치가 유효하면 delta 방식으로 Pawn 전체 이동 (정확한 위치 정렬)
+- Waist tracker 위치가 0,0,0(미초기화)이면 XY만 이동하고 Z는 유지 (안전 폴백)
+- VR Map 시작 시 자동 스냅 없음 — P키 누를 때만 실행됨
+
+**Feature J — 실시간 마운트 오프셋 NumPad 조절 (VR 전용)**
+- NumPad 1/2/3으로 Waist/Knees/Feet 그룹 선택 → NumPad 7-9/4-6으로 X/Y/Z 1cm 단위 조절
+- 조절 값은 GameInstance.SessionConfig + BodyActor 멤버에 즉시 반영 (다음 Tick에 적용)
+- G키로 JSON 저장 → 다음 INI 로드(P키) 시 복원
+- StatusWidget의 Txt_Prompt에 현재 선택 그룹 + offset 값 표시
+
+**Feature K — Hip↔Waist 실시간 거리 위젯**
+- CollisionDetector의 `OnDisabledRefPointDistance` 델리게이트: bCollisionDisabled=true 포인트(Vehicle_Hip)의 거리만 별도 브로드캐스트
+- OperatorController의 `OnHipRefPointDistance()`: PartName=="Vehicle_Hip" && BodyRole==Waist 필터링
+- StatusWidget의 `Txt_HipWaistDistance`, OperatorMonitorWidget의 `Txt_HipWaistDistance`에 "Hip↔Waist: X.X cm" 형식으로 표시
+- 충돌 감지와 완전히 분리 — Warning/Collision 이벤트 발생하지 않음
 
 **SteamVR 룸 세팅 가이드**
 - "앉아서 하기(Seated)" 또는 "서서 하기(Standing Only)" 모드 사용

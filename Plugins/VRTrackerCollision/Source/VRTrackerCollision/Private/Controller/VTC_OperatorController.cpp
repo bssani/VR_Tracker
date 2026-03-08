@@ -5,8 +5,10 @@
 #include "Body/VTC_BodyActor.h"
 #include "Collision/VTC_CollisionDetector.h"
 #include "Components/InputComponent.h"
+#include "Components/TextBlock.h"
 #include "Data/VTC_SessionManager.h"
 #include "EngineUtils.h" // TActorIterator
+#include "Kismet/KismetSystemLibrary.h"
 #include "Pawn/VTC_TrackerPawn.h"
 #include "UI/VTC_OperatorMonitorWidget.h"
 #include "UI/VTC_StatusWidget.h"
@@ -47,57 +49,36 @@ void AVTC_OperatorController::BeginPlay() {
     if (SessionManager->CollisionDetector) {
       SessionManager->CollisionDetector->OnDistanceUpdated.AddDynamic(
           this, &AVTC_OperatorController::OnDistanceUpdated);
+      // bCollisionDisabled 포인트(Vehicle_Hip) 거리 → HipWaistDistance 위젯 갱신
+      SessionManager->CollisionDetector->OnDisabledRefPointDistance.AddDynamic(
+          this, &AVTC_OperatorController::OnHipRefPointDistance);
     }
   }
 
-  // ── 운영자 데스크탑 모니터링 위젯 생성 (OperatorMonitorWidgetClass 할당 시)
-  // ─
+  // ── 운영자 모니터링 위젯 생성 (OperatorMonitorWidgetClass 할당 시)
+  // 별도 운영자 모니터(PC 화면)에 표시. VR HMD 뷰와 별개로 뷰포트에 추가.
   if (OperatorMonitorWidgetClass) {
     OperatorMonitorWidget = CreateWidget<UVTC_OperatorMonitorWidget>(
         this, OperatorMonitorWidgetClass);
     if (OperatorMonitorWidget) {
       OperatorMonitorWidget->AddToViewport(1); // ZOrder 1: StatusWidget 위
       UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorMonitorWidget 생성 완료."));
+
+      // 프로파일 적용 + TrackerMesh 토글 델리게이트 바인딩
+      OperatorMonitorWidget->OnProfileApplied.AddDynamic(
+          this, &AVTC_OperatorController::OnMonitorWidgetProfileApplied);
     }
   }
 
-  // ── GameInstance → 각 Actor에 설정 적용 ──────────────────────────────────
-  // BeginPlay 시점에 Pawn이 이미 possess되어 있으면 즉시 적용.
-  // Pawn이 없으면 OnPossess()에서 처리된다.
-  if (GetPawn()) {
-    ApplyGameInstanceConfig();
-    bConfigApplied = true;
-  }
-
-  // ── 초기 상태 표시 (StatusWidget 3D + OperatorMonitorWidget 데스크탑) ──────
-  UVTC_GameInstance *GI = GetGameInstance<UVTC_GameInstance>();
-  const FString SubjectID = GI ? GI->SessionConfig.SubjectID : TEXT("");
-  const float Height_cm = GI ? GI->SessionConfig.Height_cm : 170.0f;
-
-  if (StatusActor) {
-    if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget()) {
-      W->UpdateState(EVTCSessionState::Idle);
-      W->UpdateSubjectInfo(SubjectID, Height_cm);
-    }
-  }
-
-  if (OperatorMonitorWidget) {
-    OperatorMonitorWidget->UpdateState(EVTCSessionState::Idle);
-    OperatorMonitorWidget->UpdateSubjectInfo(SubjectID, Height_cm);
-    OperatorMonitorWidget->UpdateElapsedTime(0.f);
-  }
+  // 설정 적용 및 위젯 업데이트는 P키에서만 수행 (시작 시 아무것도 하지 않음)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  OnPossess — Pawn이 BeginPlay 이후에 possess될 때 설정 적용
+//  OnPossess
 // ─────────────────────────────────────────────────────────────────────────────
 void AVTC_OperatorController::OnPossess(APawn *InPawn) {
   Super::OnPossess(InPawn);
-
-  if (!bConfigApplied) {
-    ApplyGameInstanceConfig();
-    bConfigApplied = true;
-  }
+  // 설정 적용은 P키에서만 수행
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -115,10 +96,21 @@ void AVTC_OperatorController::Tick(float DeltaTime) {
   if (AVTC_TrackerPawn *TP = Cast<AVTC_TrackerPawn>(GetPawn()))
     ConnectedCount = TP->GetActiveTrackerCount();
 
-  // 3D StatusWidget 갱신
+  // 3D StatusWidget 갱신 (1초마다)
   if (StatusActor) {
-    if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget())
+    if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget()) {
       W->UpdateTrackerStatus(ConnectedCount, 5);
+      if (SessionManager) {
+        if (SessionManager->IsTesting())
+          W->UpdateElapsedTime(SessionManager->SessionElapsedTime);
+        if (SessionManager->CollisionDetector) {
+          const float MinDist =
+              SessionManager->CollisionDetector->SessionMinDistance;
+          if (MinDist < TNumericLimits<float>::Max())
+            W->UpdateMinDistance(MinDist);
+        }
+      }
+    }
   }
 
   // 운영자 모니터 위젯 갱신 (1초마다: TrackerStatus + 경과 시간 + 최소 거리)
@@ -148,10 +140,143 @@ void AVTC_OperatorController::SetupInputComponent() {
   if (!InputComponent)
     return;
 
-  InputComponent->BindKey(EKeys::One,     IE_Pressed, this, &AVTC_OperatorController::Input_One);
-  InputComponent->BindKey(EKeys::Two,     IE_Pressed, this, &AVTC_OperatorController::Input_Two);
-  InputComponent->BindKey(EKeys::Three,     IE_Pressed, this, &AVTC_OperatorController::Input_Three);
-  InputComponent->BindKey(EKeys::Four, IE_Pressed, this, &AVTC_OperatorController::Input_Four);
+  InputComponent->BindKey(EKeys::One,   IE_Pressed, this, &AVTC_OperatorController::Input_One);
+  InputComponent->BindKey(EKeys::Two,   IE_Pressed, this, &AVTC_OperatorController::Input_Two);
+  InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AVTC_OperatorController::Input_Three);
+  InputComponent->BindKey(EKeys::P,     IE_Pressed, this, &AVTC_OperatorController::Input_P);
+  InputComponent->BindKey(EKeys::G,     IE_Pressed, this, &AVTC_OperatorController::Input_G);
+
+  // NumPad: 실시간 Mount Offset 선택 (1/2/3) + 축 조절 (4~9)
+  InputComponent->BindKey(EKeys::NumPadOne,   IE_Pressed, this, &AVTC_OperatorController::Input_NumPad1);
+  InputComponent->BindKey(EKeys::NumPadTwo,   IE_Pressed, this, &AVTC_OperatorController::Input_NumPad2);
+  InputComponent->BindKey(EKeys::NumPadThree, IE_Pressed, this, &AVTC_OperatorController::Input_NumPad3);
+  InputComponent->BindKey(EKeys::NumPadFour,  IE_Pressed, this, &AVTC_OperatorController::Input_NumPad4);
+  InputComponent->BindKey(EKeys::NumPadFive,  IE_Pressed, this, &AVTC_OperatorController::Input_NumPad5);
+  InputComponent->BindKey(EKeys::NumPadSix,   IE_Pressed, this, &AVTC_OperatorController::Input_NumPad6);
+  InputComponent->BindKey(EKeys::NumPadSeven, IE_Pressed, this, &AVTC_OperatorController::Input_NumPad7);
+  InputComponent->BindKey(EKeys::NumPadEight, IE_Pressed, this, &AVTC_OperatorController::Input_NumPad8);
+  InputComponent->BindKey(EKeys::NumPadNine,  IE_Pressed, this, &AVTC_OperatorController::Input_NumPad9);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  G키 — 현재 SessionConfig(MountOffset 포함)를 JSON에 저장
+// ─────────────────────────────────────────────────────────────────────────────
+void AVTC_OperatorController::Input_G() {
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+
+  GI->SaveConfigToINI();
+  UE_LOG(LogTemp, Log, TEXT("[VTC] G key: Config saved to JSON."));
+
+  // Prompt 영역에 저장 완료 메시지 표시 (2초 후 원래 상태로 복원)
+  auto ShowMsg = [&](UVTC_StatusWidget* W) {
+    if (W) W->UpdateState(EVTCSessionState::Idle);
+  };
+  if (StatusActor) ShowMsg(StatusActor->GetStatusWidget());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  NumPad — 실시간 Mount Offset 선택 + 조절
+// ─────────────────────────────────────────────────────────────────────────────
+void AVTC_OperatorController::Input_NumPad1() {
+  SelectedOffsetGroup = EVTCOffsetGroup::Waist;
+  NotifyOffsetChanged();
+}
+void AVTC_OperatorController::Input_NumPad2() {
+  SelectedOffsetGroup = EVTCOffsetGroup::Knees;
+  NotifyOffsetChanged();
+}
+void AVTC_OperatorController::Input_NumPad3() {
+  SelectedOffsetGroup = EVTCOffsetGroup::Feet;
+  NotifyOffsetChanged();
+}
+
+void AVTC_OperatorController::Input_NumPad7() { AdjustSelectedOffset(FVector( OffsetAdjustStep, 0.f, 0.f)); }
+void AVTC_OperatorController::Input_NumPad8() { AdjustSelectedOffset(FVector(0.f,  OffsetAdjustStep, 0.f)); }
+void AVTC_OperatorController::Input_NumPad9() { AdjustSelectedOffset(FVector(0.f, 0.f,  OffsetAdjustStep)); }
+void AVTC_OperatorController::Input_NumPad4() { AdjustSelectedOffset(FVector(-OffsetAdjustStep, 0.f, 0.f)); }
+void AVTC_OperatorController::Input_NumPad5() { AdjustSelectedOffset(FVector(0.f, -OffsetAdjustStep, 0.f)); }
+void AVTC_OperatorController::Input_NumPad6() { AdjustSelectedOffset(FVector(0.f, 0.f, -OffsetAdjustStep)); }
+
+void AVTC_OperatorController::AdjustSelectedOffset(FVector Delta) {
+  if (SelectedOffsetGroup == EVTCOffsetGroup::None) {
+    UE_LOG(LogTemp, Warning, TEXT("[VTC] NumPad: 먼저 NumPad 1/2/3으로 그룹을 선택하세요."));
+    return;
+  }
+
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+
+  // BodyActor 탐색
+  AVTC_BodyActor* BA = nullptr;
+  for (TActorIterator<AVTC_BodyActor> It(GetWorld()); It; ++It) { BA = *It; break; }
+  if (!BA) return;
+
+  FVTCSessionConfig& C = GI->SessionConfig;
+
+  switch (SelectedOffsetGroup) {
+  case EVTCOffsetGroup::Waist:
+    C.MountOffset_Waist     += Delta;
+    BA->MountOffset_Waist    = C.MountOffset_Waist;
+    break;
+  case EVTCOffsetGroup::Knees:
+    C.MountOffset_LeftKnee  += Delta;
+    C.MountOffset_RightKnee += Delta;
+    BA->MountOffset_LeftKnee  = C.MountOffset_LeftKnee;
+    BA->MountOffset_RightKnee = C.MountOffset_RightKnee;
+    break;
+  case EVTCOffsetGroup::Feet:
+    C.MountOffset_LeftFoot  += Delta;
+    C.MountOffset_RightFoot += Delta;
+    BA->MountOffset_LeftFoot  = C.MountOffset_LeftFoot;
+    BA->MountOffset_RightFoot = C.MountOffset_RightFoot;
+    break;
+  default: return;
+  }
+  NotifyOffsetChanged();
+}
+
+void AVTC_OperatorController::NotifyOffsetChanged() {
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+  const FVTCSessionConfig& C = GI->SessionConfig;
+
+  FString GroupName;
+  FVector Offset = FVector::ZeroVector;
+  switch (SelectedOffsetGroup) {
+  case EVTCOffsetGroup::Waist: GroupName = TEXT("Waist"); Offset = C.MountOffset_Waist;     break;
+  case EVTCOffsetGroup::Knees: GroupName = TEXT("Knees"); Offset = C.MountOffset_LeftKnee;  break;
+  case EVTCOffsetGroup::Feet:  GroupName = TEXT("Feet");  Offset = C.MountOffset_LeftFoot;  break;
+  default: GroupName = TEXT("None"); break;
+  }
+
+  const FString Msg = FString::Printf(
+      TEXT("[%s] X:%.1f Y:%.1f Z:%.1f  (G=Save)"),
+      *GroupName, Offset.X, Offset.Y, Offset.Z);
+
+  if (StatusActor) {
+    if (UVTC_StatusWidget* W = StatusActor->GetStatusWidget())
+      if (W->Txt_Prompt) W->Txt_Prompt->SetText(FText::FromString(Msg));
+  }
+  UE_LOG(LogTemp, Log, TEXT("[VTC] Offset[%s] = %.1f, %.1f, %.1f"),
+      *GroupName, Offset.X, Offset.Y, Offset.Z);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Hip ReferencePoint 거리 → StatusWidget HipWaistDistance 갱신
+// ─────────────────────────────────────────────────────────────────────────────
+void AVTC_OperatorController::OnHipRefPointDistance(
+    const FString& PartName, EVTCTrackerRole BodyRole, float Distance_cm) {
+  // Vehicle_Hip ↔ Waist 거리만 처리
+  if (PartName != TEXT("Vehicle_Hip") || BodyRole != EVTCTrackerRole::Waist)
+    return;
+
+  if (StatusActor) {
+    if (UVTC_StatusWidget* W = StatusActor->GetStatusWidget())
+      W->UpdateHipWaistDistance(Distance_cm);
+  }
+  if (OperatorMonitorWidget)
+    OperatorMonitorWidget->UpdateHipWaistDistance(Distance_cm);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -176,16 +301,25 @@ void AVTC_OperatorController::StopAndExport_Implementation() {
     SessionManager->ExportAndEnd();
 }
 
-void AVTC_OperatorController::ReturnToSetupLevel() {
-  if (UVTC_GameInstance *GI = GetGameInstance<UVTC_GameInstance>())
-    GI->OpenSetupLevel();
-}
-
 void AVTC_OperatorController::EndPlay(
     const EEndPlayReason::Type EndPlayReason) {
   // 운영자 모니터 위젯 뷰포트에서 제거
   if (OperatorMonitorWidget && OperatorMonitorWidget->IsInViewport())
     OperatorMonitorWidget->RemoveFromParent();
+
+  // Delegate 명시적 해제 — Controller 소멸 후 SessionManager/CollisionDetector가
+  // 이벤트를 브로드캐스트할 경우 dangling 호출 방지.
+  // (AddDynamic은 약참조이지만 GC 전 소멸 순서에 따라 크래시 가능)
+  if (SessionManager) {
+    SessionManager->OnSessionStateChanged.RemoveDynamic(
+        this, &AVTC_OperatorController::OnSessionStateChanged);
+    if (SessionManager->CollisionDetector) {
+      SessionManager->CollisionDetector->OnDistanceUpdated.RemoveDynamic(
+          this, &AVTC_OperatorController::OnDistanceUpdated);
+      SessionManager->CollisionDetector->OnDisabledRefPointDistance.RemoveDynamic(
+          this, &AVTC_OperatorController::OnHipRefPointDistance);
+    }
+  }
 
   // 동적으로 스폰한 ReferencePoint를 명시적으로 제거.
   if (SpawnedHipRefPoint) {
@@ -206,10 +340,55 @@ void AVTC_OperatorController::EndPlay(
 // ─────────────────────────────────────────────────────────────────────────────
 //  단축키 핸들러
 // ─────────────────────────────────────────────────────────────────────────────
-void AVTC_OperatorController::Input_One()     { StartCalibration(); }
-void AVTC_OperatorController::Input_Two()     { StartTest(); }
-void AVTC_OperatorController::Input_Three()     { StopAndExport(); }
-void AVTC_OperatorController::Input_Four() { ReturnToSetupLevel(); }
+void AVTC_OperatorController::Input_One()   { StartCalibration(); }
+void AVTC_OperatorController::Input_Two()   { StartTest(); }
+void AVTC_OperatorController::Input_Three() {
+  StopAndExport();  // CSV 저장 + 상태 Idle로 전환
+  UKismetSystemLibrary::QuitGame(GetWorld(), this, EQuitPreference::Quit, false);
+}
+
+void AVTC_OperatorController::Input_P() {
+  UVTC_GameInstance *GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI)
+    return;
+
+  // 1) INI에서 최신 설정 강제 재로드 (디스크에서 읽기)
+  GI->LoadConfigFromINI();
+
+  // 2) 기존 preset ref points 정리 (중복 스폰 방지)
+  for (auto &Ref : SpawnedPresetRefPoints) {
+    if (Ref)
+      Ref->Destroy();
+  }
+  SpawnedPresetRefPoints.Empty();
+
+  // 3) 모든 Actor에 설정 재적용
+  //    TrackerPawn: TrackerMesh, SnapWaistTo(VehicleHipPosition)
+  //    BodyActor: MountOffset, Sphere 가시성, VehicleHipMarker
+  //    CollisionDetector: 임계값
+  //    HipRefPoint: 스폰 또는 위치 업데이트
+  //    Preset RefPoints: 재스폰
+  ApplyGameInstanceConfig();
+
+  // 4) StatusWidget + OperatorMonitor에 피실험자 정보 갱신
+  const FVTCSessionConfig &C = GI->SessionConfig;
+  if (StatusActor) {
+    if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget()) {
+      W->UpdateSubjectInfo(C.SubjectID, C.Height_cm);
+      W->UpdatePresetInfo(C.bUseVehiclePreset, C.SelectedPresetName);
+    }
+  }
+  if (OperatorMonitorWidget) {
+    OperatorMonitorWidget->UpdateSubjectInfo(C.SubjectID, C.Height_cm);
+    OperatorMonitorWidget->UpdatePresetInfo(C.bUseVehiclePreset,
+                                            C.SelectedPresetName);
+  }
+
+  UE_LOG(LogTemp, Log,
+         TEXT("[VTC] P key: Config reloaded from INI and applied. Subject=%s "
+              "Hip=%s"),
+         *C.SubjectID, *C.VehicleHipPosition.ToString());
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  세션 상태 변경 → StatusWidget + OperatorMonitorWidget 갱신
@@ -220,11 +399,23 @@ void AVTC_OperatorController::OnSessionStateChanged(EVTCSessionState OldState,
   if (AVTC_TrackerPawn *TP = Cast<AVTC_TrackerPawn>(GetPawn()))
     ConnectedCount = TP->GetActiveTrackerCount();
 
-  // 3D StatusWidget 갱신
+  // 캘리브레이션 결과: Calibrating → Testing = 성공 / Calibrating → Idle = 실패
+  const bool bCalibSuccess = (OldState == EVTCSessionState::Calibrating &&
+                               NewState == EVTCSessionState::Testing);
+  const bool bCalibFailed  = (OldState == EVTCSessionState::Calibrating &&
+                               NewState == EVTCSessionState::Idle);
+
+  // 3D StatusWidget 갱신 (한 번만 GetStatusWidget 호출)
   if (StatusActor) {
     if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget()) {
       W->UpdateState(NewState);
       W->UpdateTrackerStatus(ConnectedCount, 5);
+      if (bCalibSuccess) W->UpdateCalibrationResult(true,  TEXT("OK"));
+      if (bCalibFailed)  W->UpdateCalibrationResult(false, TEXT("Check trackers"));
+      if (NewState == EVTCSessionState::Testing) {
+        W->ClearDistanceList();
+        W->UpdateElapsedTime(0.f);
+      }
     }
   }
 
@@ -232,8 +423,6 @@ void AVTC_OperatorController::OnSessionStateChanged(EVTCSessionState OldState,
   if (OperatorMonitorWidget) {
     OperatorMonitorWidget->UpdateState(NewState);
     OperatorMonitorWidget->UpdateTrackerStatus(ConnectedCount, 5);
-
-    // Testing 시작 시 거리 목록 초기화 (이전 세션 잔재 제거)
     if (NewState == EVTCSessionState::Testing) {
       OperatorMonitorWidget->ClearDistanceList();
       OperatorMonitorWidget->UpdateElapsedTime(0.f);
@@ -248,6 +437,12 @@ void AVTC_OperatorController::OnDistanceUpdated(
     const FVTCDistanceResult &Result) {
   if (OperatorMonitorWidget)
     OperatorMonitorWidget->UpdateDistanceRow(Result);
+
+  // 3D StatusWidget에도 동일한 거리 Row 갱신 (30Hz)
+  if (StatusActor) {
+    if (UVTC_StatusWidget *W = StatusActor->GetStatusWidget())
+      W->UpdateDistanceRow(Result);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -259,10 +454,15 @@ void AVTC_OperatorController::ApplyGameInstanceConfig() {
     return;
   const FVTCSessionConfig &C = GI->SessionConfig;
 
-  // ── TrackerPawn: 시뮬레이션 모드 + 트래커 메시 가시성 ───────────────────
+  // ── TrackerPawn: 트래커 메시 가시성 ─────────────────────────────────────
   if (AVTC_TrackerPawn *TP = Cast<AVTC_TrackerPawn>(GetPawn())) {
-    TP->bSimulationMode = (C.RunMode == EVTCRunMode::Simulation);
     TP->SetTrackerMeshVisible(C.bShowTrackerMesh);
+
+    // VehicleHipPosition이 설정된 경우 Hip 위치로 Waist 스냅.
+    // VR 모드에서는 트래커가 처음 프레임에 비활성 상태일 수 있으므로
+    // SnapWaistToWithRetry로 한 번 시도한다.
+    if (!C.VehicleHipPosition.IsNearlyZero())
+      TP->SnapWaistToWithRetry(C.VehicleHipPosition);
   }
 
   // ── BodyActor: Mount Offset + Sphere 가시성 적용 ───────────────────────
@@ -282,11 +482,9 @@ void AVTC_OperatorController::ApplyGameInstanceConfig() {
         C.WarningThreshold_cm, C.CollisionThreshold_cm);
   }
 
-  // ── VehicleHipPosition → 순수 위치 마커 스폰 (충돌 감지 없음) ──────────
-  // VehicleHipPosition은 피실험자 Hip 위치의 기준점 마커로만 사용.
-  // RelevantBodyParts를 비워서 CollisionDetector가 건너뛰게 한다.
-  // (충돌 감지는 Dashboard, Door 등 실제 차량 내부 구조물용 ReferencePoint가
-  // 담당)
+  // ── VehicleHipPosition → 참조용 마커 스폰 (bCollisionDisabled = true) ──
+  // bCollisionDisabled = true이므로 거리 라인/수치만 표시되고
+  // Warning/Collision 판정 및 OnWarningLevelChanged는 발생하지 않는다.
   if (!C.VehicleHipPosition.IsNearlyZero()) {
     const bool bFirstSpawn = !SpawnedHipRefPoint;
 
@@ -304,9 +502,10 @@ void AVTC_OperatorController::ApplyGameInstanceConfig() {
     if (SpawnedHipRefPoint) {
       SpawnedHipRefPoint->SetActorLocation(C.VehicleHipPosition);
       SpawnedHipRefPoint->PartName = TEXT("Vehicle_Hip");
+      SpawnedHipRefPoint->bCollisionDisabled = true;  // 라인만 표시, 경고 없음
       SpawnedHipRefPoint->RelevantBodyParts.Empty();
       SpawnedHipRefPoint->RelevantBodyParts.Add(
-          EVTCTrackerRole::Waist); // 거리 측정을 위해 Waist 추가
+          EVTCTrackerRole::Waist); // Waist ↔ Hip 라인 측정
       SpawnedHipRefPoint->MarkerColor =
           FLinearColor(0.0f, 0.7f, 1.0f, 1.0f); // 시안색으로 구분
 
@@ -361,6 +560,39 @@ void AVTC_OperatorController::ApplyGameInstanceConfig() {
              *Preset.PresetName, Preset.ReferencePoints.Num());
     }
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  OnProfileApplied 핸들러 — 프로파일 선택 적용 또는 TrackerMesh 토글 시 호출
+// ─────────────────────────────────────────────────────────────────────────────
+void AVTC_OperatorController::OnMonitorWidgetProfileApplied() {
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+
+  // 기존 preset ref points 정리 (중복 스폰 방지)
+  for (auto& Ref : SpawnedPresetRefPoints) {
+    if (Ref) Ref->Destroy();
+  }
+  SpawnedPresetRefPoints.Empty();
+
+  // GameInstance SessionConfig → 모든 Actor 재적용
+  ApplyGameInstanceConfig();
+
+  // 위젯 정보 갱신
+  const FVTCSessionConfig& C = GI->SessionConfig;
+  if (StatusActor) {
+    if (UVTC_StatusWidget* W = StatusActor->GetStatusWidget()) {
+      W->UpdateSubjectInfo(C.SubjectID, C.Height_cm);
+      W->UpdatePresetInfo(C.bUseVehiclePreset, C.SelectedPresetName);
+    }
+  }
+  if (OperatorMonitorWidget) {
+    OperatorMonitorWidget->UpdateSubjectInfo(C.SubjectID, C.Height_cm);
+    OperatorMonitorWidget->UpdatePresetInfo(C.bUseVehiclePreset, C.SelectedPresetName);
+  }
+
+  UE_LOG(LogTemp, Log, TEXT("[VTC] Profile 적용됨 → Subject=%s  TrackerMesh=%s"),
+      *C.SubjectID, C.bShowTrackerMesh ? TEXT("ON") : TEXT("OFF"));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

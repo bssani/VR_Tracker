@@ -1,23 +1,22 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
-// VTC_GameInstance.h — 레벨 간 설정 전달 + INI 저장/불러오기
+// VTC_GameInstance.h — 세션 설정 보관 + INI 저장/불러오기
 //
 // [역할]
-//   Level 1 (Setup)에서 작성한 FVTCSessionConfig를 보관하고,
-//   Level 2 (Test)가 로드된 뒤 OperatorController / BodyActor / TrackerPawn에
-//   설정을 일괄 적용한다.
-//   INI 파일(Config/VTCSettings.ini)로 설정을 영속 저장/불러오기한다.
+//   FVTCSessionConfig를 보관하고 INI로 영속 저장/불러오기한다.
+//   VR 맵은 직접 실행 → Init()에서 INI 자동 로드 → OperatorController 적용.
+//   레벨 전환 기능은 없음.
 //
 // [사용법]
-//   1. 프로젝트 Settings > Maps & Modes > Game Instance Class =
-//      BP_VTC_GameInstance (또는 VTC_GameInstance 직접)
-//   2. Level 1 위젯 → GetGameInstance<UVTC_GameInstance>()->SessionConfig 채우기
-//   3. Level 2 로드 후 OperatorController::BeginPlay에서 ApplyConfigToWorld() 호출
+//   1. Project Settings → Maps & Modes → Game Instance Class = BP_VTC_GameInstance
+//   2. 설정 위젯에서 [Save Config] → INI 저장
+//   3. VR 맵 직접 실행 → Init() 자동 로드 → 모든 설정 복원
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
 #include "VTC_SessionConfig.h"
+#include "VTC_ProfileLibrary.h"
 #include "VTC_GameInstance.generated.h"
 
 UCLASS(BlueprintType, Blueprintable, meta = (DisplayName = "VTC Game Instance"))
@@ -27,49 +26,41 @@ class VRTRACKERCOLLISION_API UVTC_GameInstance : public UGameInstance
 
 public:
   // ─── 현재 세션 설정 ────────────────────────────────────────────────────────
-  // Level 1에서 채운 뒤 Level 2에서 읽는다.
   UPROPERTY(BlueprintReadWrite, Category = "VTC|Session")
   FVTCSessionConfig SessionConfig;
 
-  // ─── 레벨 전환 ─────────────────────────────────────────────────────────────
+  // ─── 라이프사이클 ──────────────────────────────────────────────────────────
 
-  // Level 2 (테스트 레벨) 열기. 레벨 이름은 BP에서 Override 가능.
-  UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "VTC|Session")
-  void OpenTestLevel();
-
-  // Level 1 (설정 레벨) 로 돌아가기
-  UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "VTC|Session")
-  void OpenSetupLevel();
+  // 게임 인스턴스 초기화 시 INI 자동 로드.
+  virtual void Init() override;
 
   // ─── INI 저장 / 불러오기 ──────────────────────────────────────────────────
 
   // 현재 SessionConfig → Config/VTCSettings.ini 저장
-  // (SubjectID / Height 제외 — 매 세션마다 입력하는 값)
   UFUNCTION(BlueprintCallable, Category = "VTC|Config")
   void SaveConfigToINI();
 
-  // Config/VTCSettings.ini → SessionConfig 불러오기
-  // (SubjectID / Height는 건드리지 않음)
+  // Config/VTCSettings.ini → SessionConfig 불러오기 (preset JSON 재로드 포함)
   UFUNCTION(BlueprintCallable, Category = "VTC|Config")
   void LoadConfigFromINI();
 
-  // ─── 레벨 이름 (BP에서 Override해 실제 레벨 이름 지정) ──────────────────
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Session",
-            meta = (DisplayName = "Test Level Name"))
-  FString TestLevelName = TEXT("VTC_TestLevel");
+  // ─── 프로파일 적용 ────────────────────────────────────────────────────────
 
-  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Session",
-            meta = (DisplayName = "Setup Level Name"))
-  FString SetupLevelName = TEXT("VTC_SetupLevel");
+  // 마지막으로 선택된 프로파일 이름 (VTCSettings.json에 함께 저장됨)
+  UPROPERTY(BlueprintReadWrite, Category = "VTC|Profile")
+  FString LastSelectedProfileName = TEXT("");
+
+  // 프로파일 이름으로 SessionConfig 로드 + 현재 세션에 적용.
+  // VRTestLevel OperatorMonitorWidget의 드롭다운 Apply 버튼에서 호출.
+  // 성공 시 true 반환, 실패 시 SessionConfig 변경 없음.
+  UFUNCTION(BlueprintCallable, Category = "VTC|Profile")
+  bool ApplyProfileByName(const FString& ProfileName);
+
+  // 저장된 프로파일 이름 목록 반환 (ProfileLibrary 위임)
+  UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Profile")
+  TArray<FString> GetAvailableProfileNames() const;
 
 private:
-  // INI 섹션명 상수
-  static constexpr const TCHAR* INI_SECTION = TEXT("VTC/Settings");
-
-  // INI 파일 절대 경로 반환 (ProjectDir/Config/VTCSettings.ini)
-  FString GetINIPath() const;
-
-  // FVector → INI 읽기/쓰기 헬퍼
-  void SaveVector(const TCHAR* Key, const FVector& V, const FString& Path) const;
-  FVector LoadVector(const TCHAR* Key, const FVector& Default, const FString& Path) const;
+  // JSON 파일 절대 경로 반환 (Saved/VTCConfig/VTCSettings.json)
+  FString GetConfigPath() const;
 };

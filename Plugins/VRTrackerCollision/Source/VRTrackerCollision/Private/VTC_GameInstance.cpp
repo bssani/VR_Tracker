@@ -1,59 +1,60 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "VTC_GameInstance.h"
-#include "Kismet/GameplayStatics.h"
-#include "Misc/ConfigCacheIni.h"
+#include "JsonObjectConverter.h"
+#include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "HAL/FileManager.h"
+#include "VTC_VehiclePreset.h"
+#include "VTC_ProfileLibrary.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  레벨 전환
+//  라이프사이클
 // ─────────────────────────────────────────────────────────────────────────────
-void UVTC_GameInstance::OpenTestLevel_Implementation()
+void UVTC_GameInstance::Init()
 {
-  UGameplayStatics::OpenLevel(this, FName(*TestLevelName));
+  Super::Init();
+  // VRTestLevel 실행 전에 이전에 저장한 프로파일(MountOffset / VehicleHipPosition / Threshold 등)이 복원된다.
+  LoadConfigFromINI();
+  UE_LOG(LogTemp, Log, TEXT("[VTC] GameInstance::Init — config loaded. Profile=%s"),
+      *SessionConfig.ProfileName);
 }
 
-void UVTC_GameInstance::OpenSetupLevel_Implementation()
-{
-  UGameplayStatics::OpenLevel(this, FName(*SetupLevelName));
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-//  INI 저장
+//  JSON 저장
 // ─────────────────────────────────────────────────────────────────────────────
 void UVTC_GameInstance::SaveConfigToINI()
 {
-  const FString Path = GetINIPath();
-  const FVTCSessionConfig& C = SessionConfig;
+  const FString Path = GetConfigPath();
 
-  // Run mode
-  GConfig->SetString(INI_SECTION, TEXT("RunMode"),
-      (C.RunMode == EVTCRunMode::VR ? TEXT("VR") : TEXT("Simulation")), Path);
+  // Saved/VTCConfig/ 폴더 자동 생성
+  IFileManager::Get().MakeDirectory(*FPaths::GetPath(Path), /*Tree=*/true);
 
-  // Mount offsets
-  SaveVector(TEXT("MountOffset_Waist"),      C.MountOffset_Waist,      Path);
-  SaveVector(TEXT("MountOffset_LeftKnee"),   C.MountOffset_LeftKnee,   Path);
-  SaveVector(TEXT("MountOffset_RightKnee"),  C.MountOffset_RightKnee,  Path);
-  SaveVector(TEXT("MountOffset_LeftFoot"),   C.MountOffset_LeftFoot,   Path);
-  SaveVector(TEXT("MountOffset_RightFoot"),  C.MountOffset_RightFoot,  Path);
+  FString JsonStr;
+  if (!FJsonObjectConverter::UStructToJsonObjectString(SessionConfig, JsonStr))
+  {
+    UE_LOG(LogTemp, Error, TEXT("[VTC] Config serialize failed"));
+    return;
+  }
 
-  // Vehicle hip reference
-  SaveVector(TEXT("VehicleHipPosition"), C.VehicleHipPosition, Path);
+  const bool bOK = FFileHelper::SaveStringToFile(JsonStr, *Path);
+  UE_LOG(LogTemp, Log, TEXT("[VTC] Config %s → %s"),
+      bOK ? TEXT("saved") : TEXT("SAVE FAILED"), *Path);
 
-  // Visibility
-  GConfig->SetBool(INI_SECTION, TEXT("ShowCollisionSpheres"), C.bShowCollisionSpheres, Path);
-  GConfig->SetBool(INI_SECTION, TEXT("ShowTrackerMesh"),      C.bShowTrackerMesh,      Path);
-
-  GConfig->Flush(false, Path);
-  UE_LOG(LogTemp, Log, TEXT("[VTC] Config saved → %s"), *Path);
+  // LastSelectedProfileName 별도 저장 (VTCConfig/LastProfile.txt)
+  if (!LastSelectedProfileName.IsEmpty())
+  {
+    const FString ProfilePath = FPaths::ProjectSavedDir() / TEXT("VTCConfig/LastProfile.txt");
+    FFileHelper::SaveStringToFile(LastSelectedProfileName, *ProfilePath);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  INI 불러오기
+//  JSON 불러오기
 // ─────────────────────────────────────────────────────────────────────────────
 void UVTC_GameInstance::LoadConfigFromINI()
 {
-  const FString Path = GetINIPath();
+  const FString Path = GetConfigPath();
 
   if (!FPaths::FileExists(Path))
   {
@@ -61,55 +62,99 @@ void UVTC_GameInstance::LoadConfigFromINI()
     return;
   }
 
-  FVTCSessionConfig& C = SessionConfig;
+  FString JsonStr;
+  if (!FFileHelper::LoadFileToString(JsonStr, *Path))
+  {
+    UE_LOG(LogTemp, Error, TEXT("[VTC] Config read failed: %s"), *Path);
+    return;
+  }
 
-  // Run mode
-  FString ModeStr;
-  if (GConfig->GetString(INI_SECTION, TEXT("RunMode"), ModeStr, Path))
-    C.RunMode = (ModeStr == TEXT("VR")) ? EVTCRunMode::VR : EVTCRunMode::Simulation;
+  FVTCSessionConfig Loaded;
+  if (!FJsonObjectConverter::JsonObjectStringToUStruct(JsonStr, &Loaded))
+  {
+    UE_LOG(LogTemp, Error, TEXT("[VTC] Config parse failed — 기본값 유지"));
+    return;
+  }
+  SessionConfig = Loaded;
 
-  // Mount offsets
-  C.MountOffset_Waist     = LoadVector(TEXT("MountOffset_Waist"),     C.MountOffset_Waist,     Path);
-  C.MountOffset_LeftKnee  = LoadVector(TEXT("MountOffset_LeftKnee"),  C.MountOffset_LeftKnee,  Path);
-  C.MountOffset_RightKnee = LoadVector(TEXT("MountOffset_RightKnee"), C.MountOffset_RightKnee, Path);
-  C.MountOffset_LeftFoot  = LoadVector(TEXT("MountOffset_LeftFoot"),  C.MountOffset_LeftFoot,  Path);
-  C.MountOffset_RightFoot = LoadVector(TEXT("MountOffset_RightFoot"), C.MountOffset_RightFoot, Path);
+  // Preset JSON 재로드 (이름으로 디스크에서 다시 읽기)
+  if (SessionConfig.bUseVehiclePreset && !SessionConfig.SelectedPresetName.IsEmpty())
+  {
+    FVTCVehiclePreset Preset;
+    if (UVTC_VehiclePresetLibrary::LoadPreset(SessionConfig.SelectedPresetName, Preset))
+    {
+      SessionConfig.LoadedPresetJson = UVTC_VehiclePresetLibrary::PresetToJsonString(Preset);
 
-  // Vehicle hip reference
-  C.VehicleHipPosition = LoadVector(TEXT("VehicleHipPosition"), C.VehicleHipPosition, Path);
+      // VehicleHipPosition이 zero면 preset의 Vehicle_Hip에서 채움
+      if (SessionConfig.VehicleHipPosition.IsNearlyZero())
+      {
+        for (const FVTCPresetRefPoint& P : Preset.ReferencePoints)
+        {
+          if (P.PartName == TEXT("Vehicle_Hip"))
+          {
+            SessionConfig.VehicleHipPosition = P.Location;
+            UE_LOG(LogTemp, Log,
+                TEXT("[VTC] VehicleHipPosition ← preset '%s': %s"),
+                *SessionConfig.SelectedPresetName,
+                *SessionConfig.VehicleHipPosition.ToString());
+            break;
+          }
+        }
+      }
+      UE_LOG(LogTemp, Log,
+          TEXT("[VTC] Preset '%s' reloaded from disk (%d ref points)"),
+          *SessionConfig.SelectedPresetName, Preset.ReferencePoints.Num());
+    }
+    else
+    {
+      UE_LOG(LogTemp, Warning,
+          TEXT("[VTC] Preset '%s' not found on disk — preset not applied."),
+          *SessionConfig.SelectedPresetName);
+      SessionConfig.bUseVehiclePreset = false;
+    }
+  }
 
-  // Visibility
-  GConfig->GetBool(INI_SECTION, TEXT("ShowCollisionSpheres"), C.bShowCollisionSpheres, Path);
-  GConfig->GetBool(INI_SECTION, TEXT("ShowTrackerMesh"),      C.bShowTrackerMesh,      Path);
+  UE_LOG(LogTemp, Log, TEXT("[VTC] Config loaded ← %s  Subject=%s"),
+      *Path, *SessionConfig.SubjectID);
 
-  UE_LOG(LogTemp, Log, TEXT("[VTC] Config loaded ← %s"), *Path);
+  // LastSelectedProfileName 복원
+  const FString ProfilePath = FPaths::ProjectSavedDir() / TEXT("VTCConfig/LastProfile.txt");
+  FFileHelper::LoadFileToString(LastSelectedProfileName, *ProfilePath);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  프로파일 적용
+// ─────────────────────────────────────────────────────────────────────────────
+bool UVTC_GameInstance::ApplyProfileByName(const FString& ProfileName)
+{
+  FVTCSessionConfig Loaded;
+  if (!UVTC_ProfileLibrary::LoadProfile(ProfileName, Loaded))
+  {
+    UE_LOG(LogTemp, Warning, TEXT("[VTC] ApplyProfileByName 실패: %s"), *ProfileName);
+    return false;
+  }
+
+  SessionConfig            = Loaded;
+  LastSelectedProfileName  = ProfileName;
+
+  // 즉시 INI에도 반영 (VRTestLevel 재시작 시 유지)
+  SaveConfigToINI();
+
+  UE_LOG(LogTemp, Log, TEXT("[VTC] Profile 적용됨: %s  Subject=%s"),
+      *ProfileName, *SessionConfig.SubjectID);
+  return true;
+}
+
+TArray<FString> UVTC_GameInstance::GetAvailableProfileNames() const
+{
+  return UVTC_ProfileLibrary::GetAvailableProfileNames();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  내부 헬퍼
 // ─────────────────────────────────────────────────────────────────────────────
-FString UVTC_GameInstance::GetINIPath() const
+FString UVTC_GameInstance::GetConfigPath() const
 {
   return FPaths::ConvertRelativePathToFull(
-      FPaths::ProjectConfigDir() / TEXT("VTCSettings.ini"));
-}
-
-void UVTC_GameInstance::SaveVector(const TCHAR* Key, const FVector& V,
-                                   const FString& Path) const
-{
-  GConfig->SetFloat(INI_SECTION, *(FString(Key) + TEXT("_X")), V.X, Path);
-  GConfig->SetFloat(INI_SECTION, *(FString(Key) + TEXT("_Y")), V.Y, Path);
-  GConfig->SetFloat(INI_SECTION, *(FString(Key) + TEXT("_Z")), V.Z, Path);
-}
-
-FVector UVTC_GameInstance::LoadVector(const TCHAR* Key, const FVector& Default,
-                                      const FString& Path) const
-{
-  // UE5에서 FVector::X/Y/Z는 double이므로 GetFloat(float&)에 직접 전달 불가.
-  // float 임시 변수에 읽어 FVector로 변환한다.
-  float X = (float)Default.X, Y = (float)Default.Y, Z = (float)Default.Z;
-  GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_X")), X, Path);
-  GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_Y")), Y, Path);
-  GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_Z")), Z, Path);
-  return FVector(X, Y, Z);
+      FPaths::ProjectSavedDir() / TEXT("VTCConfig/VTCSettings.json"));
 }

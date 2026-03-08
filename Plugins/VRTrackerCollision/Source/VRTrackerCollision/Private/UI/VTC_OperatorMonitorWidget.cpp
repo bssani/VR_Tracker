@@ -1,8 +1,167 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "UI/VTC_OperatorMonitorWidget.h"
+#include "VTC_GameInstance.h"
+#include "VTC_ProfileLibrary.h"
+#include "Pawn/VTC_TrackerPawn.h"
+#include "Tracker/VTC_TrackerTypes.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
+#include "Components/Button.h"
+#include "Components/CheckBox.h"
+#include "Components/ComboBoxString.h"
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  초기화 — 프로파일 드롭다운 + 체크박스 바인딩
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_OperatorMonitorWidget::NativeConstruct()
+{
+  Super::NativeConstruct();
+
+  if (Btn_ApplyProfile)
+    Btn_ApplyProfile->OnClicked.AddDynamic(
+        this, &UVTC_OperatorMonitorWidget::OnApplyProfileClicked);
+
+  if (CB_TrackerMeshVisible)
+    CB_TrackerMeshVisible->OnCheckStateChanged.AddDynamic(
+        this, &UVTC_OperatorMonitorWidget::OnTrackerMeshVisibilityChanged);
+
+  if (Btn_CaptureHipPos)
+    Btn_CaptureHipPos->OnClicked.AddDynamic(
+        this, &UVTC_OperatorMonitorWidget::OnCaptureHipPositionClicked);
+
+  // GameInstance의 현재 bShowTrackerMesh 값으로 체크박스 초기화
+  if (const UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>())
+  {
+    if (CB_TrackerMeshVisible)
+      CB_TrackerMeshVisible->SetIsChecked(GI->SessionConfig.bShowTrackerMesh);
+  }
+
+  RefreshProfileComboBox();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  프로파일 목록 갱신
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_OperatorMonitorWidget::RefreshProfileComboBox()
+{
+  if (!Combo_ProfileSelect) return;
+
+  const FString Current = Combo_ProfileSelect->GetSelectedOption();
+  Combo_ProfileSelect->ClearOptions();
+  Combo_ProfileSelect->AddOption(TEXT("(None)"));
+
+  for (const FString& Name : UVTC_ProfileLibrary::GetAvailableProfileNames())
+    Combo_ProfileSelect->AddOption(Name);
+
+  // 마지막 선택 복원
+  if (const UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>())
+  {
+    if (!GI->LastSelectedProfileName.IsEmpty())
+      Combo_ProfileSelect->SetSelectedOption(GI->LastSelectedProfileName);
+    else if (!Current.IsEmpty())
+      Combo_ProfileSelect->SetSelectedOption(Current);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  프로파일 Apply 버튼 핸들러
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_OperatorMonitorWidget::OnApplyProfileClicked()
+{
+  if (!Combo_ProfileSelect) return;
+
+  const FString ProfileName = Combo_ProfileSelect->GetSelectedOption();
+  if (ProfileName.IsEmpty() || ProfileName == TEXT("(None)")) return;
+
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+
+  if (GI->ApplyProfileByName(ProfileName))
+  {
+    // TrackerMesh 체크박스를 새 config 값으로 동기화
+    if (CB_TrackerMeshVisible)
+      CB_TrackerMeshVisible->SetIsChecked(GI->SessionConfig.bShowTrackerMesh);
+
+    // OperatorController에게 재적용하도록 알림
+    OnProfileApplied.Broadcast();
+    UE_LOG(LogTemp, Log, TEXT("[VTC] OperatorMonitor: Profile Applied → %s"), *ProfileName);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Tracker 메시 가시성 체크박스 핸들러
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_OperatorMonitorWidget::OnTrackerMeshVisibilityChanged(bool bIsChecked)
+{
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+
+  GI->SessionConfig.bShowTrackerMesh = bIsChecked;
+
+  // TrackerMesh 가시성만 즉시 변경하기 위해 OnProfileApplied 재사용
+  // (OperatorController가 바인딩된 경우 SetTrackerMeshVisible을 호출함)
+  OnProfileApplied.Broadcast();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Waist 트래커 현재 위치 → VehicleHipPosition 캡처
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_OperatorMonitorWidget::OnCaptureHipPositionClicked()
+{
+  // 현재 Pawn이 TrackerPawn인지 확인
+  APlayerController* PC = GetOwningPlayer();
+  if (!PC) return;
+
+  AVTC_TrackerPawn* TP = Cast<AVTC_TrackerPawn>(PC->GetPawn());
+  if (!TP) return;
+
+  // Waist 트래커가 활성 상태인지 확인
+  if (!TP->IsTrackerActive(EVTCTrackerRole::Waist))
+  {
+    const FString Msg = TEXT("Waist tracker not active!");
+    if (Txt_HipCapture) Txt_HipCapture->SetText(FText::FromString(Msg));
+    UE_LOG(LogTemp, Warning, TEXT("[VTC] CaptureHipPosition: %s"), *Msg);
+    return;
+  }
+
+  // 현재 Waist 위치를 VehicleHipPosition으로 캡처
+  const FVector WaistWorld = TP->GetTrackerLocation(EVTCTrackerRole::Waist);
+
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+
+  GI->SessionConfig.VehicleHipPosition = WaistWorld;
+
+  // 현재 로드된 프로파일에도 즉시 반영 (저장)
+  if (!GI->LastSelectedProfileName.IsEmpty())
+  {
+    UVTC_ProfileLibrary::SaveProfile(GI->LastSelectedProfileName, GI->SessionConfig);
+    UE_LOG(LogTemp, Log,
+        TEXT("[VTC] CaptureHipPosition: %.1f, %.1f, %.1f → saved to profile '%s'"),
+        WaistWorld.X, WaistWorld.Y, WaistWorld.Z, *GI->LastSelectedProfileName);
+  }
+
+  // UI 피드백
+  const FString Msg = FString::Printf(
+      TEXT("Hip captured: (%.1f, %.1f, %.1f)"), WaistWorld.X, WaistWorld.Y, WaistWorld.Z);
+  if (Txt_HipCapture) Txt_HipCapture->SetText(FText::FromString(Msg));
+
+  // ReferencePoint 재스폰을 위해 OnProfileApplied 브로드캐스트
+  OnProfileApplied.Broadcast();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  프리셋 정보
+// ─────────────────────────────────────────────────────────────────────────────
+void UVTC_OperatorMonitorWidget::UpdatePresetInfo(bool bUsePreset, const FString& PresetName)
+{
+  if (!Txt_PresetInfo) return;
+  const FString Text = bUsePreset && !PresetName.IsEmpty()
+      ? FString::Printf(TEXT("Preset: %s"), *PresetName)
+      : TEXT("Preset: None");
+  Txt_PresetInfo->SetText(FText::FromString(Text));
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  세션 상태
@@ -108,6 +267,13 @@ void UVTC_OperatorMonitorWidget::UpdateMinDistance(float MinDist_cm)
   if (Txt_MinDistance)
     Txt_MinDistance->SetText(FText::FromString(
         FString::Printf(TEXT("Min: %.1f cm"), MinDist_cm)));
+}
+
+void UVTC_OperatorMonitorWidget::UpdateHipWaistDistance(float Distance_cm)
+{
+  if (Txt_HipWaistDistance)
+    Txt_HipWaistDistance->SetText(FText::FromString(
+        FString::Printf(TEXT("Hip↔Waist: %.1f cm"), Distance_cm)));
 }
 
 FString UVTC_OperatorMonitorWidget::MakeRowKey(EVTCTrackerRole BodyPart,

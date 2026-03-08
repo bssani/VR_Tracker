@@ -110,10 +110,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
 	void SetCurrentPhase(EVTCMovementPhase Phase);
 
-	// 최악 클리어런스 스크린샷 경로 설정 (CollisionDetector에서 호출)
-	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
-	void SetWorstClearanceScreenshotPath(const FString& Path);
-
 	// 로그 버퍼 초기화
 	UFUNCTION(BlueprintCallable, Category = "VTC|Logger")
 	void ClearLog();
@@ -151,9 +147,6 @@ private:
 
 	// Phase별 최소 클리어런스 (Feature E)
 	TMap<EVTCMovementPhase, float> PhaseMinClearance;
-
-	// 스크린샷 경로 (Feature F — CollisionDetector에서 기록)
-	FString WorstClearanceScreenshotPath;
 
 	// 전체 최악 경고 단계
 	EVTCWarningLevel OverallWorstStatus = EVTCWarningLevel::Safe;
