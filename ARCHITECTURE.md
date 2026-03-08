@@ -43,40 +43,20 @@
 
 ---
 
-## 2. 두 레벨 아키텍처 (Level 1 + Level 2)
+## 2. 레벨 아키텍처 (VRTestLevel 단일 진입점)
+
+> **v3.0부터 Level 1 (SetupLevel) 및 Simulation 코드 전면 제거.**
+> VRTestLevel이 유일한 진입점. 설정은 `WBP_VTC_ProfileManager` (Utility Editor 위젯)에서 사전 저장.
 
 ```
-┌─ Level 1 (VTC_SetupLevel) ─────────────────────────────────────────────┐
+┌─ VRTestLevel ──────────────────────────────────────────────────────────┐
 │                                                                         │
-│  GameMode: VTC_SetupGameMode                                           │
-│    └─ BeginPlay → SetupWidget 자동 생성 + 마우스 커서 ON               │
-│                                                                         │
-│  WBP_SetupWidget (VTC_SetupWidget 기반)                                │
-│    ├─ SubjectID, Height(cm) 입력                                        │
-│    ├─ VR / Simulation 모드 선택                                         │
-│    ├─ Mount Offset 5개 (Waist/LKnee/RKnee/LFoot/RFoot) X/Y/Z         │
-│    ├─ Vehicle Hip Position X/Y/Z 입력                                  │
-│    ├─ [NEW] Warning / Collision 임계값 슬라이더 (Feature A)             │
-│    ├─ [NEW] 차종 프리셋 ComboBox + [Save Preset] 버튼 (Feature B)      │
-│    ├─ Collision Sphere / Tracker Mesh 가시성 토글                       │
-│    ├─ [Save Config] / [Load Config] → INI 파일                         │
-│    └─ [Start Session] → GameInstance.SessionConfig 저장 → Level 2 로드 │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-         │
-         │  OpenLevel("VTC_TestLevel")
-         │  FVTCSessionConfig → UVTC_GameInstance (레벨 전환 간 유지)
-         ▼
-┌─ Level 2 (VTC_TestLevel) ──────────────────────────────────────────────┐
-│                                                                         │
-│  GameMode: VTC_GameMode                                                │
+│  GameMode: VTC_VRGameMode                                              │
 │    ├─ DefaultPawn: VTC_TrackerPawn                                     │
-│    └─ PlayerController: VTC_SimPlayerController                        │
-│         └─ 상속: VTC_SimPlayerController → VTC_OperatorController      │
-│              ├─ F1 캘리브레이션 / F2 테스트 / F3 CSV 내보내기          │
-│              ├─ Escape → Level 1 복귀                                  │
-│              ├─ GameInstance 설정 → 각 Actor에 자동 적용               │
-│              └─ WASD + 마우스 시뮬레이션 이동 (SimPlayerController)     │
+│    └─ PlayerController: VTC_OperatorController                         │
+│         ├─ 1 캘리브레이션 / 2 테스트 / 3 CSV 내보내기                  │
+│         ├─ P키 → 마지막 적용 프로파일 재적용                            │
+│         └─ GameInstance 설정 → 각 Actor에 자동 적용                    │
 │                                                                         │
 │  레벨 배치 Actor:                                                       │
 │    ├─ VTC_BodyActor (가상 신체)                                         │
@@ -86,12 +66,14 @@
 │    │    └─ VTC_DataLogger (컴포넌트)                                     │
 │    ├─ VTC_StatusActor (3D 월드 위젯 — 상태/키 안내)                     │
 │    ├─ VTC_ReferencePoint × N (차량 기준점)                              │
-│    ├─ [NEW] VTC_OperatorViewActor (SceneCapture → Spectator Screen)    │
+│    ├─ VTC_OperatorViewActor (SceneCapture → Spectator Screen)          │
 │    └─ PostProcessVolume (Vignette 피드백용)                             │
 │                                                                         │
 │  Screen Space UI (운영자 데스크탑):                                      │
 │    └─ VTC_OperatorMonitorWidget (OperatorController가 자동 생성)        │
 │         ├─ 세션 상태 + 피실험자 정보 + 트래커 수                         │
+│         ├─ 프로파일 드롭다운 (Combo_ProfileSelect) + [Apply] 버튼       │
+│         ├─ [Set Hip Here] 버튼 → Waist 위치를 VehicleHipPosition으로 캡처│
 │         ├─ 실시간 거리 목록 (30Hz, DistanceRowMap 재사용)                │
 │         ├─ 세션 최솟값 거리 (DistanceValueMap 기반 자동 갱신)            │
 │         └─ 경과 시간 (Testing 중 1초마다)                                │
@@ -99,33 +81,39 @@
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 데이터 흐름
+### 프로파일 워크플로우
 
 ```
-Level 1 SetupWidget 입력
-    ↓ [Start Session] 클릭
-GameInstance.SessionConfig (FVTCSessionConfig — 레벨 전환 간 유지)
-    ↓ OpenLevel("VTC_TestLevel")
-Level 2 로드 → OperatorController::BeginPlay / OnPossess
-    └─ ApplyGameInstanceConfig()
-         ├─ TrackerPawn.bSimulationMode = (RunMode == Simulation)
+[사전 설정] WBP_VTC_ProfileManager (Utility Editor 위젯)
+    → SubjectID, Height, MountOffset × 5, VehicleHipPosition 등 입력
+    → Saved/VTCProfiles/<ProfileName>.json 저장
+
+[VRTestLevel 실행]
+    OperatorController::BeginPlay → GameInstance 로드
+    OperatorMonitorWidget.Combo_ProfileSelect → 프로파일 선택
+    [Apply] 클릭 → ApplyGameInstanceConfig()
          ├─ TrackerPawn.SetTrackerMeshVisible(bShowTrackerMesh)
          ├─ BodyActor.ApplySessionConfig(Config)
          │    ├─ MountOffset 5개 적용
          │    └─ bShowCollisionSpheres → 멤버 변수 저장 (Tick 덮어쓰기 방지)
-         ├─ CollisionDetector.WarningThreshold/CollisionThreshold 적용  [NEW]
+         ├─ CollisionDetector.WarningThreshold/CollisionThreshold 적용
          ├─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰 (순수 위치 마커)
          │    └─ RelevantBodyParts 비움 → 충돌 감지 없음, 시안색 마커만 표시
-         └─ 차종 프리셋 JSON → 추가 ReferencePoint 스폰  [NEW]
+         └─ 차종 프리셋 JSON → 추가 ReferencePoint 스폰
               └─ CollisionDetector.ReferencePoints.AddUnique()
+
+[Set Hip Here] 버튼
+    → 피실험자가 차량 시트에 앉은 상태에서 클릭
+    → 현재 Waist 트래커 위치를 VehicleHipPosition으로 캡처
+    → 현재 프로파일 JSON에 즉시 저장
 ```
 
-### INI 설정 파일
+### 삭제된 파일 (v3.0)
 
-- 경로: `[프로젝트]/Config/VTCSettings.ini`
-- [Save Config] 또는 Start Session 클릭 시 자동 저장
-- Level 1 시작 시 자동 로드 (NativeConstruct에서 LoadConfigFromINI 호출)
-- **SubjectID / Height는 저장하지 않음** (매 세션마다 새로 입력)
+- `VTC_SetupGameMode.h/.cpp` — Level 1 GameMode 제거됨
+- `VTC_SetupWidget.h/.cpp` — Level 1 설정 UI 제거됨
+- `VTC_GameMode.h/.cpp` — 시뮬레이션용 GameMode 제거됨
+- `VTC_SimPlayerController.h/.cpp` — WASD 데스크탑 시뮬레이션 제거됨
 
 ---
 
@@ -210,12 +198,11 @@ Plugins/
     │       ├── Public/
     │       │   ├── VRTrackerCollisionModule.h
     │       │   │
-    │       │   ├── VTC_GameMode.h              ← Level 2 GameMode
-    │       │   ├── VTC_SetupGameMode.h         ← Level 1 GameMode (SetupWidget 생성)
-    │       │   ├── VTC_GameInstance.h           ← 레벨 간 설정 전달 + INI + ApplyProfileByName
-    │       │   ├── VTC_SessionConfig.h          ← FVTCSessionConfig 구조체 (ProfileName 추가)
-    │       │   ├── VTC_VehiclePreset.h          ← JSON 차종 프리셋 구조체 + Manager (Feature B)
-    │       │   ├── VTC_ProfileLibrary.h         ← [NEW] 피실험자+차량 프로파일 CRUD
+    │       │   ├── VTC_VRGameMode.h             ← VRTestLevel 전용 GameMode (VR Only)
+    │       │   ├── VTC_GameInstance.h           ← 설정 저장/불러오기 (JSON)
+    │       │   ├── VTC_SessionConfig.h          ← FVTCSessionConfig 구조체
+    │       │   ├── VTC_VehiclePreset.h          ← JSON 차종 프리셋 구조체 + Manager
+    │       │   ├── VTC_ProfileLibrary.h         ← 피실험자+차량 프로파일 CRUD
     │       │   │
     │       │   ├── Tracker/
     │       │   │   ├── VTC_TrackerTypes.h       ← 공통 Enum/Struct
@@ -225,8 +212,7 @@ Plugins/
     │       │   │   └── VTC_TrackerPawn.h        ← HMD + 5 MotionController 통합
     │       │   │
     │       │   ├── Controller/
-    │       │   │   ├── VTC_OperatorController.h ← F키 세션 제어 + 설정 적용
-    │       │   │   └── VTC_SimPlayerController.h← WASD/마우스 시뮬레이션 (상속 OperatorController)
+    │       │   │   └── VTC_OperatorController.h ← 세션 제어 + 설정 적용
     │       │   │
     │       │   ├── Body/
     │       │   │   ├── VTC_BodyActor.h          ← 가상 신체 Actor
@@ -245,28 +231,23 @@ Plugins/
     │       │   │   └── VTC_SessionManager.h     ← 세션 상태머신
     │       │   │
     │       │   ├── UI/
-    │       │   │   ├── VTC_SetupWidget.h        ← Level 1 설정 위젯
-    │       │   │   ├── VTC_StatusWidget.h       ← Level 2 상태 표시 위젯
+    │       │   │   ├── VTC_StatusWidget.h       ← VR 3D WorldSpace 상태 표시 위젯
     │       │   │   ├── VTC_SubjectInfoWidget.h  ← 피실험자 입력 위젯
-    │       │   │   ├── VTC_OperatorMonitorWidget.h ← Level 2 운영자 모니터 (프로파일 드롭다운+TrackerMesh 토글 추가)
-    │       │   │   └── VTC_ProfileManagerWidget.h  ← [NEW] 프로파일 Utility Editor
+    │       │   │   ├── VTC_OperatorMonitorWidget.h ← 운영자 모니터 (프로파일 드롭다운 + HipCapture)
+    │       │   │   └── VTC_ProfileManagerWidget.h  ← 프로파일 Utility Editor
     │       │   │
     │       │   └── World/
     │       │       ├── VTC_StatusActor.h        ← 3D 월드 위젯 Actor
-    │       │       └── VTC_OperatorViewActor.h  ← SceneCapture → Spectator Screen (Feature I)
+    │       │       └── VTC_OperatorViewActor.h  ← SceneCapture → Spectator Screen
     │       │
     │       └── Private/
     │           ├── VRTrackerCollisionModule.cpp
-    │           ├── VTC_GameMode.cpp
-    │           ├── VTC_SetupGameMode.cpp
     │           ├── VTC_GameInstance.cpp
     │           ├── VTC_VehiclePreset.cpp
-    │           ├── VTC_ProfileLibrary.cpp     ← [NEW]
+    │           ├── VTC_ProfileLibrary.cpp
     │           │
     │           ├── Pawn/VTC_TrackerPawn.cpp
-    │           ├── Controller/
-    │           │   ├── VTC_OperatorController.cpp
-    │           │   └── VTC_SimPlayerController.cpp
+    │           ├── Controller/VTC_OperatorController.cpp
     │           ├── Body/
     │           │   ├── VTC_BodyActor.cpp
     │           │   ├── VTC_BodySegmentComponent.cpp
@@ -279,11 +260,10 @@ Plugins/
     │           │   ├── VTC_DataLogger.cpp
     │           │   └── VTC_SessionManager.cpp
     │           ├── UI/
-    │           │   ├── VTC_SetupWidget.cpp
     │           │   ├── VTC_StatusWidget.cpp
     │           │   ├── VTC_SubjectInfoWidget.cpp
     │           │   ├── VTC_OperatorMonitorWidget.cpp
-    │           │   └── VTC_ProfileManagerWidget.cpp  ← [NEW]
+    │           │   └── VTC_ProfileManagerWidget.cpp
     │           └── World/
     │               ├── VTC_StatusActor.cpp
     │               └── VTC_OperatorViewActor.cpp
@@ -306,38 +286,32 @@ Plugins/
             └── WBP_VTC_HUD.uasset
 ```
 
-> 총 **25개 헤더 + 22개 구현** = 47개 C++ 파일 (5개 신규 추가)
+> **삭제된 파일 (v3.0):** `VTC_SetupGameMode`, `VTC_SetupWidget`, `VTC_GameMode`, `VTC_SimPlayerController`
 
 ---
 
 ## 5. 핵심 클래스 관계
 
 ```
-[Level 1]
-  VTC_SetupGameMode (AGameModeBase)
-    └─ BeginPlay → VTC_SetupWidget (UUserWidget) AddToViewport
-         └─ [Start Session] → VTC_GameInstance.SessionConfig 저장 → OpenTestLevel()
-
 [공통]
   VTC_GameInstance (UGameInstance)
-    ├─ FVTCSessionConfig 보관 (레벨 전환 간 유지)
-    ├─ INI 저장/불러오기 (Config/VTCSettings.ini)
-    ├─ OpenTestLevel() / OpenSetupLevel()
-    └─ VTC_SessionConfig.h → EVTCRunMode, FVTCSessionConfig
+    ├─ FVTCSessionConfig 보관
+    ├─ JSON 저장/불러오기 (Saved/VTCProfiles/<Name>.json)
+    ├─ ApplyProfileByName(ProfileName) → SessionConfig 갱신
+    └─ VTC_SessionConfig.h → FVTCSessionConfig
 
-[Level 2]
-  VTC_GameMode (AGameModeBase)
+[VRTestLevel]
+  VTC_VRGameMode (AGameModeBase)
     └─ DefaultPawnClass = VTC_TrackerPawn
-       PlayerControllerClass = VTC_SimPlayerController
+       PlayerControllerClass = VTC_OperatorController
 
-  VTC_SimPlayerController → VTC_OperatorController → APlayerController
-    ├─ (부모) OperatorController: F1/F2/F3/Esc + GameInstance 설정 적용
-    │    ├─ ApplyGameInstanceConfig() → TrackerPawn, BodyActor, CollisionDetector
-    │    ├─ VehicleHipPosition → ReferencePoint 런타임 스폰
-    │    ├─ StatusActor/StatusWidget 갱신 (Tick 1초마다)
-    │    ├─ OperatorMonitorWidget 생성 + 거리/상태/시간 갱신 (Screen Space)
-    │    └─ EndPlay → SpawnedHipRefPoint 정리
-    └─ (자식) SimPlayerController: WASD + 마우스 + Enhanced Input
+  VTC_OperatorController → APlayerController
+    ├─ 단축키: 1(캘리브레이션) / 2(테스트) / 3(CSV+종료) / P(프로파일 재적용) / G(JSON저장)
+    ├─ ApplyGameInstanceConfig() → TrackerPawn, BodyActor, CollisionDetector
+    ├─ VehicleHipPosition → ReferencePoint 런타임 스폰
+    ├─ StatusActor/StatusWidget 갱신 (Tick 1초마다)
+    ├─ OperatorMonitorWidget 생성 + 거리/상태/시간 갱신 (Screen Space)
+    └─ EndPlay → SpawnedHipRefPoint 정리
 
   VTC_TrackerPawn (APawn, IVTC_TrackerInterface)
     ├─ Camera (HMD)
@@ -372,10 +346,11 @@ Plugins/
     ├─ 실시간 거리 목록 (30Hz, DistanceRowMap 재사용)
     ├─ 세션 최솟값 거리 (DistanceValueMap → UpdateMinDistanceFromMap)
     ├─ 경과 시간 (MM:SS)
-    ├─ [NEW] Combo_ProfileSelect — Saved/VTCProfiles/*.json 드롭다운
-    ├─ [NEW] Btn_ApplyProfile → GameInstance.ApplyProfileByName() → OnProfileApplied 브로드캐스트
+    ├─ Combo_ProfileSelect — Saved/VTCProfiles/*.json 드롭다운
+    ├─ Btn_ApplyProfile → GameInstance.ApplyProfileByName() → OnProfileApplied 브로드캐스트
     │         → OperatorController.OnMonitorWidgetProfileApplied() → ApplyGameInstanceConfig()
-    └─ [NEW] CB_TrackerMeshVisible → SessionConfig.bShowTrackerMesh 즉시 변경 + TrackerPawn에 적용
+    ├─ CB_TrackerMeshVisible → SessionConfig.bShowTrackerMesh 즉시 변경 + TrackerPawn에 적용
+    └─ Btn_CaptureHipPos → 현재 Waist 위치를 VehicleHipPosition으로 캡처 + 프로파일 JSON 저장
 ```
 
 ### 주요 타입 (VTC_TrackerTypes.h)
@@ -389,7 +364,7 @@ enum class EVTCTrackerRole : uint8
 enum class EVTCWarningLevel : uint8
 { Safe, Warning, Collision }
 // Safe: > 10cm | Warning: 3~10cm | Collision: ≤ 3cm 또는 Overlap
-// 임계값은 Level 1에서 슬라이더로 설정 → FVTCSessionConfig에 저장 [NEW]
+// 임계값은 FVTCSessionConfig.WarningThreshold_cm / CollisionThreshold_cm에 저장
 
 // 세션 상태
 enum class EVTCSessionState : uint8
@@ -509,8 +484,7 @@ FVTCPresetRefPoint    — 프리셋 내 단일 ReferencePoint 데이터
     ▼
   [IDLE]
 
-  ※ 모든 상태에서 Escape → Level 1 (Setup) 으로 즉시 복귀
-     (VTC_OperatorController::ReturnToSetupLevel)
+  ※ Escape → 세션 중단 / IDLE 복귀
 ```
 
 ---
@@ -607,12 +581,12 @@ CollisionOccurred, CollisionPartName
 ```
 1. Plugins/VRTrackerCollision/ 폴더를 복사
 2. Project Settings > Game Instance Class = BP_VTC_GameInstance
-3. Level 1 (Setup): GameMode Override = BP_VTC_SetupGameMode
-4. Level 2 (Test):
-   a. GameMode Override = BP_VTC_GameMode
+3. VRTestLevel:
+   a. GameMode Override = BP_VTC_VRGameMode
    b. BP_VTC_SessionManager, BP_VTC_BodyActor, BP_VTC_StatusActor 배치
    c. 차량 Interior Mesh 위에 BP_VTC_ReferencePoint 배치 (PartName 설정)
    d. PostProcessVolume (Infinite Extent) 배치
+4. WBP_VTC_ProfileManager (Utility Editor)에서 피실험자+차량 프로파일 사전 저장
 5. 차량 모델만 교체 + ReferencePoint 재배치하면 다른 차종에 바로 적용 가능
 ```
 
@@ -620,74 +594,68 @@ CollisionOccurred, CollisionPartName
 
 ## 11. 구현 현황
 
-### C++ 구현 완료 (25개 헤더 + 22개 소스)
+### C++ 구현 완료
 
-| 파일 | 카테고리 | 내용 | 신규 기능 |
-|------|---------|------|----------|
-| VTC_TrackerTypes.h | Tracker | 공통 Enum/Struct | |
-| VTC_TrackerInterface.h | Tracker | TrackerPawn 접근 인터페이스 | |
-| VTC_TrackerPawn | Pawn | HMD+5 Tracker 통합 Pawn | |
-| VTC_GameMode | Core | Level 2 GameMode | |
-| VTC_SetupGameMode | Core | Level 1 GameMode (위젯 생성/정리) | |
-| VTC_GameInstance | Core | 레벨 간 설정 전달 + INI | |
-| VTC_SessionConfig | Core | FVTCSessionConfig 구조체 | WarningThreshold_cm, CollisionThreshold_cm, bUseVehiclePreset, SelectedPresetName, LoadedPresetJson, **ProfileName** |
-| VTC_ProfileLibrary | Core | **[NEW]** 피실험자+차량 조합 프로파일 CRUD (Saved/VTCProfiles/) | 신규 ✅ |
-| VTC_OperatorController | Controller | F키 세션 제어 + 설정 적용 + 동적 스폰 + OnMonitorWidgetProfileApplied | |
-| VTC_SimPlayerController | Controller | WASD/마우스 시뮬레이션 (OperatorController 상속) | |
-| VTC_BodyActor | Body | 가상 신체 (세그먼트+Sphere+VisualSphere) | |
-| VTC_BodySegmentComponent | Body | Dynamic Cylinder | |
-| VTC_CalibrationComponent | Body | T-Pose 캘리브레이션 | |
-| VTC_ReferencePoint | Vehicle | 차량 기준점 Actor + SetActive(가시성 연동) | |
-| VTC_CollisionDetector | Collision | 거리 측정 + 충돌 감지 | **F** 자동 스크린샷 ✅ / **G** VR 거리 라벨 ✅ |
-| VTC_WarningFeedback | Collision | 시각/청각 피드백 (Warning+Collision 500ms 쿨다운) | |
-| VTC_DataLogger | Data | CSV 로깅 (summary + frames) | |
-| VTC_SessionManager | Data | 세션 상태머신 | |
-| VTC_SetupWidget | UI | Level 1 설정 위젯 | **A** 임계값 슬라이더 ✅ / **B** 차종 프리셋 ComboBox ✅ |
-| VTC_StatusWidget | UI | Level 2 상태 표시 위젯 | |
-| VTC_SubjectInfoWidget | UI | 피실험자 입력 위젯 | |
-| VTC_OperatorMonitorWidget | UI | Level 2 운영자 모니터 (프로파일 드롭다운, Apply 버튼, TrackerMesh 체크박스 추가) | 신규+갱신 ✅ |
-| VTC_ProfileManagerWidget | UI | **[NEW]** 프로파일 Utility Editor 위젯 (사전 설정 저장/불러오기/삭제) | 신규 ✅ |
-| VTC_StatusActor | World | 3D 월드 위젯 Actor | |
-| VTC_VehiclePreset | Core | JSON 차종 프리셋 구조체 + 파일 I/O Manager | **B** ✅ |
-| VTC_OperatorViewActor | World | SceneCapture2D → TextureRenderTarget → Spectator Screen | **I** |
+| 파일 | 카테고리 | 내용 |
+|------|---------|------|
+| VTC_TrackerTypes.h | Tracker | 공통 Enum/Struct |
+| VTC_TrackerInterface.h | Tracker | TrackerPawn 접근 인터페이스 |
+| VTC_TrackerPawn | Pawn | HMD+5 Tracker 통합 Pawn |
+| VTC_VRGameMode | Core | VRTestLevel 전용 GameMode (VR Only) |
+| VTC_GameInstance | Core | 설정 저장/불러오기 (JSON) + ApplyProfileByName |
+| VTC_SessionConfig | Core | FVTCSessionConfig 구조체 (WarningThreshold, CollisionThreshold, ProfileName 포함) |
+| VTC_ProfileLibrary | Core | 피실험자+차량 조합 프로파일 CRUD (Saved/VTCProfiles/) |
+| VTC_OperatorController | Controller | 세션 제어 + 설정 적용 + 동적 스폰 + OnMonitorWidgetProfileApplied |
+| VTC_BodyActor | Body | 가상 신체 (세그먼트+Sphere+VisualSphere) |
+| VTC_BodySegmentComponent | Body | Dynamic Cylinder |
+| VTC_CalibrationComponent | Body | T-Pose 캘리브레이션 |
+| VTC_ReferencePoint | Vehicle | 차량 기준점 Actor + SetActive(가시성 연동) |
+| VTC_CollisionDetector | Collision | 거리 측정 + 충돌 감지 (자동 스크린샷 / VR 거리 라벨) |
+| VTC_WarningFeedback | Collision | 시각/청각 피드백 (Warning+Collision 500ms 쿨다운) |
+| VTC_DataLogger | Data | CSV 로깅 (summary + frames) |
+| VTC_SessionManager | Data | 세션 상태머신 |
+| VTC_StatusWidget | UI | VR 3D WorldSpace 상태 표시 위젯 |
+| VTC_SubjectInfoWidget | UI | 피실험자 입력 위젯 |
+| VTC_OperatorMonitorWidget | UI | 운영자 모니터 (프로파일 드롭다운 + HipCapture + TrackerMesh 토글) |
+| VTC_ProfileManagerWidget | UI | 프로파일 Utility Editor 위젯 (사전 설정 저장/불러오기/삭제) |
+| VTC_StatusActor | World | 3D 월드 위젯 Actor |
+| VTC_VehiclePreset | Core | JSON 차종 프리셋 구조체 + 파일 I/O Manager |
+| VTC_OperatorViewActor | World | SceneCapture2D → TextureRenderTarget → Spectator Screen |
 
 ### Blueprint / Asset 작업 필요
 
 | 작업 | 우선순위 |
 |------|---------|
-| BP_VTC_GameInstance 생성 (레벨 이름 지정) | 높음 |
-| BP_VTC_SetupGameMode + WBP_SetupWidget 생성 | 높음 |
-| WBP_SetupWidget에 슬라이더/콤보박스 BindWidget 추가 | 높음 — `Slider_Warning`, `Slider_Collision`, `Txt_WarningVal`, `Txt_CollisionVal`, `Combo_VehiclePreset`, `Btn_SavePreset` |
+| BP_VTC_GameInstance 생성 | 높음 |
 | BP_VTC_TrackerPawn (MotionSource 설정) | 높음 |
-| BP_VTC_SimPlayerController (Enhanced Input 에셋 연결) | 높음 |
+| BP_VTC_OperatorController (VRTestLevel GameMode에 지정) | 높음 |
 | BP_VTC_BodyActor (Material 연결) | 높음 |
 | BP_VTC_ReferencePoint (차량 위 배치) | 높음 |
 | BP_VTC_SessionManager (시스템 자동 탐색) | 높음 |
-| BP_VTC_StatusActor + WBP_StatusWidget | 높음 |
-| VTC_SetupLevel, VTC_TestLevel 맵 파일 생성 | 높음 |
+| BP_VTC_StatusActor + WBP_VTC_StatusWidget | 높음 |
+| WBP_VTC_OperatorMonitor (OperatorMonitorWidgetClass에 할당) | 높음 |
+| WBP_VTC_ProfileManager (Utility Editor 사전 설정) | 높음 |
+| VRTestLevel 맵 파일 GameMode Override = VTC_VRGameMode | 높음 |
 | Material (Body Segment Safe/Warning/Collision) | 중간 |
-| Enhanced Input 에셋 (IA 7개 + IMC 1개) | 높음 |
 | Niagara FX 설정 (CollisionImpact, WarningPulse) | 낮음 |
-| Sound Cue 설정 | 낮음 |
-| WBP_VTC_HUD (실시간 거리/상태 표시) | 중간 |
+| Sound Cue 설정 + CountdownSFX 배열 4개 연결 | 낮음 |
 | BP_VTC_OperatorViewActor (SceneCapture 설정) | 중간 |
-| 카운트다운 사운드 에셋 4개 (CountdownSFX 배열) | 중간 |
 
 ---
 
-## 8. 신규 기능 요약 (v2.0)
+## 12. 기능 요약
 
 | Feature | 구현 위치 | 설명 |
 |---------|----------|------|
-| **A** 임계값 슬라이더 | SetupWidget ↔ SessionConfig | Level 1에서 Warning/Collision 거리(cm) 슬라이더로 설정 |
-| **B** 차종 프리셋 JSON | VTC_VehiclePreset + OperatorController | 차종별 ReferencePoint 배치를 JSON으로 저장/로드 |
-| **C** Dropout 보간 | VTC_TrackerPawn | 추적 실패 시 최근 2프레임 선형 외삽으로 최대 5프레임 유지 |
-| **D** 캘리브레이션 검증 강화 | VTC_CalibrationComponent | 좌우 비대칭 25% 초과, 다리 길이 범위, 대퇴/하퇴 비율 검증 |
-| **E** 이동 단계 자동 감지 | VTC_TrackerPawn + DataLogger | Hip Z 속도 기반 Entering/Seated/Exiting 상태 전환 + 단계별 MinClearance |
-| **F** 자동 스크린샷 | VTC_CollisionDetector | 세션 최악 클리어런스 갱신 시 PNG 자동 저장 (Saved/VTCLogs/Screenshots/) |
-| **G** VR 거리 라인 라벨 | VTC_CollisionDetector | DrawDebugLine + DrawDebugString으로 신체↔기준점 거리(cm) VR에서 실시간 표시 |
-| **H** 음성 카운트다운 | VTC_CalibrationComponent | USoundBase 배열로 3초 카운트다운 + 완료 음성 재생 |
-| **I** Operator View | VTC_OperatorViewActor | SceneCapture2D(탑다운) → TextureRenderTarget2D → UE5 Spectator Screen |
+| **프로파일 시스템** | VTC_ProfileLibrary + ProfileManagerWidget | WBP_VTC_ProfileManager에서 사전 저장, VRTestLevel에서 드롭다운 선택+적용 |
+| **Set Hip Here** | OperatorMonitorWidget | 피실험자 착석 시 Waist 위치→VehicleHipPosition 캡처+저장 |
+| **Dropout 보간** | VTC_TrackerPawn | 추적 실패 시 최근 2프레임 선형 외삽으로 최대 5프레임 유지 |
+| **캘리브레이션 검증 강화** | VTC_CalibrationComponent | 좌우 비대칭 25% 초과, 다리 길이 범위, 대퇴/하퇴 비율 검증 |
+| **이동 단계 자동 감지** | VTC_TrackerPawn + DataLogger | Hip Z 속도 기반 Entering/Seated/Exiting 전환 + 단계별 MinClearance |
+| **자동 스크린샷** | VTC_CollisionDetector | 세션 최악 클리어런스 갱신 시 PNG 자동 저장 |
+| **VR 거리 라인 라벨** | VTC_CollisionDetector | DrawDebugLine + DrawDebugString으로 거리(cm) 실시간 표시 |
+| **음성 카운트다운** | VTC_CalibrationComponent | USoundBase 배열로 3초 카운트다운 + 완료 음성 재생 |
+| **Operator View** | VTC_OperatorViewActor | SceneCapture2D(탑다운) → TextureRenderTarget2D → Spectator Screen |
 
 ### Operator View 연결 구조
 

@@ -1,7 +1,7 @@
 # VR_Tracker 프로젝트 인수인계 문서
 
 > 새로운 대화 시작 시 이 파일을 먼저 읽어 컨텍스트를 파악할 것.
-> 마지막 업데이트: 2026-03-07
+> 마지막 업데이트: 2026-03-08
 
 ---
 
@@ -17,9 +17,9 @@
 
 ## Git 정보
 
-- **현재 브랜치:** `claude/fix-vr-pawn-switching-BafVI`
+- **현재 브랜치:** `claude/fix-build-errors-E0n01`
 - **Remote:** origin
-- **최근 커밋:** `(pending)` — Level 1 / Simulation 코드 제거 + VehicleHipPosition 인-VR 캡처
+- **최근 커밋:** `a3bf467` — TextBlock.h include 누락 빌드 에러 수정
 
 ---
 
@@ -46,8 +46,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   ├── Pawn/
 │   │   └── VTC_TrackerPawn.h       ← VR Pawn (HMD + 트래커 관리)
 │   ├── Controller/
-│   │   ├── VTC_OperatorController.h
-│   │   └── VTC_SimPlayerController.h
+│   │   └── VTC_OperatorController.h
 │   ├── UI/
 │   │   ├── VTC_OperatorMonitorWidget.h  ← VRTestLevel 운영자 모니터 (프로파일 드롭다운 + Hip 캡처)
 │   │   ├── VTC_ProfileManagerWidget.h   ← Utility Editor 프로파일 관리 위젯 (신규)
@@ -162,7 +161,8 @@ MountOffset_Waist = (0, -15, 0)   // 트래커 로컬 Y 음수 = 등 방향 (확
 
 | 커밋 | 내용 |
 |------|------|
-| `(pending)` | Level 1 + Simulation 코드 전면 제거 + OperatorMonitor에 [Set Hip Here] 버튼 추가 |
+| `a3bf467` | TextBlock.h include 누락으로 인한 UTextBlock 빌드 에러 수정 |
+| `(이전)` | Level 1 + Simulation 코드 전면 제거 + OperatorMonitor에 [Set Hip Here] 버튼 추가 |
 | `7048ab3` | 피실험자+차량 프로파일 시스템 (VTC_ProfileLibrary, VTC_ProfileManagerWidget) + TrackerMesh 가시성 토글 |
 | `247a85e` | 트래커 미연결 시 VisualMesh 숨김, Hip↔Waist 거리 위젯, NumPad 오프셋 실시간 조절 |
 | `31dca20` | VR에서 P키 이후 깜빡거림 해결 (SnapWaistToWithRetry 타이머 제거) |

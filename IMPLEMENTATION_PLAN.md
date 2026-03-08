@@ -10,8 +10,8 @@
 
 | ID | 기능 | 난이도 | 신규 파일 | 수정 파일 | C++ 상태 |
 |----|------|--------|----------|----------|---------|
-| A | Level 1 임계값 슬라이더 | Low | - | SessionConfig, SetupWidget | ✅ 완료 |
-| B | JSON 차종별 프리셋 | Mid | VTC_VehiclePreset.h/cpp | SessionConfig, SetupWidget, OperatorController | ✅ 완료 (SetupWidget/VehiclePreset) |
+| A | 임계값 슬라이더 (ProfileManager로 이전) | Low | - | SessionConfig | ✅ 완료 (SetupWidget 삭제됨 — ProfileManager에서 설정) |
+| B | JSON 차종별 프리셋 | Mid | VTC_VehiclePreset.h/cpp | SessionConfig, OperatorController | ✅ 완료 |
 | C | Tracker 드롭아웃 보간 | Low | - | TrackerTypes, TrackerPawn | ✅ 완료 (`UpdateTracker()` 보간 로직 구현) |
 | D | 캘리브레이션 유효성 강화 | Low | - | CalibrationComponent | ✅ 완료 (`ValidateMeasurements()` 강화 구현) |
 | E | 진입/이탈 단계 분류 | Mid | - | TrackerTypes, TrackerPawn, DataLogger | ✅ 완료 (`DetectMovementPhase()` + DataLogger CSV) |
@@ -22,14 +22,15 @@
 
 **신규 파일 2개 / 수정 파일 10개**
 
-> **전체 완료 현황 (2026-03-02 기준)**
-> - **A~H**: C++ 코드 모두 완료. Blueprint 에셋 연결만 남은 항목: B(UI), H(SFX)
+> **전체 완료 현황 (2026-03-08 기준)**
+> - **A~H**: C++ 코드 모두 완료. Blueprint 에셋 연결만 남은 항목: H(SFX)
 > - **I**: VTC_OperatorViewActor.h/cpp 구조 완성. Spectator Screen API 연결 현장 테스트 필요
-> - **추가**: VTC_OperatorMonitorWidget (Screen Space 운영자 대시보드) 신규 구현 완료
+> - **v3.0 추가**: VTC_ProfileLibrary + VTC_ProfileManagerWidget (프로파일 시스템) 신규 구현 완료
+> - **v3.0 제거**: VTC_SetupGameMode, VTC_SetupWidget, VTC_GameMode, VTC_SimPlayerController 전면 삭제
 >
 > **실제 구현 차이점 (계획 vs 실제)**
-> - **A**: 슬라이더 간 상호 클램프 — `VTC_CollisionDetector`의 `PostEditChangeProperty` + 런타임 클램프로 처리 (슬라이더 콜백 내 직접 클램프 대신)
-> - **B**: `TB_NewPresetName`, `Btn_DeletePreset` 위젯 미구현 (프리셋 이름은 SubjectID 또는 기존 선택 항목 재사용)
+> - **A**: SetupWidget 삭제로 슬라이더 UI 제거됨. 임계값은 프로파일 JSON에서 직접 설정
+> - **B**: `TB_NewPresetName`, `Btn_DeletePreset` — WBP_VTC_ProfileManager에서 대체
 > - **C**: 히스토리 기반 선형 외삽(2프레임) 구현. 드롭아웃 중 Debug Sphere 색상 Silver로 표시
 > - **D**: `AsymmetryWarningThreshold=0.25f` (계획의 0.15f보다 관대하게 설정), 허벅지/종아리 비율 0.7~1.5 추가 검증
 > - **E**: `PhaseVelocityThreshold=5.0f cm/s`, `DataLogger.PhaseMinClearance TMap` + CSV 컬럼 자동 포함
