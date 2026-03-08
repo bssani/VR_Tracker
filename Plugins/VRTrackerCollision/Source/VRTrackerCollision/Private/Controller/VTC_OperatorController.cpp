@@ -5,6 +5,7 @@
 #include "Body/VTC_BodyActor.h"
 #include "Collision/VTC_CollisionDetector.h"
 #include "Components/InputComponent.h"
+#include "Components/TextBlock.h"
 #include "Data/VTC_SessionManager.h"
 #include "EngineUtils.h" // TActorIterator
 #include "Kismet/KismetSystemLibrary.h"
