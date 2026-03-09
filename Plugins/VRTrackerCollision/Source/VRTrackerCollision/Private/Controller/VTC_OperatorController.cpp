@@ -352,9 +352,8 @@ void AVTC_OperatorController::Input_P() {
   if (!GI)
     return;
 
-  // 1) ActiveProfile.txt 우선 재로드; 없으면 기존 VTCSettings.json 사용
-  if (!GI->LoadActiveProfile())
-    GI->LoadConfigFromINI();
+  // 1) VTCSettings.json 재로드 ([Set as Active]가 이 파일을 직접 덮어씀)
+  GI->LoadConfigFromINI();
 
   // 2) 기존 preset ref points 정리 (중복 스폰 방지)
   for (auto &Ref : SpawnedPresetRefPoints) {

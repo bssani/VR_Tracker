@@ -9,6 +9,7 @@
 #include "Components/Slider.h"
 #include "Components/TextBlock.h"
 #include "Components/ComboBoxString.h"
+#include "JsonObjectConverter.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformFileManager.h"
@@ -57,14 +58,17 @@ void UVTC_ProfileManagerWidget::NativeConstruct()
 	if (CB_ShowCollisionSpheres) CB_ShowCollisionSpheres->SetIsChecked(true);
 	if (CB_ShowTrackerMesh)      CB_ShowTrackerMesh->SetIsChecked(false);
 
-	// ActiveProfile.txt 읽어서 Txt_ActiveProfile 초기화
-	const FString ActiveProfilePath = FPaths::ProjectSavedDir() / TEXT("VTCConfig/ActiveProfile.txt");
-	FString ActiveName;
-	if (FFileHelper::LoadFileToString(ActiveName, *ActiveProfilePath))
+	// VTCSettings.json에서 현재 활성 프로파일 이름 표시
+	const FString SettingsPath = FPaths::ProjectSavedDir() / TEXT("VTCConfig/VTCSettings.json");
+	FString JsonStr;
+	if (FFileHelper::LoadFileToString(JsonStr, *SettingsPath))
 	{
-		ActiveName = ActiveName.TrimStartAndEnd();
-		if (Txt_ActiveProfile && !ActiveName.IsEmpty())
-			Txt_ActiveProfile->SetText(FText::FromString(ActiveName));
+		FVTCSessionConfig Config;
+		if (FJsonObjectConverter::JsonObjectStringToUStruct(JsonStr, &Config)
+			&& !Config.ProfileName.IsEmpty() && Txt_ActiveProfile)
+		{
+			Txt_ActiveProfile->SetText(FText::FromString(Config.ProfileName));
+		}
 	}
 
 	// 목록 갱신
@@ -312,15 +316,17 @@ void UVTC_ProfileManagerWidget::OnSetAsActiveClicked()
 		return;
 	}
 
-	// Saved/VTCConfig/ 디렉터리 생성
-	const FString ConfigDir = FPaths::ProjectSavedDir() / TEXT("VTCConfig");
-	IPlatformFile& PF = FPlatformFileManager::Get().GetPlatformFile();
-	if (!PF.DirectoryExists(*ConfigDir))
-		PF.CreateDirectoryTree(*ConfigDir);
+	// VTCProfiles/<Name>.json → VTCConfig/VTCSettings.json 복사
+	// GameInstance::Init() 및 P키 모두 VTCSettings.json을 읽으므로 별도 중간 파일 불필요.
+	const FString SrcPath = FPaths::ProjectSavedDir()
+		/ TEXT("VTCProfiles") / (ProfileName + TEXT(".json"));
+	const FString DstPath = FPaths::ProjectSavedDir()
+		/ TEXT("VTCConfig/VTCSettings.json");
 
-	// ActiveProfile.txt 기록
-	const FString FilePath = ConfigDir / TEXT("ActiveProfile.txt");
-	if (FFileHelper::SaveStringToFile(ProfileName, *FilePath))
+	IPlatformFile& PF = FPlatformFileManager::Get().GetPlatformFile();
+	PF.CreateDirectoryTree(*FPaths::GetPath(DstPath));
+
+	if (PF.CopyFile(*DstPath, *SrcPath))
 	{
 		if (Txt_ActiveProfile)
 			Txt_ActiveProfile->SetText(FText::FromString(ProfileName));
@@ -328,7 +334,7 @@ void UVTC_ProfileManagerWidget::OnSetAsActiveClicked()
 	}
 	else
 	{
-		ShowStatus(TEXT("ActiveProfile.txt 쓰기 실패"), false);
+		ShowStatus(TEXT("설정 저장 실패 — 프로파일 파일이 존재하는지 확인"), false);
 	}
 }
 
