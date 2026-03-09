@@ -56,6 +56,12 @@ public:
   UFUNCTION(BlueprintCallable, Category = "VTC|Profile")
   bool ApplyProfileByName(const FString& ProfileName);
 
+  // Saved/VTCConfig/ActiveProfile.txt 읽어 해당 프로파일 즉시 적용.
+  // Set as Active 이후 레벨 시작 / P키 재적용에 사용.
+  // 파일 없음 or 로드 실패 시 false 반환 (기존 VTCSettings.json 유지).
+  UFUNCTION(BlueprintCallable, Category = "VTC|Profile")
+  bool LoadActiveProfile();
+
   // 저장된 프로파일 이름 목록 반환 (ProfileLibrary 위임)
   UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VTC|Profile")
   TArray<FString> GetAvailableProfileNames() const;

@@ -14,8 +14,9 @@
 void UVTC_GameInstance::Init()
 {
   Super::Init();
-  // VRTestLevel 실행 전에 이전에 저장한 프로파일(MountOffset / VehicleHipPosition / Threshold 등)이 복원된다.
-  LoadConfigFromINI();
+  // ActiveProfile.txt가 있으면 해당 프로파일 우선 적용; 없으면 기존 VTCSettings.json 사용.
+  if (!LoadActiveProfile())
+    LoadConfigFromINI();
   UE_LOG(LogTemp, Log, TEXT("[VTC] GameInstance::Init — config loaded. Profile=%s"),
       *SessionConfig.ProfileName);
 }
@@ -125,6 +126,21 @@ void UVTC_GameInstance::LoadConfigFromINI()
 // ─────────────────────────────────────────────────────────────────────────────
 //  프로파일 적용
 // ─────────────────────────────────────────────────────────────────────────────
+bool UVTC_GameInstance::LoadActiveProfile()
+{
+  const FString Path = FPaths::ProjectSavedDir() / TEXT("VTCConfig/ActiveProfile.txt");
+  FString ProfileName;
+  if (!FFileHelper::LoadFileToString(ProfileName, *Path))
+    return false;
+
+  ProfileName = ProfileName.TrimStartAndEnd();
+  if (ProfileName.IsEmpty())
+    return false;
+
+  UE_LOG(LogTemp, Log, TEXT("[VTC] ActiveProfile.txt → '%s'"), *ProfileName);
+  return ApplyProfileByName(ProfileName);
+}
+
 bool UVTC_GameInstance::ApplyProfileByName(const FString& ProfileName)
 {
   FVTCSessionConfig Loaded;
