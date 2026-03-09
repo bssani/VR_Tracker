@@ -698,36 +698,49 @@ SessionManager 내 CollisionDetector 컴포넌트에서:
 
 ### [Vehicle Preset 탭] BindWidget 목록
 
-차량별 Hip Position을 저장·관리합니다. Profile 생성 시 선택하면 HipPosition이 자동 입력됩니다.
+차량별 Hip Position을 저장·관리합니다. Profile 생성 시 차량을 선택하면 `TB_HipRef_X/Y/Z`가 자동 입력됩니다.
+
+> **저장 내부 구조 (FVTCVehiclePreset):**
+> ```json
+> {
+>   "PresetName": "SantaFe",
+>   "ReferencePoints": [
+>     { "PartName": "Vehicle_Hip", "Location": {"X":0,"Y":0,"Z":0} }
+>   ]
+> }
+> ```
+> `Btn_SaveVehiclePreset` 클릭 시 `TB_HipPos_X/Y/Z` 값을 `PartName="Vehicle_Hip"`인 항목으로 저장.
+> Profile 탭에서 차량 선택 시 이 `Vehicle_Hip` Location을 읽어 `TB_HipRef_X/Y/Z`에 자동 입력.
 
 | 위젯 타입 | 이름 (정확히) | 역할 |
 |---------|------------|-----|
-| ComboBoxString | `Combo_VehiclePresetList` | 저장된 Vehicle Preset 목록 |
-| EditableTextBox | `TB_VehicleName` | 차량 이름 입력 (예: "SantaFe") |
-| EditableTextBox | `TB_HipPos_X` | VehicleHipPosition X (cm) |
-| EditableTextBox | `TB_HipPos_Y` | VehicleHipPosition Y (cm) |
-| EditableTextBox | `TB_HipPos_Z` | VehicleHipPosition Z (cm) |
-| Button | `Btn_SaveVehiclePreset` | 현재 입력값으로 Vehicle Preset 저장 |
-| Button | `Btn_DeleteVehiclePreset` | 선택한 Vehicle Preset 삭제 |
-| TextBlock | `Txt_VehicleStatus` | 저장/삭제 결과 메시지 (선택) |
+| ComboBoxString | `Combo_VehiclePresetList` | 등록된 차량 목록 (삭제 대상 선택) |
+| EditableTextBox | `TB_VehicleName` | 새로 등록할 차량 이름 (예: "SantaFe") |
+| EditableTextBox | `TB_HipPos_X` | 차량 Hip X 좌표 (cm) |
+| EditableTextBox | `TB_HipPos_Y` | 차량 Hip Y 좌표 (cm) |
+| EditableTextBox | `TB_HipPos_Z` | 차량 Hip Z 좌표 (cm) |
+| Button | `Btn_SaveVehiclePreset` | 등록 실행 → `Saved/VTCPresets/<이름>.json` 생성 |
+| Button | `Btn_DeleteVehiclePreset` | `Combo_VehiclePresetList` 선택 차량 삭제 |
+| TextBlock | `Txt_VehicleStatus` | 저장/삭제 결과 메시지 **(BindWidgetOptional)** |
 
 **Designer 탭 예시 레이아웃 (Vehicle Preset 탭):**
 ```
 [Vertical Box]
-  ├─ TextBlock "차량 프리셋 관리"            (헤더)
-  ├─ ComboBoxString  Combo_VehiclePresetList  (저장된 차량 목록)
-  ├─ EditableTextBox TB_VehicleName          "차량 이름 (예: SantaFe)"
-  ├─ [Horizontal Box] Hip Position 입력
-  │    ├─ TextBlock "Hip X"
-  │    ├─ EditableTextBox TB_HipPos_X
-  │    ├─ TextBlock "Y"
-  │    ├─ EditableTextBox TB_HipPos_Y
-  │    ├─ TextBlock "Z"
-  │    └─ EditableTextBox TB_HipPos_Z
-  ├─ [Horizontal Box] 버튼
-  │    ├─ Button Btn_SaveVehiclePreset   "Save Vehicle Preset"
-  │    └─ Button Btn_DeleteVehiclePreset "Delete"
-  └─ TextBlock Txt_VehicleStatus        (결과 메시지)
+  ├─ TextBlock "차량 프리셋 관리"                                   (헤더)
+  ├─ [Section Header] "등록된 차량"
+  │    └─ ComboBoxString  Combo_VehiclePresetList                  (삭제 대상 선택)
+  │
+  ├─ [Section Header] "새 차량 등록"
+  │    ├─ EditableTextBox TB_VehicleName   "차량 이름 (예: SantaFe)"
+  │    ├─ [Horizontal Box] Hip Position 좌표 입력
+  │    │    ├─ TextBlock "X"  ─  EditableTextBox TB_HipPos_X
+  │    │    ├─ TextBlock "Y"  ─  EditableTextBox TB_HipPos_Y
+  │    │    └─ TextBlock "Z"  ─  EditableTextBox TB_HipPos_Z
+  │    └─ [Horizontal Box] 버튼
+  │         ├─ Button Btn_SaveVehiclePreset    "Save"
+  │         └─ Button Btn_DeleteVehiclePreset  "Delete Selected"
+  │
+  └─ TextBlock Txt_VehicleStatus                                   (결과 메시지)
 ```
 
 ---
@@ -736,74 +749,81 @@ SessionManager 내 CollisionDetector 컴포넌트에서:
 
 피실험자별 세션 설정 전체를 저장·관리합니다.
 
+> **X/Y/Z 표기:** 한 행의 `X/Y/Z`는 `_X`, `_Y`, `_Z` 접미사를 가진 **3개의 별도 EditableTextBox**입니다.
+> 예: `TB_Offset_Waist_X/Y/Z` = `TB_Offset_Waist_X` + `TB_Offset_Waist_Y` + `TB_Offset_Waist_Z`
+
 | 위젯 타입 | 이름 (정확히) | 역할 |
 |---------|------------|-----|
 | ComboBoxString | `Combo_ProfileSelect` | 저장된 Profile 목록 |
 | EditableTextBox | `TB_ProfileName` | 저장할 Profile 이름 입력 |
+| Button | `Btn_NewProfile` | 입력란 초기화 (새 Profile 준비) |
+| Button | `Btn_LoadProfile` | `Combo_ProfileSelect` 선택 Profile 불러오기 |
 | Button | `Btn_SaveProfile` | 현재 입력값으로 Profile 저장 |
-| Button | `Btn_LoadProfile` | 선택한 Profile 불러오기 |
-| Button | `Btn_DeleteProfile` | 선택한 Profile 삭제 |
-| Button | `Btn_SetAsActive` | **선택한 Profile을 Active로 지정** (VRTestLevel 시작 시 자동 로드) |
-| TextBlock | `Txt_ActiveProfile` | 현재 Active Profile 이름 표시 |
+| Button | `Btn_DeleteProfile` | `Combo_ProfileSelect` 선택 Profile 삭제 |
+| Button | `Btn_SetAsActive` | 선택 Profile을 Active로 지정 → `ActiveProfile.txt` 기록 |
+| TextBlock | `Txt_ActiveProfile` | 현재 Active Profile 이름 표시 (위젯 열릴 때 자동 갱신) |
 | EditableTextBox | `TB_SubjectID` | 피실험자 ID |
 | EditableTextBox | `TB_Height` | 키 (cm) |
-| EditableTextBox | `TB_Offset_Waist_X/Y/Z` | Waist 트래커 오프셋 |
-| EditableTextBox | `TB_Offset_LKnee_X/Y/Z` | 왼무릎 트래커 오프셋 |
-| EditableTextBox | `TB_Offset_RKnee_X/Y/Z` | 오른무릎 트래커 오프셋 |
-| EditableTextBox | `TB_Offset_LFoot_X/Y/Z` | 왼발 트래커 오프셋 |
-| EditableTextBox | `TB_Offset_RFoot_X/Y/Z` | 오른발 트래커 오프셋 |
-| ComboBoxString | `Combo_VehiclePresetSelect` | Vehicle Preset 선택 → HipPosition 자동 입력 |
-| EditableTextBox | `TB_HipRef_X/Y/Z` | VehicleHipPosition (Combo 선택 시 자동 입력, 수동 수정 가능) |
-| Slider | `Slider_Warning` | Warning 임계값 (3~50 cm) |
-| Slider | `Slider_Collision` | Collision 임계값 (1~20 cm) |
+| EditableTextBox | `TB_Offset_Waist_X` / `_Y` / `_Z` | Waist 트래커 오프셋 (3개) |
+| EditableTextBox | `TB_Offset_LKnee_X` / `_Y` / `_Z` | 왼무릎 트래커 오프셋 (3개) |
+| EditableTextBox | `TB_Offset_RKnee_X` / `_Y` / `_Z` | 오른무릎 트래커 오프셋 (3개) |
+| EditableTextBox | `TB_Offset_LFoot_X` / `_Y` / `_Z` | 왼발 트래커 오프셋 (3개) |
+| EditableTextBox | `TB_Offset_RFoot_X` / `_Y` / `_Z` | 오른발 트래커 오프셋 (3개) |
+| ComboBoxString | `Combo_VehiclePresetSelect` | Vehicle Preset 선택 → `TB_HipRef_X/Y/Z` 자동 입력 |
+| EditableTextBox | `TB_HipRef_X` / `_Y` / `_Z` | Vehicle Hip 좌표 (Combo 선택 시 자동입력, 수동 수정 가능, 3개) |
+| Slider | `Slider_Warning` | Warning 임계값 (3~50 cm, 기본 10) |
+| Slider | `Slider_Collision` | Collision 임계값 (1~20 cm, 기본 3) |
 | TextBlock | `Txt_WarningVal` | Warning 슬라이더 현재값 표시 |
 | TextBlock | `Txt_CollisionVal` | Collision 슬라이더 현재값 표시 |
-| CheckBox | `CB_ShowCollisionSpheres` | 충돌 구 표시 여부 |
-| CheckBox | `CB_ShowTrackerMesh` | Tracker 메시 표시 여부 |
-| TextBlock | `Txt_Status` | 저장/불러오기 결과 메시지 (선택) |
+| CheckBox | `CB_ShowCollisionSpheres` | 충돌 구 표시 여부 (기본 ON) |
+| CheckBox | `CB_ShowTrackerMesh` | Tracker 메시 표시 여부 (기본 OFF) |
+| TextBlock | `Txt_Status` | 저장/불러오기 결과 메시지 **(BindWidgetOptional)** |
 
 **Designer 탭 예시 레이아웃 (Profile 탭):**
 ```
 [Vertical Box]
   ├─ [Section] 프로파일 목록
-  │    ├─ ComboBoxString Combo_ProfileSelect
-  │    ├─ EditableTextBox TB_ProfileName      "저장할 이름 입력"
+  │    ├─ ComboBoxString  Combo_ProfileSelect             (저장된 프로파일 선택)
+  │    ├─ EditableTextBox TB_ProfileName                  "저장할 이름 입력"
   │    └─ [Horizontal Box]
-  │         ├─ Btn_LoadProfile  "Load"
-  │         ├─ Btn_SaveProfile  "Save"
-  │         └─ Btn_DeleteProfile "Delete"
+  │         ├─ Button Btn_NewProfile    "New"
+  │         ├─ Button Btn_LoadProfile   "Load"
+  │         ├─ Button Btn_SaveProfile   "Save"
+  │         └─ Button Btn_DeleteProfile "Delete"
   │
   ├─ [Section] Active Profile
-  │    ├─ TextBlock "Active: " + Txt_ActiveProfile   (굵게, 강조색)
-  │    └─ Btn_SetAsActive  "▶ Set as Active"         (가장 눈에 띄는 버튼)
+  │    ├─ [Horizontal Box]
+  │    │    ├─ TextBlock "Active: "
+  │    │    └─ TextBlock Txt_ActiveProfile               (굵게, 강조색)
+  │    └─ Button Btn_SetAsActive  "▶ Set as Active"      (가장 눈에 띄는 버튼)
   │
   ├─ [Section] 피실험자 정보
   │    ├─ EditableTextBox TB_SubjectID
   │    └─ EditableTextBox TB_Height
   │
   ├─ [Section] 차량 선택
-  │    ├─ ComboBoxString Combo_VehiclePresetSelect   (선택 시 TB_HipRef 자동 입력)
-  │    └─ [Horizontal Box] HipRef X / Y / Z
-  │         ├─ EditableTextBox TB_HipRef_X
-  │         ├─ EditableTextBox TB_HipRef_Y
-  │         └─ EditableTextBox TB_HipRef_Z
+  │    ├─ ComboBoxString Combo_VehiclePresetSelect       (선택 → TB_HipRef 자동입력)
+  │    └─ [Horizontal Box] Vehicle Hip Reference
+  │         ├─ TextBlock "X"  ─  EditableTextBox TB_HipRef_X
+  │         ├─ TextBlock "Y"  ─  EditableTextBox TB_HipRef_Y
+  │         └─ TextBlock "Z"  ─  EditableTextBox TB_HipRef_Z
   │
-  ├─ [Section] MountOffset (각 부위별 X/Y/Z)
-  │    ├─ Waist  : TB_Offset_Waist_X / Y / Z
-  │    ├─ L.Knee : TB_Offset_LKnee_X / Y / Z
-  │    ├─ R.Knee : TB_Offset_RKnee_X / Y / Z
-  │    ├─ L.Foot : TB_Offset_LFoot_X / Y / Z
-  │    └─ R.Foot : TB_Offset_RFoot_X / Y / Z
+  ├─ [Section] MountOffset (트래커별, 각 3개 = X/Y/Z)
+  │    ├─ Waist  : TB_Offset_Waist_X  TB_Offset_Waist_Y  TB_Offset_Waist_Z
+  │    ├─ L.Knee : TB_Offset_LKnee_X  TB_Offset_LKnee_Y  TB_Offset_LKnee_Z
+  │    ├─ R.Knee : TB_Offset_RKnee_X  TB_Offset_RKnee_Y  TB_Offset_RKnee_Z
+  │    ├─ L.Foot : TB_Offset_LFoot_X  TB_Offset_LFoot_Y  TB_Offset_LFoot_Z
+  │    └─ R.Foot : TB_Offset_RFoot_X  TB_Offset_RFoot_Y  TB_Offset_RFoot_Z
   │
   ├─ [Section] 임계값
-  │    ├─ Slider_Warning  + Txt_WarningVal   (3~50 cm)
-  │    └─ Slider_Collision + Txt_CollisionVal (1~20 cm)
+  │    ├─ [Horizontal Box] Slider_Warning   + TextBlock Txt_WarningVal   (3~50 cm)
+  │    └─ [Horizontal Box] Slider_Collision + TextBlock Txt_CollisionVal (1~20 cm)
   │
   ├─ [Section] 표시 설정
-  │    ├─ CB_ShowCollisionSpheres
-  │    └─ CB_ShowTrackerMesh
+  │    ├─ CheckBox CB_ShowCollisionSpheres
+  │    └─ CheckBox CB_ShowTrackerMesh
   │
-  └─ TextBlock Txt_Status                    (결과 메시지)
+  └─ TextBlock Txt_Status                                (결과 메시지)
 ```
 
 ---

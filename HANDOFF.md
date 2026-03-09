@@ -94,16 +94,21 @@ Safe (Green) / Warning (Yellow) / Collision (Red)
 - `ProfileName` — 이 설정을 저장한 프로파일 이름
 - `SubjectID` / `Height_cm` — 피실험자 정보
 - `MountOffset_Waist/LeftKnee/RightKnee/LeftFoot/RightFoot` — 트래커 로컬 공간 오프셋 (cm)
-- `VehicleHipPosition` — 차량 Hip 기준점 (월드 좌표). Vehicle Preset 선택 시 값이 복사되어 저장됨
-- `VehiclePresetName` — 참조한 차량 이름 (표시용, 런타임에 별도 파일 로드 없음)
+- `VehicleHipPosition` — 차량 Hip 기준점. Vehicle Preset 선택 시 `Vehicle_Hip` Location이 복사됨
+- `bUseVehiclePreset` / `SelectedPresetName` / `LoadedPresetJson` — 선택한 차량 프리셋 전체 JSON 직렬화
 - `WarningThreshold_cm = 10.0f` / `CollisionThreshold_cm = 3.0f`
 - `bShowCollisionSpheres` / `bShowTrackerMesh`
 
 ### FVTCVehiclePreset (VehiclePreset.h)
-차량별 Hip Position만 저장하는 경량 구조체. `Saved/VTCPresets/<VehicleName>.json`.
-- `VehicleName` — 차량 이름 (파일명과 동일)
-- `VehicleHipPosition` — 차량 Hip 기준 좌표 (월드 좌표)
-> Profile 생성 시 이 값을 `FVTCSessionConfig.VehicleHipPosition`에 복사. 런타임에는 참조하지 않음.
+차량별 ReferencePoint 목록 구조체. ProfileManager의 Vehicle Preset 탭에서 저장.
+`Saved/VTCPresets/<PresetName>.json`.
+```cpp
+FVTCPresetRefPoint { FString PartName; FVector Location; TArray<EVTCTrackerRole> RelevantBodyParts; }
+FVTCVehiclePreset  { FString PresetName; TArray<FVTCPresetRefPoint> ReferencePoints; }
+```
+- ProfileManager에서 저장 시: `PartName="Vehicle_Hip"` 항목 1개만 포함
+- Profile 탭에서 차량 선택 시: `Vehicle_Hip` Location → `FVTCSessionConfig.VehicleHipPosition` 복사
+- `LoadedPresetJson`에 전체 JSON 직렬화 → 런타임에서 ReferencePoint 복원 가능
 
 ---
 
