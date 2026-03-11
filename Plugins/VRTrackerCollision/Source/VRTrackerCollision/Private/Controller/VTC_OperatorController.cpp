@@ -70,14 +70,7 @@ void AVTC_OperatorController::BeginPlay() {
     }
   }
 
-  // 레벨 시작 시 VTCSettings.json 설정 자동 적용 (트래커 초기화 대기 후)
-  // SteamVR 트래커가 Tick에서 위치를 받기 전에 호출하면 SnapWaistTo가 zero를 기준으로 하므로
-  // 1초 지연 후 ApplyGameInstanceConfig() 실행.
-  FTimerHandle InitApplyTimer;
-  GetWorld()->GetTimerManager().SetTimer(
-      InitApplyTimer,
-      FTimerDelegate::CreateUObject(this, &AVTC_OperatorController::ApplyGameInstanceConfig),
-      1.0f, false);
+  // 설정 적용 및 위젯 업데이트는 P키에서만 수행 (시작 시 아무것도 하지 않음)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
