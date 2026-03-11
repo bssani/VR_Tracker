@@ -464,3 +464,31 @@ void UVTC_ProfileManagerWidget::SetVector(UEditableTextBox* TX, UEditableTextBox
 	SetFloat(TY, V.Y);
 	SetFloat(TZ, V.Z);
 }
+
+// ─── TextBlock용 읽기 전용 헬퍼 ───────────────────────────────────────────────
+float UVTC_ProfileManagerWidget::ParseFloat(const UTextBlock* TB, float Default)
+{
+	if (!TB) return Default;
+	float V = Default;
+	return LexTryParseString(V, *TB->GetText().ToString().TrimStartAndEnd()) ? V : Default;
+}
+
+void UVTC_ProfileManagerWidget::SetFloat(UTextBlock* TB, float Value)
+{
+	if (TB) TB->SetText(FText::FromString(FString::SanitizeFloat(Value)));
+}
+
+FVector UVTC_ProfileManagerWidget::ParseVector(const UTextBlock* TX,
+                                                const UTextBlock* TY,
+                                                const UTextBlock* TZ)
+{
+	return FVector(ParseFloat(TX), ParseFloat(TY), ParseFloat(TZ));
+}
+
+void UVTC_ProfileManagerWidget::SetVector(UTextBlock* TX, UTextBlock* TY,
+                                           UTextBlock* TZ, const FVector& V)
+{
+	SetFloat(TX, V.X);
+	SetFloat(TY, V.Y);
+	SetFloat(TZ, V.Z);
+}

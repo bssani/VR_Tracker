@@ -121,10 +121,10 @@ public:
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TB_Offset_RFoot_Y;
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TB_Offset_RFoot_Z;
 
-	// ─── Vehicle Hip Reference (차종 선택 시 자동입력) ───────────────────────
-	UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TB_HipRef_X;
-	UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TB_HipRef_Y;
-	UPROPERTY(meta = (BindWidget)) TObjectPtr<UEditableTextBox> TB_HipRef_Z;
+	// ─── Vehicle Hip Reference (차종 선택 시 자동입력, 읽기 전용) ─────────────
+	UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> TB_HipRef_X;
+	UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> TB_HipRef_Y;
+	UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> TB_HipRef_Z;
 
 	// ─── 임계값 슬라이더 ────────────────────────────────────────────────────
 	UPROPERTY(meta = (BindWidget)) TObjectPtr<USlider>    Slider_Warning;
@@ -187,7 +187,7 @@ private:
 	// 상태 메시지 표시 (Profile 탭 Txt_Status)
 	void ShowStatus(const FString& Message, bool bSuccess = true);
 
-	// 입력 파싱 헬퍼
+	// 입력 파싱 헬퍼 (EditableTextBox)
 	static float   ParseFloat(const UEditableTextBox* TB, float Default = 0.0f);
 	static void    SetFloat(UEditableTextBox* TB, float Value);
 	static FVector ParseVector(const UEditableTextBox* TX,
@@ -195,4 +195,13 @@ private:
 	                            const UEditableTextBox* TZ);
 	static void    SetVector(UEditableTextBox* TX, UEditableTextBox* TY,
 	                          UEditableTextBox* TZ, const FVector& V);
+
+	// 읽기 전용 TextBlock용 헬퍼
+	static float   ParseFloat(const UTextBlock* TB, float Default = 0.0f);
+	static void    SetFloat(UTextBlock* TB, float Value);
+	static FVector ParseVector(const UTextBlock* TX,
+	                            const UTextBlock* TY,
+	                            const UTextBlock* TZ);
+	static void    SetVector(UTextBlock* TX, UTextBlock* TY,
+	                          UTextBlock* TZ, const FVector& V);
 };
