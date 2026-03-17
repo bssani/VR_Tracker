@@ -29,7 +29,7 @@ void AVTC_OperatorController::BeginPlay()
 {
   Super::BeginPlay();
 
-  // Level 2에서는 마우스 커서 불필요 (키만 사용).
+  // VR 모드에서는 마우스 커서 불필요 (키만 사용).
   bShowMouseCursor = false;
   FInputModeGameOnly InputMode;
   SetInputMode(InputMode);
@@ -188,10 +188,47 @@ void AVTC_OperatorController::StopAndExport_Implementation()
   if (SessionManager) SessionManager->ExportAndEnd();
 }
 
-void AVTC_OperatorController::ReturnToSetupLevel()
+void AVTC_OperatorController::SnapToVehicleHip()
 {
-  if (UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>())
-    GI->OpenSetupLevel();
+  UVTC_GameInstance* GI = GetGameInstance<UVTC_GameInstance>();
+  if (!GI) return;
+
+  const FVector& HipTarget = GI->SessionConfig.VehicleHipPosition;
+  if (HipTarget.IsNearlyZero())
+  {
+    UE_LOG(LogTemp, Warning, TEXT("[VTC] SnapToVehicleHip: VehicleHipPosition이 설정되지 않았습니다."));
+    return;
+  }
+
+  // BodyActor의 GetBodyPartLocation(Waist)은 MountOffset 보정이 적용된 실제 Hip 위치.
+  // TrackerPawn의 SnapWaistTo()는 raw Waist tracker 기준이므로,
+  // BodyActor 기준 Delta를 계산해서 Pawn을 이동한다.
+  AVTC_TrackerPawn* TP = Cast<AVTC_TrackerPawn>(GetPawn());
+  if (!TP) return;
+
+  // BodyActor에서 보정된 Waist 위치를 구한다
+  FVector CurrentWaist = FVector::ZeroVector;
+  for (TActorIterator<AVTC_BodyActor> It(GetWorld()); It; ++It)
+  {
+    CurrentWaist = (*It)->GetBodyPartLocation(EVTCTrackerRole::Waist);
+    break;
+  }
+
+  if (CurrentWaist.IsNearlyZero())
+  {
+    // BodyActor가 없으면 raw tracker 위치로 폴백
+    TP->SnapWaistTo(HipTarget);
+    return;
+  }
+
+  const FVector Delta = HipTarget - CurrentWaist;
+  TP->SetActorLocation(TP->GetActorLocation() + Delta);
+
+  UE_LOG(LogTemp, Log,
+    TEXT("[VTC] SnapToVehicleHip: Waist(+Offset) %.1f,%.1f,%.1f → Hip %.1f,%.1f,%.1f (delta %.1f,%.1f,%.1f)"),
+    CurrentWaist.X, CurrentWaist.Y, CurrentWaist.Z,
+    HipTarget.X,    HipTarget.Y,    HipTarget.Z,
+    Delta.X,        Delta.Y,        Delta.Z);
 }
 
 void AVTC_OperatorController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -223,7 +260,7 @@ void AVTC_OperatorController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AVTC_OperatorController::Input_1() { StartCalibration(); }
 void AVTC_OperatorController::Input_2() { StartTest(); }
 void AVTC_OperatorController::Input_3() { StopAndExport(); }
-void AVTC_OperatorController::Input_4() { ReturnToSetupLevel(); }
+void AVTC_OperatorController::Input_4() { SnapToVehicleHip(); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  세션 상태 변경 → StatusWidget + OperatorMonitorWidget 갱신
@@ -278,10 +315,9 @@ void AVTC_OperatorController::ApplyGameInstanceConfig()
   if (!GI) return;
   const FVTCSessionConfig& C = GI->SessionConfig;
 
-  // ── TrackerPawn: 시뮬레이션 모드 + 트래커 메시 가시성 ───────────────────
+  // ── TrackerPawn: 트래커 메시 가시성 ──────────────────────────────────────
   if (AVTC_TrackerPawn* TP = Cast<AVTC_TrackerPawn>(GetPawn()))
   {
-    TP->bSimulationMode = (C.RunMode == EVTCRunMode::Simulation);
     TP->SetTrackerMeshVisible(C.bShowTrackerMesh);
   }
 

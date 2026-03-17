@@ -1,21 +1,16 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 
 #include "VTC_GameInstance.h"
-#include "Kismet/GameplayStatics.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Paths.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  레벨 전환
+//  Init — 엔진 초기화 시 INI 자동 로드
 // ─────────────────────────────────────────────────────────────────────────────
-void UVTC_GameInstance::OpenTestLevel_Implementation()
+void UVTC_GameInstance::Init()
 {
-  UGameplayStatics::OpenLevel(this, FName(*TestLevelName));
-}
-
-void UVTC_GameInstance::OpenSetupLevel_Implementation()
-{
-  UGameplayStatics::OpenLevel(this, FName(*SetupLevelName));
+  Super::Init();
+  LoadConfigFromINI();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -25,10 +20,6 @@ void UVTC_GameInstance::SaveConfigToINI()
 {
   const FString Path = GetINIPath();
   const FVTCSessionConfig& C = SessionConfig;
-
-  // Run mode
-  GConfig->SetString(INI_SECTION, TEXT("RunMode"),
-      (C.RunMode == EVTCRunMode::VR ? TEXT("VR") : TEXT("Simulation")), Path);
 
   // Mount offsets
   SaveVector(TEXT("MountOffset_Waist"),      C.MountOffset_Waist,      Path);
@@ -62,11 +53,6 @@ void UVTC_GameInstance::LoadConfigFromINI()
   }
 
   FVTCSessionConfig& C = SessionConfig;
-
-  // Run mode
-  FString ModeStr;
-  if (GConfig->GetString(INI_SECTION, TEXT("RunMode"), ModeStr, Path))
-    C.RunMode = (ModeStr == TEXT("VR")) ? EVTCRunMode::VR : EVTCRunMode::Simulation;
 
   // Mount offsets
   C.MountOffset_Waist     = LoadVector(TEXT("MountOffset_Waist"),     C.MountOffset_Waist,     Path);
@@ -105,8 +91,6 @@ void UVTC_GameInstance::SaveVector(const TCHAR* Key, const FVector& V,
 FVector UVTC_GameInstance::LoadVector(const TCHAR* Key, const FVector& Default,
                                       const FString& Path) const
 {
-  // UE5에서 FVector::X/Y/Z는 double이므로 GetFloat(float&)에 직접 전달 불가.
-  // float 임시 변수에 읽어 FVector로 변환한다.
   float X = (float)Default.X, Y = (float)Default.Y, Z = (float)Default.Z;
   GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_X")), X, Path);
   GConfig->GetFloat(INI_SECTION, *(FString(Key) + TEXT("_Y")), Y, Path);
