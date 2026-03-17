@@ -91,7 +91,11 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
       const float SafeDistanceResult =
           FMath::Max(0.0f, CenterDistance - BodyPartRadius);
 
-      const EVTCWarningLevel Level = CalculateWarningLevel(SafeDistanceResult);
+      EVTCWarningLevel Level = CalculateWarningLevel(SafeDistanceResult);
+
+      // bMonitorOnly: 거리 측정 + 디버그 라인만 — Warning/Collision 트리거 안 함
+      if (RefPoint->bMonitorOnly)
+        Level = EVTCWarningLevel::Safe;
 
       // 결과 저장
       FVTCDistanceResult Result;

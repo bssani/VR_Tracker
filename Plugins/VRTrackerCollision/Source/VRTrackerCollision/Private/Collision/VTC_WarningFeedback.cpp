@@ -4,6 +4,7 @@
 #include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/PostProcessVolume.h"
+#include "EngineUtils.h"
 
 UVTC_WarningFeedback::UVTC_WarningFeedback()
 {
@@ -13,6 +14,25 @@ UVTC_WarningFeedback::UVTC_WarningFeedback()
 void UVTC_WarningFeedback::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// PostProcessVolume이 수동 할당되지 않았으면 레벨에서 자동 탐색
+	if (!PostProcessVolume)
+	{
+		TArray<AActor*> Found;
+		UGameplayStatics::GetAllActorsOfClass(GetWorld(), APostProcessVolume::StaticClass(), Found);
+		if (Found.Num() > 0)
+		{
+			PostProcessVolume = Found[0];
+			UE_LOG(LogTemp, Log, TEXT("[VTC] WarningFeedback: PostProcessVolume 자동 탐색 완료 — %s"),
+				*PostProcessVolume->GetName());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning,
+				TEXT("[VTC] WarningFeedback: PostProcessVolume을 찾을 수 없습니다."
+				     " 레벨에 PostProcessVolume(Infinite Extent)을 배치하세요."));
+		}
+	}
 }
 
 void UVTC_WarningFeedback::OnWarningLevelChanged(EVTCTrackerRole BodyPart,

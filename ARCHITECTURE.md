@@ -73,8 +73,8 @@
 │    ├─ DefaultPawn: VTC_TrackerPawn                                     │
 │    └─ PlayerController: VTC_SimPlayerController                        │
 │         └─ 상속: VTC_SimPlayerController → VTC_OperatorController      │
-│              ├─ F1 캘리브레이션 / F2 테스트 / F3 CSV 내보내기          │
-│              ├─ Escape → Level 1 복귀                                  │
+│              ├─ 1 캘리브레이션 / 2 테스트 / 3 CSV 내보내기             │
+│              ├─ 4 → Level 1 복귀                                       │
 │              ├─ GameInstance 설정 → 각 Actor에 자동 적용               │
 │              └─ WASD + 마우스 시뮬레이션 이동 (SimPlayerController)     │
 │                                                                         │
@@ -114,8 +114,8 @@ Level 2 로드 → OperatorController::BeginPlay / OnPossess
          │    ├─ MountOffset 5개 적용
          │    └─ bShowCollisionSpheres → 멤버 변수 저장 (Tick 덮어쓰기 방지)
          ├─ CollisionDetector.WarningThreshold/CollisionThreshold 적용  [NEW]
-         ├─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰 (순수 위치 마커)
-         │    └─ RelevantBodyParts 비움 → 충돌 감지 없음, 시안색 마커만 표시
+         ├─ VehicleHipPosition → AVTC_ReferencePoint 런타임 스폰 (모니터 전용 마커)
+         │    └─ bMonitorOnly=true + Waist 거리 측정 (Warning/Collision 미발생), 시안색
          └─ 차종 프리셋 JSON → 추가 ReferencePoint 스폰  [NEW]
               └─ CollisionDetector.ReferencePoints.AddUnique()
 ```
@@ -327,7 +327,7 @@ Plugins/
        PlayerControllerClass = VTC_SimPlayerController
 
   VTC_SimPlayerController → VTC_OperatorController → APlayerController
-    ├─ (부모) OperatorController: F1/F2/F3/Esc + GameInstance 설정 적용
+    ├─ (부모) OperatorController: 1/2/3/4 숫자키 + GameInstance 설정 적용
     │    ├─ ApplyGameInstanceConfig() → TrackerPawn, BodyActor, CollisionDetector
     │    ├─ VehicleHipPosition → ReferencePoint 런타임 스폰
     │    ├─ StatusActor/StatusWidget 갱신 (Tick 1초마다)
@@ -358,7 +358,7 @@ Plugins/
     └─ WidgetComponent (WorldSpace)
          └─ VTC_StatusWidget (UUserWidget)
               ├─ 세션 상태 표시 (IDLE / CALIBRATING / TESTING / REVIEWING)
-              ├─ 키 안내 (F1/F2/F3/Escape)
+              ├─ 키 안내 (1/2/3/4)
               ├─ 피실험자 정보
               └─ 트래커 연결 수
 
@@ -442,12 +442,12 @@ FVTCPresetRefPoint    — [NEW] 프리셋 내 단일 ReferencePoint 데이터
 │       └─ PerformDistanceMeasurements()
 │           ├─ FlushPersistentDebugLines + FlushDebugStrings (이전 사이클 라인 제거)
 │           ├─ 각 ReferencePoint ↔ 관련 신체부위 거리 계산
-│           ├─ WarningLevel 결정 (Safe/Warning/Collision)
+│           ├─ WarningLevel 결정 (Safe/Warning/Collision, bMonitorOnly면 항상 Safe)
 │           ├─ OverallWarningLevel 갱신
 │           ├─ Persistent DrawDebugLine + DrawDebugString (다음 사이클에서 Flush)
 │           └─ OnWarningLevelChanged / OnDistanceUpdated Delegate 브로드캐스트
 │
-├─ [5] VTC_WarningFeedback (CollisionDetector Delegate 수신)
+├─ [5] VTC_WarningFeedback (CollisionDetector Delegate 수신, PostProcessVolume 자동 탐색)
 │       └─ Safe:      → PostProcess OFF, 사운드 OFF
 │          Warning:   → Vignette 0.5, WarningSFX (500ms 쿨다운 — 다중 재생 방지)
 │          Collision: → Vignette 1.0, CollisionSFX (500ms 쿨다운), Niagara FX 스폰
@@ -474,14 +474,14 @@ FVTCPresetRefPoint    — [NEW] 프리셋 내 단일 ReferencePoint 데이터
 ```
   [IDLE]
     │
-    │  F1 = StartSession(SubjectID, Height)
+    │  1 = StartSession(SubjectID, Height)
     ▼
   [CALIBRATING]
     │  T-Pose 유지 → CalibrationComponent 3초 카운트다운
     │  완료: OnCalibrationComplete → DataLogger.StartLogging()
     │  실패: OnCalibrationFailed → 다시 IDLE
     │
-    │  F2 = StartTestingDirectly() 로 바로 건너뛰기 가능
+    │  2 = StartTestingDirectly() 로 바로 건너뛰기 가능
     ▼
   [TESTING]  ◀──── RequestReCalibration() ─────┐
     │                                           │
@@ -499,7 +499,7 @@ FVTCPresetRefPoint    — [NEW] 프리셋 내 단일 ReferencePoint 데이터
     ▼
   [IDLE]
 
-  ※ 모든 상태에서 Escape → Level 1 (Setup) 으로 즉시 복귀
+  ※ 모든 상태에서 숫자키 4 → Level 1 (Setup) 으로 즉시 복귀
      (VTC_OperatorController::ReturnToSetupLevel)
 ```
 
@@ -621,12 +621,12 @@ CollisionOccurred, CollisionPartName
 | VTC_SetupGameMode | Core | Level 1 GameMode (위젯 생성/정리) | |
 | VTC_GameInstance | Core | 레벨 간 설정 전달 + INI | |
 | VTC_SessionConfig | Core | FVTCSessionConfig 구조체 | WarningThreshold_cm, CollisionThreshold_cm, bUseVehiclePreset, SelectedPresetName, LoadedPresetJson |
-| VTC_OperatorController | Controller | F키 세션 제어 + 설정 적용 + 동적 스폰 | |
+| VTC_OperatorController | Controller | 숫자키(1/2/3/4) 세션 제어 + 설정 적용 + 동적 스폰 | |
 | VTC_SimPlayerController | Controller | WASD/마우스 시뮬레이션 (OperatorController 상속) | |
 | VTC_BodyActor | Body | 가상 신체 (세그먼트+Sphere+VisualSphere) | |
 | VTC_BodySegmentComponent | Body | Dynamic Cylinder | |
 | VTC_CalibrationComponent | Body | T-Pose 캘리브레이션 | |
-| VTC_ReferencePoint | Vehicle | 차량 기준점 Actor + SetActive(가시성 연동) | |
+| VTC_ReferencePoint | Vehicle | 차량 기준점 Actor + SetActive(가시성 연동) + bMonitorOnly(거리 표시만) | |
 | VTC_CollisionDetector | Collision | 거리 측정 + 충돌 감지 | **F** 자동 스크린샷 ✅ / **G** VR 거리 라벨 ✅ |
 | VTC_WarningFeedback | Collision | 시각/청각 피드백 (Warning+Collision 500ms 쿨다운) | |
 | VTC_DataLogger | Data | CSV 로깅 (summary + frames) | |

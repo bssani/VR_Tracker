@@ -37,8 +37,8 @@
   VR/시뮬레이션 테스트 환경
   ├─ GameMode: VTC_GameMode
   ├─ PlayerController: VTC_SimPlayerController (→ VTC_OperatorController 상속)
-  │    ├─ F1 캘리브레이션 / F2 테스트 / F3 CSV 내보내기
-  │    ├─ Escape → Level 1 복귀
+  │    ├─ 1 캘리브레이션 / 2 테스트 / 3 CSV 내보내기
+  │    ├─ 4 → Level 1 복귀
   │    └─ WASD + 마우스 시뮬레이션 이동
   ├─ 3D WorldSpace 위젯 (VTC_StatusActor → VTC_StatusWidget)
   ├─ [NEW] VTC_OperatorViewActor (SceneCapture → Spectator Screen) (Feature I)
@@ -146,7 +146,7 @@ VTC_SimPlayerController → VTC_OperatorController → APlayerController
 ```
 
 **VTC_OperatorController (부모):**
-- F1/F2/F3/Escape 단축키 바인딩
+- 숫자키 1/2/3/4 단축키 바인딩
 - GameInstance 설정 → TrackerPawn, BodyActor, CollisionDetector에 일괄 적용
 - VehicleHipPosition → ReferencePoint 런타임 스폰 + CollisionDetector 등록
 - StatusActor (3D 월드 위젯) 갱신 (Tick 1초마다)
@@ -237,7 +237,7 @@ VTC_SimPlayerController → VTC_OperatorController → APlayerController
 ```
 IDLE → CALIBRATING → TESTING → REVIEWING → IDLE
                    ↕ (RequestReCalibration)
-모든 상태에서 Escape → Level 1 복귀
+모든 상태에서 숫자키 4 → Level 1 복귀
 ```
 
 **주요 함수:**
@@ -301,7 +301,7 @@ IDLE → CALIBRATING → TESTING → REVIEWING → IDLE
 - `VTC_StatusActor`의 WidgetComponent에 WorldSpace로 렌더링
 - 4개 TextBlock: Txt_State, Txt_Prompt, Txt_SubjectInfo, Txt_TrackerStatus
 - OperatorController가 세션 상태 변경 시 자동 갱신
-- 모든 상태에서 "ESC — Return to Setup" 안내 표시
+- 모든 상태에서 "4 — Return to Setup" 안내 표시
 
 #### Level 2 — VTC_OperatorMonitorWidget (Screen Space — 운영자 데스크탑)
 
@@ -330,7 +330,7 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 │   ├── Pawn/
 │   │   └── VTC_TrackerPawn.h
 │   ├── Controller/
-│   │   ├── VTC_OperatorController.h ← F키 + 설정 적용
+│   │   ├── VTC_OperatorController.h ← 숫자키(1/2/3/4) + 설정 적용
 │   │   └── VTC_SimPlayerController.h← WASD + Enhanced Input
 │   ├── Body/
 │   │   ├── VTC_BodyActor.h
@@ -408,10 +408,11 @@ Plugins/VRTrackerCollision/Source/VRTrackerCollision/
 - CollisionThreshold = 3cm (Sphere Overlap 이전에 경고 제공)
 - 충돌 이벤트 타임스탬프: 밀리초 정밀도
 
-**VehicleHipPosition (순수 위치 마커)**
+**VehicleHipPosition (모니터 전용 마커)**
 - SetupWidget에서 입력한 좌표에 시안색 ReferencePoint가 스폰됨
-- `RelevantBodyParts`가 비어있어 CollisionDetector가 건너뜀 (충돌/경고 미발생)
-- 피실험자 Hip 위치의 시각적 기준점으로만 사용
+- `bMonitorOnly = true`: Waist와의 거리를 측정하고 디버그 라인 + OperatorMonitorWidget에 표시
+- Warning/Collision 피드백은 발생하지 않음 (항상 Safe 취급)
+- 피실험자 Hip과 차량 설계 기준점 간 실시간 거리 모니터링 용도
 
 **SteamVR 룸 세팅 가이드**
 - "앉아서 하기(Seated)" 또는 "서서 하기(Standing Only)" 모드 사용

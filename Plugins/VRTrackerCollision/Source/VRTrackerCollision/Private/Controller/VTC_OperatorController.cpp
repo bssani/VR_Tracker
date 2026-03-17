@@ -153,17 +153,17 @@ void AVTC_OperatorController::Tick(float DeltaTime)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  단축키 바인딩 — F1 / F2 / F3 / Escape
+//  단축키 바인딩 — 1 / 2 / 3 / 4
 // ─────────────────────────────────────────────────────────────────────────────
 void AVTC_OperatorController::SetupInputComponent()
 {
   Super::SetupInputComponent();
   if (!InputComponent) return;
 
-  InputComponent->BindKey(EKeys::F1,     IE_Pressed, this, &AVTC_OperatorController::Input_F1);
-  InputComponent->BindKey(EKeys::F2,     IE_Pressed, this, &AVTC_OperatorController::Input_F2);
-  InputComponent->BindKey(EKeys::F3,     IE_Pressed, this, &AVTC_OperatorController::Input_F3);
-  InputComponent->BindKey(EKeys::Escape, IE_Pressed, this, &AVTC_OperatorController::Input_Escape);
+  InputComponent->BindKey(EKeys::One,   IE_Pressed, this, &AVTC_OperatorController::Input_1);
+  InputComponent->BindKey(EKeys::Two,   IE_Pressed, this, &AVTC_OperatorController::Input_2);
+  InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AVTC_OperatorController::Input_3);
+  InputComponent->BindKey(EKeys::Four,  IE_Pressed, this, &AVTC_OperatorController::Input_4);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -220,10 +220,10 @@ void AVTC_OperatorController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 // ─────────────────────────────────────────────────────────────────────────────
 //  단축키 핸들러
 // ─────────────────────────────────────────────────────────────────────────────
-void AVTC_OperatorController::Input_F1()     { StartCalibration(); }
-void AVTC_OperatorController::Input_F2()     { StartTest(); }
-void AVTC_OperatorController::Input_F3()     { StopAndExport(); }
-void AVTC_OperatorController::Input_Escape() { ReturnToSetupLevel(); }
+void AVTC_OperatorController::Input_1() { StartCalibration(); }
+void AVTC_OperatorController::Input_2() { StartTest(); }
+void AVTC_OperatorController::Input_3() { StopAndExport(); }
+void AVTC_OperatorController::Input_4() { ReturnToSetupLevel(); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  세션 상태 변경 → StatusWidget + OperatorMonitorWidget 갱신
@@ -325,7 +325,8 @@ void AVTC_OperatorController::ApplyGameInstanceConfig()
     {
       SpawnedHipRefPoint->SetActorLocation(C.VehicleHipPosition);
       SpawnedHipRefPoint->PartName          = TEXT("Vehicle_Hip");
-      SpawnedHipRefPoint->RelevantBodyParts.Empty();  // 충돌 감지 대상 아님 — 순수 위치 마커
+      SpawnedHipRefPoint->RelevantBodyParts = { EVTCTrackerRole::Waist };  // Waist 거리 측정
+      SpawnedHipRefPoint->bMonitorOnly      = true;   // 거리 표시만 — Warning/Collision 없음
       SpawnedHipRefPoint->MarkerColor = FLinearColor(0.0f, 0.7f, 1.0f, 1.0f);  // 시안색으로 구분
 
       // 처음 스폰될 때만 CollisionDetector에 등록.

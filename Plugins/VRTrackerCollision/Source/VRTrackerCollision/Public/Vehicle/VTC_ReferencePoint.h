@@ -32,6 +32,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Reference Point")
 	bool bActive = true;
 
+	// true면 거리 측정 + 디버그 라인만 표시 (Warning/Collision 피드백 없음)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Reference Point")
+	bool bMonitorOnly = false;
+
 	// ─── 시각화 ─────────────────────────────────────────────────────────────
 
 	// 에디터/게임에서 기준점 위치를 보여주는 Marker Mesh (작은 Sphere)

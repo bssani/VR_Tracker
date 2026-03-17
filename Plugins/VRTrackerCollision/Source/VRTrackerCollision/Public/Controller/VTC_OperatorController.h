@@ -3,18 +3,18 @@
 //
 // [역할]
 //   - GameInstance에서 세션 설정을 읽어 TrackerPawn/BodyActor에 적용
-//   - F1/F2/F3 키로만 세션 제어 (버튼 없음)
-//   - Escape 키로 Level 1 (Setup)으로 복귀
+//   - 숫자 1/2/3 키로 세션 제어 (버튼 없음)
+//   - 숫자 4 키로 Level 1 (Setup)으로 복귀
 //   - StatusActor(월드 3D 위젯)에 현재 상태 + 키 안내 메시지 표시
 //   - OperatorMonitorWidget(Screen Space)에 거리 데이터 + 상태 표시 (운영자 데스크탑용)
 //   - Tick에서 1초마다 TrackerStatus + 경과 시간 갱신
 //   - VehicleHipPosition ReferencePoint를 레벨에 동적 스폰
 //
 // [단축키]
-//   F1     : 캘리브레이션 시작 (GameInstance의 SubjectID/Height 사용)
-//   F2     : 테스트 시작 (캘리브레이션 건너뜀)
-//   F3     : 세션 종료 + CSV 내보내기
-//   Escape : Level 1 (Setup 레벨) 로 복귀
+//   1 : 캘리브레이션 시작 (GameInstance의 SubjectID/Height 사용)
+//   2 : 테스트 시작 (캘리브레이션 건너뜀)
+//   3 : 세션 종료 + CSV 내보내기
+//   4 : Level 1 (Setup 레벨) 로 복귀
 
 #pragma once
 
@@ -77,10 +77,10 @@ protected:
   virtual void OnPossess(APawn* InPawn) override;
 
 private:
-  void Input_F1();
-  void Input_F2();
-  void Input_F3();
-  void Input_Escape();
+  void Input_1();
+  void Input_2();
+  void Input_3();
+  void Input_4();
 
   // GameInstance 설정 → TrackerPawn + BodyActor + CollisionDetector 에 일괄 적용
   void ApplyGameInstanceConfig();
