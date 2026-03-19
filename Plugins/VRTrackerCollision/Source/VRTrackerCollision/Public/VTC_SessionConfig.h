@@ -1,13 +1,21 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
 // VTC_SessionConfig.h — 세션 전반에서 공유되는 설정 구조체
 //
-// GameInstance에 저장 → OperatorController가 읽어 각 Actor에 적용.
+// Level 1(Setup)에서 작성 → GameInstance에 저장 → Level 2(Test)에서 읽어 적용.
 // INI 파일로 저장/불러오기도 지원 (VTC_GameInstance 참조).
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "VTC_SessionConfig.generated.h"
+
+// ─── 실행 모드 ───────────────────────────────────────────────────────────────
+UENUM(BlueprintType)
+enum class EVTCRunMode : uint8
+{
+  VR         UMETA(DisplayName = "VR (HMD + Trackers)"),
+  Simulation UMETA(DisplayName = "Simulation (Desktop Only)"),
+};
 
 // ─── 세션 전체 설정 ──────────────────────────────────────────────────────────
 USTRUCT(BlueprintType)
@@ -21,6 +29,10 @@ struct VRTRACKERCOLLISION_API FVTCSessionConfig
 
   UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Subject")
   float Height_cm = 170.0f;
+
+  // ── 실행 모드 ────────────────────────────────────────────────────────────
+  UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Mode")
+  EVTCRunMode RunMode = EVTCRunMode::VR;
 
   // ── Mount Offset — 트래커 하드웨어 장착 위치 → 실제 신체 접촉점 보정 ──
   // 트래커 로컬 공간(cm) 기준.

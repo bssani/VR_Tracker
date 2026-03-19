@@ -2,19 +2,14 @@
 
 #include "Collision/VTC_WarningFeedback.h"
 #include "Engine/PostProcessVolume.h"
-<<<<<<< HEAD
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
-=======
-#include "EngineUtils.h"
->>>>>>> 895be18bc79dbc03fe0981581c93e8903457ad6d
 
 
 UVTC_WarningFeedback::UVTC_WarningFeedback() {
   PrimaryComponentTick.bCanEverTick = false;
 }
 
-<<<<<<< HEAD
 void UVTC_WarningFeedback::BeginPlay() {
   Super::BeginPlay();
 
@@ -34,30 +29,6 @@ void UVTC_WarningFeedback::BeginPlay() {
                   "level!"));
     }
   }
-=======
-void UVTC_WarningFeedback::BeginPlay()
-{
-	Super::BeginPlay();
-
-	// PostProcessVolume이 수동 할당되지 않았으면 레벨에서 자동 탐색
-	if (!PostProcessVolume)
-	{
-		TArray<AActor*> Found;
-		UGameplayStatics::GetAllActorsOfClass(GetWorld(), APostProcessVolume::StaticClass(), Found);
-		if (Found.Num() > 0)
-		{
-			PostProcessVolume = Found[0];
-			UE_LOG(LogTemp, Log, TEXT("[VTC] WarningFeedback: PostProcessVolume 자동 탐색 완료 — %s"),
-				*PostProcessVolume->GetName());
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning,
-				TEXT("[VTC] WarningFeedback: PostProcessVolume을 찾을 수 없습니다."
-				     " 레벨에 PostProcessVolume(Infinite Extent)을 배치하세요."));
-		}
-	}
->>>>>>> 895be18bc79dbc03fe0981581c93e8903457ad6d
 }
 
 void UVTC_WarningFeedback::OnWarningLevelChanged(EVTCTrackerRole BodyPart,
