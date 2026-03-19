@@ -46,6 +46,7 @@ FString UVTC_StatusWidget::GetStateLabel(EVTCSessionState State) {
   }
 }
 
+<<<<<<< HEAD
 FString UVTC_StatusWidget::GetPromptForState(EVTCSessionState State) {
   switch (State) {
   case EVTCSessionState::Idle:
@@ -61,5 +62,21 @@ FString UVTC_StatusWidget::GetPromptForState(EVTCSessionState State) {
     return TEXT("3  —  Export CSV & Return to Idle\n4  —  Return to Setup");
   default:
     return TEXT("");
+=======
+FString UVTC_StatusWidget::GetPromptForState(EVTCSessionState State)
+{
+  switch (State)
+  {
+    case EVTCSessionState::Idle:
+      return TEXT("1  —  Start Calibration\n2  —  Start Test (skip calibration)\n4  —  Snap to Vehicle Hip");
+    case EVTCSessionState::Calibrating:
+      return TEXT("Stand in T-Pose and hold still.\nCalibration will complete automatically.\n4  —  Snap to Vehicle Hip");
+    case EVTCSessionState::Testing:
+      return TEXT("3  —  Stop & Export CSV\nTesting in progress...\n4  —  Snap to Vehicle Hip");
+    case EVTCSessionState::Reviewing:
+      return TEXT("3  —  Export CSV & Return to Idle\n4  —  Snap to Vehicle Hip");
+    default:
+      return TEXT("");
+>>>>>>> 895be18bc79dbc03fe0981581c93e8903457ad6d
   }
 }

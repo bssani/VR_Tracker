@@ -1,10 +1,14 @@
 // Copyright GMTCK PQDQ Team. All Rights Reserved.
-// VTC_OperatorController.h — Level 2 테스트 진행용 PlayerController
+// VTC_OperatorController.h — VR 세션 제어용 PlayerController
 //
 // [역할]
 //   - GameInstance에서 세션 설정을 읽어 TrackerPawn/BodyActor에 적용
+<<<<<<< HEAD
 //   - 1/2/3 키로만 세션 제어 (버튼 없음)
 //   - 4 키로 Level 1 (Setup)으로 복귀
+=======
+//   - 숫자 1/2/3/4 키로 세션 제어 (버튼 없음)
+>>>>>>> 895be18bc79dbc03fe0981581c93e8903457ad6d
 //   - StatusActor(월드 3D 위젯)에 현재 상태 + 키 안내 메시지 표시
 //   - OperatorMonitorWidget(Screen Space)에 거리 데이터 + 상태 표시 (운영자
 //   데스크탑용)
@@ -12,10 +16,17 @@
 //   - VehicleHipPosition ReferencePoint를 레벨에 동적 스폰
 //
 // [단축키]
+<<<<<<< HEAD
 //   1      : 캘리브레이션 시작 (GameInstance의 SubjectID/Height 사용)
 //   2      : 테스트 시작 (캘리브레이션 건너뜀)
 //   3      : 세션 종료 + CSV 내보내기
 //   4      : Level 1 (Setup 레벨) 로 복귀
+=======
+//   1 : 캘리브레이션 시작 (GameInstance의 SubjectID/Height 사용)
+//   2 : 테스트 시작 (캘리브레이션 건너뜀)
+//   3 : 세션 종료 + CSV 내보내기
+//   4 : Hip Position 스냅 (Waist+MountOffset → VehicleHipPosition)
+>>>>>>> 895be18bc79dbc03fe0981581c93e8903457ad6d
 
 #pragma once
 
@@ -69,9 +80,9 @@ public:
             Category = "VTC|Operator|Session")
   void StopAndExport();
 
-  // Level 1 (Setup 레벨)으로 즉시 복귀
+  // Waist(+MountOffset)를 VehicleHipPosition으로 스냅
   UFUNCTION(BlueprintCallable, Category = "VTC|Operator|Session")
-  void ReturnToSetupLevel();
+  void SnapToVehicleHip();
 
 protected:
   virtual void BeginPlay() override;
@@ -84,10 +95,17 @@ protected:
   virtual void OnPossess(APawn *InPawn) override;
 
 private:
+<<<<<<< HEAD
   void Input_One();
   void Input_Two();
   void Input_Three();
   void Input_Four();
+=======
+  void Input_1();
+  void Input_2();
+  void Input_3();
+  void Input_4();
+>>>>>>> 895be18bc79dbc03fe0981581c93e8903457ad6d
 
   // GameInstance 설정 → TrackerPawn + BodyActor + CollisionDetector 에 일괄
   // 적용
