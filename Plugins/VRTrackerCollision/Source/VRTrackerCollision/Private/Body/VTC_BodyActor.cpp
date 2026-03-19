@@ -23,17 +23,17 @@ AVTC_BodyActor::AVTC_BodyActor() {
   Seg_Hip_RightKnee->RoleStart = EVTCTrackerRole::Waist;
   Seg_Hip_RightKnee->RoleEnd = EVTCTrackerRole::RightKnee;
 
-  Seg_LeftKnee_LeftFoot = CreateDefaultSubobject<UVTC_BodySegmentComponent>(
-      TEXT("Seg_LKnee_LFoot"));
-  Seg_LeftKnee_LeftFoot->SetupAttachment(Root);
-  Seg_LeftKnee_LeftFoot->RoleStart = EVTCTrackerRole::LeftKnee;
-  Seg_LeftKnee_LeftFoot->RoleEnd = EVTCTrackerRole::LeftFoot;
+  Seg_LeftKnee_LeftAnkle = CreateDefaultSubobject<UVTC_BodySegmentComponent>(
+      TEXT("Seg_LKnee_LAnkle"));
+  Seg_LeftKnee_LeftAnkle->SetupAttachment(Root);
+  Seg_LeftKnee_LeftAnkle->RoleStart = EVTCTrackerRole::LeftKnee;
+  Seg_LeftKnee_LeftAnkle->RoleEnd = EVTCTrackerRole::LeftAnkle;
 
-  Seg_RightKnee_RightFoot = CreateDefaultSubobject<UVTC_BodySegmentComponent>(
-      TEXT("Seg_RKnee_RFoot"));
-  Seg_RightKnee_RightFoot->SetupAttachment(Root);
-  Seg_RightKnee_RightFoot->RoleStart = EVTCTrackerRole::RightKnee;
-  Seg_RightKnee_RightFoot->RoleEnd = EVTCTrackerRole::RightFoot;
+  Seg_RightKnee_RightAnkle = CreateDefaultSubobject<UVTC_BodySegmentComponent>(
+      TEXT("Seg_RKnee_RAnkle"));
+  Seg_RightKnee_RightAnkle->SetupAttachment(Root);
+  Seg_RightKnee_RightAnkle->RoleStart = EVTCTrackerRole::RightKnee;
+  Seg_RightKnee_RightAnkle->RoleEnd = EVTCTrackerRole::RightAnkle;
 
   // ── 충돌 Sphere 5개 생성 ──
   auto MakeSphere = [&](const TCHAR *Name) -> USphereComponent * {
@@ -48,8 +48,8 @@ AVTC_BodyActor::AVTC_BodyActor() {
   Sphere_Hip = MakeSphere(TEXT("Sphere_Hip"));
   Sphere_LeftKnee = MakeSphere(TEXT("Sphere_LKnee"));
   Sphere_RightKnee = MakeSphere(TEXT("Sphere_RKnee"));
-  Sphere_LeftFoot = MakeSphere(TEXT("Sphere_LFoot"));
-  Sphere_RightFoot = MakeSphere(TEXT("Sphere_RFoot"));
+  Sphere_LeftAnkle = MakeSphere(TEXT("Sphere_LAnkle"));
+  Sphere_RightAnkle = MakeSphere(TEXT("Sphere_RAnkle"));
 
   // ── 시각화용 Sphere 메시 5개 생성 (VR에서 관절 위치 표시) ────────────────
   // USphereComponent는 메시가 없으므로 별도 StaticMesh로 렌더링.
@@ -71,8 +71,8 @@ AVTC_BodyActor::AVTC_BodyActor() {
   VisualSphere_Hip       = MakeVisualSphere(TEXT("VisualSphere_Hip"));
   VisualSphere_LeftKnee  = MakeVisualSphere(TEXT("VisualSphere_LKnee"));
   VisualSphere_RightKnee = MakeVisualSphere(TEXT("VisualSphere_RKnee"));
-  VisualSphere_LeftFoot  = MakeVisualSphere(TEXT("VisualSphere_LFoot"));
-  VisualSphere_RightFoot = MakeVisualSphere(TEXT("VisualSphere_RFoot"));
+  VisualSphere_LeftAnkle  = MakeVisualSphere(TEXT("VisualSphere_LAnkle"));
+  VisualSphere_RightAnkle = MakeVisualSphere(TEXT("VisualSphere_RAnkle"));
 
   // ── Vehicle Hip Reference 마커 ──
   // 차량 설계 기준 Hip 위치를 VR에서 시각적으로 표시하는 구체.
@@ -103,8 +103,8 @@ void AVTC_BodyActor::BeginPlay() {
   if (TrackerSource) {
     Seg_Hip_LeftKnee->TrackerSource = TrackerSource;
     Seg_Hip_RightKnee->TrackerSource = TrackerSource;
-    Seg_LeftKnee_LeftFoot->TrackerSource = TrackerSource;
-    Seg_RightKnee_RightFoot->TrackerSource = TrackerSource;
+    Seg_LeftKnee_LeftAnkle->TrackerSource = TrackerSource;
+    Seg_RightKnee_RightAnkle->TrackerSource = TrackerSource;
     CalibrationComp->TrackerSource = TrackerSource;
   }
 
@@ -121,8 +121,8 @@ void AVTC_BodyActor::BeginPlay() {
   BindOverlap(Sphere_Hip);
   BindOverlap(Sphere_LeftKnee);
   BindOverlap(Sphere_RightKnee);
-  BindOverlap(Sphere_LeftFoot);
-  BindOverlap(Sphere_RightFoot);
+  BindOverlap(Sphere_LeftAnkle);
+  BindOverlap(Sphere_RightAnkle);
 
   // 캘리브레이션 완료 이벤트 바인딩
   CalibrationComp->OnCalibrationComplete.AddDynamic(
@@ -170,8 +170,8 @@ void AVTC_BodyActor::SyncSpherePositions() {
   SyncSphere(Sphere_Hip,       VisualSphere_Hip,       EVTCTrackerRole::Waist);
   SyncSphere(Sphere_LeftKnee,  VisualSphere_LeftKnee,  EVTCTrackerRole::LeftKnee);
   SyncSphere(Sphere_RightKnee, VisualSphere_RightKnee, EVTCTrackerRole::RightKnee);
-  SyncSphere(Sphere_LeftFoot,  VisualSphere_LeftFoot,  EVTCTrackerRole::LeftFoot);
-  SyncSphere(Sphere_RightFoot, VisualSphere_RightFoot, EVTCTrackerRole::RightFoot);
+  SyncSphere(Sphere_LeftAnkle,  VisualSphere_LeftAnkle,  EVTCTrackerRole::LeftAnkle);
+  SyncSphere(Sphere_RightAnkle, VisualSphere_RightAnkle, EVTCTrackerRole::RightAnkle);
 }
 
 void AVTC_BodyActor::OnSphereOverlapBegin(UPrimitiveComponent *OverlappedComp,
@@ -203,10 +203,10 @@ AVTC_BodyActor::GetRoleFromSphere(UPrimitiveComponent *Sphere) const {
     return EVTCTrackerRole::LeftKnee;
   if (Sphere == Sphere_RightKnee)
     return EVTCTrackerRole::RightKnee;
-  if (Sphere == Sphere_LeftFoot)
-    return EVTCTrackerRole::LeftFoot;
-  if (Sphere == Sphere_RightFoot)
-    return EVTCTrackerRole::RightFoot;
+  if (Sphere == Sphere_LeftAnkle)
+    return EVTCTrackerRole::LeftAnkle;
+  if (Sphere == Sphere_RightAnkle)
+    return EVTCTrackerRole::RightAnkle;
   return EVTCTrackerRole::Waist;
 }
 
@@ -219,10 +219,10 @@ float AVTC_BodyActor::GetSphereRadiusForRole(
     return KneeSphereRadius;
   case EVTCTrackerRole::RightKnee:
     return KneeSphereRadius;
-  case EVTCTrackerRole::LeftFoot:
-    return FootSphereRadius;
-  case EVTCTrackerRole::RightFoot:
-    return FootSphereRadius;
+  case EVTCTrackerRole::LeftAnkle:
+    return AnkleSphereRadius;
+  case EVTCTrackerRole::RightAnkle:
+    return AnkleSphereRadius;
   }
   return 10.0f; // Default fallback
 }
@@ -232,8 +232,8 @@ FVector AVTC_BodyActor::GetMountOffsetForRole(EVTCTrackerRole TrackerRole) const
   case EVTCTrackerRole::Waist:     return MountOffset_Waist;
   case EVTCTrackerRole::LeftKnee:  return MountOffset_LeftKnee;
   case EVTCTrackerRole::RightKnee: return MountOffset_RightKnee;
-  case EVTCTrackerRole::LeftFoot:  return MountOffset_LeftFoot;
-  case EVTCTrackerRole::RightFoot: return MountOffset_RightFoot;
+  case EVTCTrackerRole::LeftAnkle:  return MountOffset_LeftAnkle;
+  case EVTCTrackerRole::RightAnkle: return MountOffset_RightAnkle;
   }
   return FVector::ZeroVector;
 }
@@ -244,8 +244,8 @@ void AVTC_BodyActor::ApplySessionConfig(const FVTCSessionConfig& Config)
   MountOffset_Waist      = Config.MountOffset_Waist;
   MountOffset_LeftKnee   = Config.MountOffset_LeftKnee;
   MountOffset_RightKnee  = Config.MountOffset_RightKnee;
-  MountOffset_LeftFoot   = Config.MountOffset_LeftFoot;
-  MountOffset_RightFoot  = Config.MountOffset_RightFoot;
+  MountOffset_LeftAnkle   = Config.MountOffset_LeftAnkle;
+  MountOffset_RightAnkle  = Config.MountOffset_RightAnkle;
 
   // Vehicle Hip Reference Position 적용 및 마커 이동
   VehicleHipPosition = Config.VehicleHipPosition;
@@ -269,8 +269,8 @@ void AVTC_BodyActor::ApplySessionConfig(const FVTCSessionConfig& Config)
   SetSphereGroupVisible(Sphere_Hip,       VisualSphere_Hip,       Config.bShowCollisionSpheres);
   SetSphereGroupVisible(Sphere_LeftKnee,  VisualSphere_LeftKnee,  Config.bShowCollisionSpheres);
   SetSphereGroupVisible(Sphere_RightKnee, VisualSphere_RightKnee, Config.bShowCollisionSpheres);
-  SetSphereGroupVisible(Sphere_LeftFoot,  VisualSphere_LeftFoot,  Config.bShowCollisionSpheres);
-  SetSphereGroupVisible(Sphere_RightFoot, VisualSphere_RightFoot, Config.bShowCollisionSpheres);
+  SetSphereGroupVisible(Sphere_LeftAnkle,  VisualSphere_LeftAnkle,  Config.bShowCollisionSpheres);
+  SetSphereGroupVisible(Sphere_RightAnkle, VisualSphere_RightAnkle, Config.bShowCollisionSpheres);
 
   UE_LOG(LogTemp, Log, TEXT("[VTC] BodyActor: SessionConfig 적용 완료."));
 }
@@ -313,10 +313,10 @@ void AVTC_BodyActor::UpdateSphereRadii() {
     Sphere_LeftKnee->SetSphereRadius(KneeSphereRadius);
   if (Sphere_RightKnee)
     Sphere_RightKnee->SetSphereRadius(KneeSphereRadius);
-  if (Sphere_LeftFoot)
-    Sphere_LeftFoot->SetSphereRadius(FootSphereRadius);
-  if (Sphere_RightFoot)
-    Sphere_RightFoot->SetSphereRadius(FootSphereRadius);
+  if (Sphere_LeftAnkle)
+    Sphere_LeftAnkle->SetSphereRadius(AnkleSphereRadius);
+  if (Sphere_RightAnkle)
+    Sphere_RightAnkle->SetSphereRadius(AnkleSphereRadius);
 
   // 엔진 기본 Sphere는 반경 50cm → 실제 반경에 맞게 균등 스케일 적용
   auto SetVisualScale = [](UStaticMeshComponent* M, float Radius)
@@ -330,8 +330,8 @@ void AVTC_BodyActor::UpdateSphereRadii() {
   SetVisualScale(VisualSphere_Hip,       HipSphereRadius);
   SetVisualScale(VisualSphere_LeftKnee,  KneeSphereRadius);
   SetVisualScale(VisualSphere_RightKnee, KneeSphereRadius);
-  SetVisualScale(VisualSphere_LeftFoot,  FootSphereRadius);
-  SetVisualScale(VisualSphere_RightFoot, FootSphereRadius);
+  SetVisualScale(VisualSphere_LeftAnkle,  AnkleSphereRadius);
+  SetVisualScale(VisualSphere_RightAnkle, AnkleSphereRadius);
 }
 
 void AVTC_BodyActor::FindTrackerSource() {

@@ -15,8 +15,8 @@ enum class EVTCTrackerRole : uint8
 	Waist       UMETA(DisplayName = "Waist / Hip"),
 	LeftKnee    UMETA(DisplayName = "Left Knee"),
 	RightKnee   UMETA(DisplayName = "Right Knee"),
-	LeftFoot    UMETA(DisplayName = "Left Foot"),
-	RightFoot   UMETA(DisplayName = "Right Foot"),
+	LeftAnkle   UMETA(DisplayName = "Left Ankle"),
+	RightAnkle  UMETA(DisplayName = "Right Ankle"),
 };
 
 // ─────────────────────────────────────────────
@@ -97,10 +97,10 @@ struct VRTRACKERCOLLISION_API FVTCBodyMeasurements
 	float Hip_RightKnee = 0.0f;
 
 	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
-	float LeftKnee_LeftFoot = 0.0f;
+	float LeftKnee_LeftAnkle = 0.0f;
 
 	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
-	float RightKnee_RightFoot = 0.0f;
+	float RightKnee_RightAnkle = 0.0f;
 
 	// 다리 전체 길이 (cm)
 	UPROPERTY(BlueprintReadOnly, Category = "VTC|Body")
@@ -125,7 +125,7 @@ struct VRTRACKERCOLLISION_API FVTCBodyMeasurements
 	bool IsValid() const
 	{
 		return Hip_LeftKnee > 10.0f && Hip_RightKnee > 10.0f
-			&& LeftKnee_LeftFoot > 10.0f && RightKnee_RightFoot > 10.0f;
+			&& LeftKnee_LeftAnkle > 10.0f && RightKnee_RightAnkle > 10.0f;
 	}
 };
 
@@ -144,7 +144,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnVTCPhaseChanged,
 	EVTCMovementPhase, NewPhase);
 
 // ─────────────────────────────────────────────
-//  거리 측정 결과 (단일 Knee ↔ Reference Point)
+//  거리 측정 결과 (신체 부위 ↔ Reference Point)
 // ─────────────────────────────────────────────
 USTRUCT(BlueprintType)
 struct VRTRACKERCOLLISION_API FVTCDistanceResult

@@ -119,11 +119,11 @@ bool UVTC_CalibrationComponent::SnapCalibrate()
 
 	UE_LOG(LogTemp, Log, TEXT("[VTC] Calibration complete!\n"
 		"  Hip→LKnee: %.1f cm | Hip→RKnee: %.1f cm\n"
-		"  LKnee→LFoot: %.1f cm | RKnee→RFoot: %.1f cm\n"
+		"  LKnee→LAnkle: %.1f cm | RKnee→RAnkle: %.1f cm\n"
 		"  Total Left: %.1f cm | Total Right: %.1f cm\n"
 		"  Est. Height: %.1f cm"),
 		Measurements.Hip_LeftKnee, Measurements.Hip_RightKnee,
-		Measurements.LeftKnee_LeftFoot, Measurements.RightKnee_RightFoot,
+		Measurements.LeftKnee_LeftAnkle, Measurements.RightKnee_RightAnkle,
 		Measurements.TotalLeftLeg, Measurements.TotalRightLeg,
 		Measurements.EstimatedHeight);
 
@@ -138,15 +138,15 @@ FVTCBodyMeasurements UVTC_CalibrationComponent::CalculateMeasurements() const
 	const FVector HipPos    = TrackerSource->GetTrackerLocation(EVTCTrackerRole::Waist);
 	const FVector LKneePos  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftKnee);
 	const FVector RKneePos  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightKnee);
-	const FVector LFootPos  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftFoot);
-	const FVector RFootPos  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightFoot);
+	const FVector LAnklePos = TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftAnkle);
+	const FVector RAnklePos = TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightAnkle);
 
-	M.Hip_LeftKnee         = FVector::Dist(HipPos, LKneePos);
-	M.Hip_RightKnee        = FVector::Dist(HipPos, RKneePos);
-	M.LeftKnee_LeftFoot    = FVector::Dist(LKneePos, LFootPos);
-	M.RightKnee_RightFoot  = FVector::Dist(RKneePos, RFootPos);
-	M.TotalLeftLeg         = M.Hip_LeftKnee + M.LeftKnee_LeftFoot;
-	M.TotalRightLeg        = M.Hip_RightKnee + M.RightKnee_RightFoot;
+	M.Hip_LeftKnee          = FVector::Dist(HipPos, LKneePos);
+	M.Hip_RightKnee         = FVector::Dist(HipPos, RKneePos);
+	M.LeftKnee_LeftAnkle    = FVector::Dist(LKneePos, LAnklePos);
+	M.RightKnee_RightAnkle  = FVector::Dist(RKneePos, RAnklePos);
+	M.TotalLeftLeg          = M.Hip_LeftKnee + M.LeftKnee_LeftAnkle;
+	M.TotalRightLeg         = M.Hip_RightKnee + M.RightKnee_RightAnkle;
 
 	// HMD 높이 기반 키 추정 (HMD가 Pawn에 붙어 있다면 Pawn의 카메라 위치 활용)
 	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
@@ -184,14 +184,14 @@ bool UVTC_CalibrationComponent::ValidateMeasurements(const FVTCBodyMeasurements&
 		OutReason = TEXT("Hip→RightKnee distance too small. Check Waist or RightKnee tracker.");
 		return false;
 	}
-	if (M.LeftKnee_LeftFoot < 10.0f)
+	if (M.LeftKnee_LeftAnkle < 10.0f)
 	{
-		OutReason = TEXT("LeftKnee→LeftFoot distance too small. Check LeftKnee or LeftFoot tracker.");
+		OutReason = TEXT("LeftKnee→LeftAnkle distance too small. Check LeftKnee or LeftAnkle tracker.");
 		return false;
 	}
-	if (M.RightKnee_RightFoot < 10.0f)
+	if (M.RightKnee_RightAnkle < 10.0f)
 	{
-		OutReason = TEXT("RightKnee→RightFoot distance too small. Check RightKnee or RightFoot tracker.");
+		OutReason = TEXT("RightKnee→RightAnkle distance too small. Check RightKnee or RightAnkle tracker.");
 		return false;
 	}
 
@@ -247,23 +247,23 @@ bool UVTC_CalibrationComponent::ValidateMeasurements(const FVTCBodyMeasurements&
 		return true;
 	};
 
-	if (!CheckSegmentRatio(M.Hip_LeftKnee, M.LeftKnee_LeftFoot, TEXT("Left")))
+	if (!CheckSegmentRatio(M.Hip_LeftKnee, M.LeftKnee_LeftAnkle, TEXT("Left")))
 		return false;
-	if (!CheckSegmentRatio(M.Hip_RightKnee, M.RightKnee_RightFoot, TEXT("Right")))
+	if (!CheckSegmentRatio(M.Hip_RightKnee, M.RightKnee_RightAnkle, TEXT("Right")))
 		return false;
 
 	return true;
 }
 
 void UVTC_CalibrationComponent::SetManualMeasurements(float HipToLKnee, float HipToRKnee,
-	float LKneeToLFoot, float RKneeToRFoot, float SubjectHeight)
+	float LKneeToLAnkle, float RKneeToRAnkle, float SubjectHeight)
 {
-	LastMeasurements.Hip_LeftKnee        = HipToLKnee;
-	LastMeasurements.Hip_RightKnee       = HipToRKnee;
-	LastMeasurements.LeftKnee_LeftFoot   = LKneeToLFoot;
-	LastMeasurements.RightKnee_RightFoot = RKneeToRFoot;
-	LastMeasurements.TotalLeftLeg        = HipToLKnee + LKneeToLFoot;
-	LastMeasurements.TotalRightLeg       = HipToRKnee + RKneeToRFoot;
+	LastMeasurements.Hip_LeftKnee         = HipToLKnee;
+	LastMeasurements.Hip_RightKnee        = HipToRKnee;
+	LastMeasurements.LeftKnee_LeftAnkle   = LKneeToLAnkle;
+	LastMeasurements.RightKnee_RightAnkle = RKneeToRAnkle;
+	LastMeasurements.TotalLeftLeg         = HipToLKnee + LKneeToLAnkle;
+	LastMeasurements.TotalRightLeg        = HipToRKnee + RKneeToRAnkle;
 	LastMeasurements.EstimatedHeight     = SubjectHeight;
 	LastMeasurements.bIsCalibrated       = true;
 

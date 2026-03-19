@@ -27,14 +27,14 @@ AVTC_TrackerPawn::AVTC_TrackerPawn()
 	MC_RightKnee = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("MC_RightKnee"));
 	MC_RightKnee->SetupAttachment(VROrigin);
 
-	MC_LeftFoot = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("MC_LeftFoot"));
-	MC_LeftFoot->SetupAttachment(VROrigin);
+	MC_LeftAnkle = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("MC_LeftAnkle"));
+	MC_LeftAnkle->SetupAttachment(VROrigin);
 
-	MC_RightFoot = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("MC_RightFoot"));
-	MC_RightFoot->SetupAttachment(VROrigin);
+	MC_RightAnkle = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("MC_RightAnkle"));
+	MC_RightAnkle->SetupAttachment(VROrigin);
 
 	// TrackerDataMap 초기화
-	for (uint8 i = 0; i <= static_cast<uint8>(EVTCTrackerRole::RightFoot); ++i)
+	for (uint8 i = 0; i <= static_cast<uint8>(EVTCTrackerRole::RightAnkle); ++i)
 	{
 		FVTCTrackerData Data;
 		Data.Role = static_cast<EVTCTrackerRole>(i);
@@ -50,16 +50,16 @@ void AVTC_TrackerPawn::BeginPlay()
 	if (MC_Waist)     MC_Waist->MotionSource     = MotionSource_Waist;
 	if (MC_LeftKnee)  MC_LeftKnee->MotionSource  = MotionSource_LeftKnee;
 	if (MC_RightKnee) MC_RightKnee->MotionSource = MotionSource_RightKnee;
-	if (MC_LeftFoot)  MC_LeftFoot->MotionSource  = MotionSource_LeftFoot;
-	if (MC_RightFoot) MC_RightFoot->MotionSource = MotionSource_RightFoot;
+	if (MC_LeftAnkle)  MC_LeftAnkle->MotionSource  = MotionSource_LeftAnkle;
+	if (MC_RightAnkle) MC_RightAnkle->MotionSource = MotionSource_RightAnkle;
 
 	UE_LOG(LogTemp, Log,
 		TEXT("[VTC] TrackerPawn initialized. MotionSources: %s / %s / %s / %s / %s"),
 		*MotionSource_Waist.ToString(),
 		*MotionSource_LeftKnee.ToString(),
 		*MotionSource_RightKnee.ToString(),
-		*MotionSource_LeftFoot.ToString(),
-		*MotionSource_RightFoot.ToString());
+		*MotionSource_LeftAnkle.ToString(),
+		*MotionSource_RightAnkle.ToString());
 
 	// ── 착석 자동 스냅 ────────────────────────────────────────────────────
 	if (bAutoSnapOnBeginPlay)
@@ -143,8 +143,8 @@ void AVTC_TrackerPawn::UpdateAllTrackers()
 	UpdateTracker(EVTCTrackerRole::Waist,      MC_Waist);
 	UpdateTracker(EVTCTrackerRole::LeftKnee,   MC_LeftKnee);
 	UpdateTracker(EVTCTrackerRole::RightKnee,  MC_RightKnee);
-	UpdateTracker(EVTCTrackerRole::LeftFoot,   MC_LeftFoot);
-	UpdateTracker(EVTCTrackerRole::RightFoot,  MC_RightFoot);
+	UpdateTracker(EVTCTrackerRole::LeftAnkle,   MC_LeftAnkle);
+	UpdateTracker(EVTCTrackerRole::RightAnkle,  MC_RightAnkle);
 }
 
 void AVTC_TrackerPawn::UpdateTracker(EVTCTrackerRole TrackerRole, UMotionControllerComponent* MC)
@@ -193,8 +193,8 @@ void AVTC_TrackerPawn::UpdateTracker(EVTCTrackerRole TrackerRole, UMotionControl
 		case EVTCTrackerRole::Waist:      Color = FColor::Blue;   break;
 		case EVTCTrackerRole::LeftKnee:   Color = FColor::Yellow; break;
 		case EVTCTrackerRole::RightKnee:  Color = FColor::Orange; break;
-		case EVTCTrackerRole::LeftFoot:   Color = FColor::Cyan;   break;
-		case EVTCTrackerRole::RightFoot:  Color = FColor::Purple; break;
+		case EVTCTrackerRole::LeftAnkle:   Color = FColor::Cyan;   break;
+		case EVTCTrackerRole::RightAnkle:  Color = FColor::Purple; break;
 		}
 		const float LineThickness = Data.bIsInterpolated ? 0.5f : 1.0f;
 		DrawDebugSphere(GetWorld(), Data.WorldLocation, DebugSphereRadius, 8, Color, false, -1.0f, 0, LineThickness);
@@ -210,8 +210,8 @@ UMotionControllerComponent* AVTC_TrackerPawn::GetMotionController(EVTCTrackerRol
 	case EVTCTrackerRole::Waist:     return MC_Waist;
 	case EVTCTrackerRole::LeftKnee:  return MC_LeftKnee;
 	case EVTCTrackerRole::RightKnee: return MC_RightKnee;
-	case EVTCTrackerRole::LeftFoot:  return MC_LeftFoot;
-	case EVTCTrackerRole::RightFoot: return MC_RightFoot;
+	case EVTCTrackerRole::LeftAnkle:  return MC_LeftAnkle;
+	case EVTCTrackerRole::RightAnkle: return MC_RightAnkle;
 	default: return nullptr;
 	}
 }
@@ -282,7 +282,7 @@ void AVTC_TrackerPawn::SnapWaistTo(const FVector& WorldPos)
 void AVTC_TrackerPawn::SetTrackerMeshVisible(bool bVisible)
 {
 	TArray<UMotionControllerComponent*> MCs = {
-		MC_Waist, MC_LeftKnee, MC_RightKnee, MC_LeftFoot, MC_RightFoot
+		MC_Waist, MC_LeftKnee, MC_RightKnee, MC_LeftAnkle, MC_RightAnkle
 	};
 	for (UMotionControllerComponent* MC : MCs)
 	{

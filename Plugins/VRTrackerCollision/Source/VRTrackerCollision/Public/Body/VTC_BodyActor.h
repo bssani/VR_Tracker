@@ -44,10 +44,10 @@ public:
   TObjectPtr<UVTC_BodySegmentComponent> Seg_Hip_RightKnee;
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Segments")
-  TObjectPtr<UVTC_BodySegmentComponent> Seg_LeftKnee_LeftFoot;
+  TObjectPtr<UVTC_BodySegmentComponent> Seg_LeftKnee_LeftAnkle;
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Segments")
-  TObjectPtr<UVTC_BodySegmentComponent> Seg_RightKnee_RightFoot;
+  TObjectPtr<UVTC_BodySegmentComponent> Seg_RightKnee_RightAnkle;
 
   // ─── 충돌 감지용 Sphere (5개) ─────────────────────────────────────────────
 
@@ -61,10 +61,10 @@ public:
   TObjectPtr<USphereComponent> Sphere_RightKnee;
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Collision")
-  TObjectPtr<USphereComponent> Sphere_LeftFoot;
+  TObjectPtr<USphereComponent> Sphere_LeftAnkle;
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Collision")
-  TObjectPtr<USphereComponent> Sphere_RightFoot;
+  TObjectPtr<USphereComponent> Sphere_RightAnkle;
 
   // ─── 시각화용 Sphere 메시 (VR 렌더링, 5개) ───────────────────────────────
   // USphereComponent는 메시가 없어 VR HMD에서 보이지 않으므로
@@ -80,10 +80,10 @@ public:
   TObjectPtr<UStaticMeshComponent> VisualSphere_RightKnee;
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Visual")
-  TObjectPtr<UStaticMeshComponent> VisualSphere_LeftFoot;
+  TObjectPtr<UStaticMeshComponent> VisualSphere_LeftAnkle;
 
   UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Body|Visual")
-  TObjectPtr<UStaticMeshComponent> VisualSphere_RightFoot;
+  TObjectPtr<UStaticMeshComponent> VisualSphere_RightAnkle;
 
   // ─── 캘리브레이션 ─────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ public:
   UPROPERTY(EditAnywhere, BlueprintReadWrite,
             Category = "VTC|Body|Collision Radius",
             meta = (ClampMin = 3.0f, ClampMax = 20.0f))
-  float FootSphereRadius = 10.0f;
+  float AnkleSphereRadius = 10.0f;
 
   // ── 마운트 오프셋 (트래커 → 실제 신체 접촉점, 트래커 로컬 공간 기준) ──────
   // Vive Tracker가 신체 표면보다 약간 돌출되어 있을 때 그 오프셋을
@@ -135,13 +135,13 @@ public:
 
   UPROPERTY(EditAnywhere, BlueprintReadWrite,
             Category = "VTC|Body|Mount Offset",
-            meta = (DisplayName = "Left Foot Mount Offset (Tracker Local, cm)"))
-  FVector MountOffset_LeftFoot = FVector::ZeroVector;
+            meta = (DisplayName = "Left Ankle Mount Offset (Tracker Local, cm)"))
+  FVector MountOffset_LeftAnkle = FVector::ZeroVector;
 
   UPROPERTY(EditAnywhere, BlueprintReadWrite,
             Category = "VTC|Body|Mount Offset",
-            meta = (DisplayName = "Right Foot Mount Offset (Tracker Local, cm)"))
-  FVector MountOffset_RightFoot = FVector::ZeroVector;
+            meta = (DisplayName = "Right Ankle Mount Offset (Tracker Local, cm)"))
+  FVector MountOffset_RightAnkle = FVector::ZeroVector;
 
   // ─── Vehicle Hip Reference Position ──────────────────────────────────────
   // 차량 설계 기준 Hip 위치 (월드 좌표, cm).

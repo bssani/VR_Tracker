@@ -6,7 +6,7 @@
 - **엔진**: Unreal Engine 5.5
 - **구조**: **단일 VR 레벨** (VR 전용, HMD 필수)
 - **설정**: 에디터 Details 패널 + INI 파일 (`Config/VTCSettings.ini`)
-- **VR 장비**: HTC Vive Pro 2 + Vive Tracker 3.0 × 5 (Waist, L/R Knee, L/R Foot)
+- **VR 장비**: HTC Vive Pro 2 + Vive Tracker 3.0 × 5 (Waist, L/R Knee, L/R Ankle)
 
 ## 아키텍처 핵심
 

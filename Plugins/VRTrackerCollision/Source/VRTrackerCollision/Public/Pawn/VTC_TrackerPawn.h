@@ -12,8 +12,8 @@
 //        ├─ MC_Waist      (MotionController, Special_1)
 //        ├─ MC_LeftKnee   (MotionController, Special_2)
 //        ├─ MC_RightKnee  (MotionController, Special_3)
-//        ├─ MC_LeftFoot   (MotionController, Special_4)
-//        └─ MC_RightFoot  (MotionController, Special_5)
+//        ├─ MC_LeftAnkle  (MotionController, Special_4)
+//        └─ MC_RightAnkle (MotionController, Special_5)
 //
 // [사용법]
 //   BP_VTC_TrackerPawn을 GameMode의 DefaultPawnClass로 설정하면
@@ -64,10 +64,10 @@ public:
 	TObjectPtr<UMotionControllerComponent> MC_RightKnee;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Trackers")
-	TObjectPtr<UMotionControllerComponent> MC_LeftFoot;
+	TObjectPtr<UMotionControllerComponent> MC_LeftAnkle;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VTC|Trackers")
-	TObjectPtr<UMotionControllerComponent> MC_RightFoot;
+	TObjectPtr<UMotionControllerComponent> MC_RightAnkle;
 
 	// ─── MotionSource 이름 (SteamVR Tracker Role과 일치시켜야 함) ────────────
 
@@ -81,10 +81,10 @@ public:
 	FName MotionSource_RightKnee = FName("RightKnee");
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Tracker Config")
-	FName MotionSource_LeftFoot = FName("LeftFoot");
+	FName MotionSource_LeftAnkle = FName("LeftFoot");   // SteamVR 트래커 역할명 유지
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VTC|Tracker Config")
-	FName MotionSource_RightFoot = FName("RightFoot");
+	FName MotionSource_RightAnkle = FName("RightFoot"); // SteamVR 트래커 역할명 유지
 
 	// ─── IVTC_TrackerInterface 구현 ─────────────────────────────────────────
 

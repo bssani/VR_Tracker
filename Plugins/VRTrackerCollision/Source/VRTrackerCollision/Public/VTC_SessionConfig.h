@@ -34,10 +34,10 @@ struct VRTRACKERCOLLISION_API FVTCSessionConfig
   FVector MountOffset_RightKnee = FVector::ZeroVector;
 
   UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Offset")
-  FVector MountOffset_LeftFoot = FVector::ZeroVector;
+  FVector MountOffset_LeftAnkle = FVector::ZeroVector;
 
   UPROPERTY(BlueprintReadWrite, Category = "VTC|Config|Offset")
-  FVector MountOffset_RightFoot = FVector::ZeroVector;
+  FVector MountOffset_RightAnkle = FVector::ZeroVector;
 
   // ── Vehicle Hip Reference Position ──────────────────────────────────────
   // 차량 설계 기준 Hip 위치 (Level 2 월드 좌표, cm).

@@ -31,8 +31,8 @@ struct FVTCLogRow
 	UPROPERTY(BlueprintReadOnly) FVector HipLocation;
 	UPROPERTY(BlueprintReadOnly) FVector LeftKneeLocation;
 	UPROPERTY(BlueprintReadOnly) FVector RightKneeLocation;
-	UPROPERTY(BlueprintReadOnly) FVector LeftFootLocation;
-	UPROPERTY(BlueprintReadOnly) FVector RightFootLocation;
+	UPROPERTY(BlueprintReadOnly) FVector LeftAnkleLocation;
+	UPROPERTY(BlueprintReadOnly) FVector RightAnkleLocation;
 
 	// 거리 정보 (기준점별 전체)
 	UPROPERTY(BlueprintReadOnly) TArray<FVTCDistanceResult> DistanceResults;

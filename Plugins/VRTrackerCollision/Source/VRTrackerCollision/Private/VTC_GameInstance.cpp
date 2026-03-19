@@ -25,8 +25,8 @@ void UVTC_GameInstance::SaveConfigToINI()
   SaveVector(TEXT("MountOffset_Waist"),      C.MountOffset_Waist,      Path);
   SaveVector(TEXT("MountOffset_LeftKnee"),   C.MountOffset_LeftKnee,   Path);
   SaveVector(TEXT("MountOffset_RightKnee"),  C.MountOffset_RightKnee,  Path);
-  SaveVector(TEXT("MountOffset_LeftFoot"),   C.MountOffset_LeftFoot,   Path);
-  SaveVector(TEXT("MountOffset_RightFoot"),  C.MountOffset_RightFoot,  Path);
+  SaveVector(TEXT("MountOffset_LeftAnkle"),   C.MountOffset_LeftAnkle,   Path);
+  SaveVector(TEXT("MountOffset_RightAnkle"),  C.MountOffset_RightAnkle,  Path);
 
   // Vehicle hip reference
   SaveVector(TEXT("VehicleHipPosition"), C.VehicleHipPosition, Path);
@@ -58,8 +58,8 @@ void UVTC_GameInstance::LoadConfigFromINI()
   C.MountOffset_Waist     = LoadVector(TEXT("MountOffset_Waist"),     C.MountOffset_Waist,     Path);
   C.MountOffset_LeftKnee  = LoadVector(TEXT("MountOffset_LeftKnee"),  C.MountOffset_LeftKnee,  Path);
   C.MountOffset_RightKnee = LoadVector(TEXT("MountOffset_RightKnee"), C.MountOffset_RightKnee, Path);
-  C.MountOffset_LeftFoot  = LoadVector(TEXT("MountOffset_LeftFoot"),  C.MountOffset_LeftFoot,  Path);
-  C.MountOffset_RightFoot = LoadVector(TEXT("MountOffset_RightFoot"), C.MountOffset_RightFoot, Path);
+  C.MountOffset_LeftAnkle  = LoadVector(TEXT("MountOffset_LeftAnkle"),  C.MountOffset_LeftAnkle,  Path);
+  C.MountOffset_RightAnkle = LoadVector(TEXT("MountOffset_RightAnkle"), C.MountOffset_RightAnkle, Path);
 
   // Vehicle hip reference
   C.VehicleHipPosition = LoadVector(TEXT("VehicleHipPosition"), C.VehicleHipPosition, Path);

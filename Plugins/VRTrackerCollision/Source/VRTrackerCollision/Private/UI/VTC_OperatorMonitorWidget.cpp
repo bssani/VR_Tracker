@@ -123,8 +123,8 @@ FString UVTC_OperatorMonitorWidget::GetBodyPartLabel(EVTCTrackerRole Role)
     case EVTCTrackerRole::Waist:     return TEXT("Waist");
     case EVTCTrackerRole::LeftKnee:  return TEXT("Left Knee");
     case EVTCTrackerRole::RightKnee: return TEXT("Right Knee");
-    case EVTCTrackerRole::LeftFoot:  return TEXT("Left Foot");
-    case EVTCTrackerRole::RightFoot: return TEXT("Right Foot");
+    case EVTCTrackerRole::LeftAnkle:  return TEXT("Left Ankle");
+    case EVTCTrackerRole::RightAnkle: return TEXT("Right Ankle");
     default:                         return TEXT("Unknown");
   }
 }

@@ -10,7 +10,7 @@ UE5 플러그인이다.
 |------|------|
 | 엔진 | Unreal Engine 5.5 |
 | VR 장비 | HTC Vive Pro 2 (HMD) + Vive Tracker 3.0 × 5 |
-| 트래커 부위 | Waist, Left Knee, Right Knee, Left Foot, Right Foot |
+| 트래커 부위 | Waist, Left Knee, Right Knee, Left Ankle, Right Ankle |
 | 레벨 구조 | **단일 VR 레벨** (Setup 레벨 없음) |
 | 설정 방식 | 에디터 Details 패널 + INI 파일 (`Config/VTCSettings.ini`) |
 | 클래스 접두사 | `VTC_` |

@@ -59,10 +59,10 @@ void UVTC_CollisionDetector::PerformDistanceMeasurements() {
   CurrentDistanceResults.Empty();
   EVTCWarningLevel NewOverallLevel = EVTCWarningLevel::Safe;
 
-  // 측정할 신체 부위: 양쪽 무릎 (필요 시 발, 엉덩이도 추가 가능)
+  // 측정할 신체 부위: 양쪽 무릎, 발목, 엉덩이
   const TArray<EVTCTrackerRole> BodyPartsToCheck = {
       EVTCTrackerRole::LeftKnee, EVTCTrackerRole::RightKnee,
-      EVTCTrackerRole::LeftFoot, EVTCTrackerRole::RightFoot,
+      EVTCTrackerRole::LeftAnkle, EVTCTrackerRole::RightAnkle,
       EVTCTrackerRole::Waist};
 
   for (const EVTCTrackerRole TrackerRole : BodyPartsToCheck) {

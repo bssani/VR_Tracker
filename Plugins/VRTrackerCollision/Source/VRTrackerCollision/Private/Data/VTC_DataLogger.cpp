@@ -70,8 +70,8 @@ void UVTC_DataLogger::LogFrame(const FVTCBodyMeasurements& Measurements,
 	Row.Height         = Measurements.EstimatedHeight;
 	Row.UpperLeftLeg   = Measurements.Hip_LeftKnee;
 	Row.UpperRightLeg  = Measurements.Hip_RightKnee;
-	Row.LowerLeftLeg   = Measurements.LeftKnee_LeftFoot;
-	Row.LowerRightLeg  = Measurements.RightKnee_RightFoot;
+	Row.LowerLeftLeg   = Measurements.LeftKnee_LeftAnkle;
+	Row.LowerRightLeg  = Measurements.RightKnee_RightAnkle;
 	Row.DistanceResults = DistanceResults;
 	Row.Phase              = CurrentLogPhase;
 	Row.bCollisionOccurred = false;
@@ -82,8 +82,8 @@ void UVTC_DataLogger::LogFrame(const FVTCBodyMeasurements& Measurements,
 		Row.HipLocation       = TrackerSource->GetTrackerLocation(EVTCTrackerRole::Waist);
 		Row.LeftKneeLocation  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftKnee);
 		Row.RightKneeLocation = TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightKnee);
-		Row.LeftFootLocation  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftFoot);
-		Row.RightFootLocation = TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightFoot);
+		Row.LeftAnkleLocation  = TrackerSource->GetTrackerLocation(EVTCTrackerRole::LeftAnkle);
+		Row.RightAnkleLocation = TrackerSource->GetTrackerLocation(EVTCTrackerRole::RightAnkle);
 	}
 	else
 	{
@@ -94,8 +94,8 @@ void UVTC_DataLogger::LogFrame(const FVTCBodyMeasurements& Measurements,
 			case EVTCTrackerRole::Waist:     if (Row.HipLocation.IsZero())       Row.HipLocation       = D.BodyPartLocation; break;
 			case EVTCTrackerRole::LeftKnee:  if (Row.LeftKneeLocation.IsZero())  Row.LeftKneeLocation  = D.BodyPartLocation; break;
 			case EVTCTrackerRole::RightKnee: if (Row.RightKneeLocation.IsZero()) Row.RightKneeLocation = D.BodyPartLocation; break;
-			case EVTCTrackerRole::LeftFoot:  if (Row.LeftFootLocation.IsZero())  Row.LeftFootLocation  = D.BodyPartLocation; break;
-			case EVTCTrackerRole::RightFoot: if (Row.RightFootLocation.IsZero()) Row.RightFootLocation = D.BodyPartLocation; break;
+			case EVTCTrackerRole::LeftAnkle:  if (Row.LeftAnkleLocation.IsZero())  Row.LeftAnkleLocation  = D.BodyPartLocation; break;
+			case EVTCTrackerRole::RightAnkle: if (Row.RightAnkleLocation.IsZero()) Row.RightAnkleLocation = D.BodyPartLocation; break;
 			}
 		}
 	}
@@ -305,8 +305,8 @@ FString UVTC_DataLogger::BuildSummaryHeader() const
 		TEXT("SubjectID,Date")
 		TEXT(",Height_cm")
 		TEXT(",WaistToKnee_L_cm,WaistToKnee_R_cm")
-		TEXT(",KneeToFoot_L_cm,KneeToFoot_R_cm")
-		TEXT(",WaistToFoot_L_cm,WaistToFoot_R_cm")
+		TEXT(",KneeToAnkle_L_cm,KneeToAnkle_R_cm")
+		TEXT(",WaistToAnkle_L_cm,WaistToAnkle_R_cm")
 		TEXT(",HipPos_avg_X,HipPos_avg_Y,HipPos_avg_Z")
 		TEXT(",HipDist_to_Ref_min_cm")
 		TEXT(",LKnee_to_Ref_min_cm")
@@ -368,7 +368,7 @@ FString UVTC_DataLogger::BuildSummaryRow() const
 			? CachedMeasurements.ManualHeight_cm
 			: CachedMeasurements.EstimatedHeight,
 		CachedMeasurements.Hip_LeftKnee,         CachedMeasurements.Hip_RightKnee,
-		CachedMeasurements.LeftKnee_LeftFoot,     CachedMeasurements.RightKnee_RightFoot,
+		CachedMeasurements.LeftKnee_LeftAnkle,     CachedMeasurements.RightKnee_RightAnkle,
 		CachedMeasurements.TotalLeftLeg,          CachedMeasurements.TotalRightLeg,
 		HipAvg.X, HipAvg.Y, HipAvg.Z,
 		*SafeMinStr(MinClearance_Hip),
@@ -402,10 +402,10 @@ FString UVTC_DataLogger::BuildFrameHeader() const
 	// 거리 정보는 기준점별로 전부 기록 (BodyPart|RefPoint|Distance|Status 반복 컬럼)
 	return
 		TEXT("Timestamp,SubjectID,Height_cm")
-		TEXT(",WaistToKnee_L,WaistToKnee_R,KneeToFoot_L,KneeToFoot_R")
+		TEXT(",WaistToKnee_L,WaistToKnee_R,KneeToAnkle_L,KneeToAnkle_R")
 		TEXT(",HipX,HipY,HipZ")
 		TEXT(",LKneeX,LKneeY,LKneeZ,RKneeX,RKneeY,RKneeZ")
-		TEXT(",LFootX,LFootY,LFootZ,RFootX,RFootY,RFootZ")
+		TEXT(",LAnkleX,LAnkleY,LAnkleZ,RAnkleX,RAnkleY,RAnkleZ")
 		TEXT(",BodyPart,RefPoint,Distance_cm,Status[repeated per ref]")
 		TEXT(",CollisionOccurred,CollisionPart");
 }
@@ -423,8 +423,8 @@ FString UVTC_DataLogger::FrameRowToCSVLine(const FVTCLogRow& Row) const
 		Row.HipLocation.X,        Row.HipLocation.Y,        Row.HipLocation.Z,
 		Row.LeftKneeLocation.X,   Row.LeftKneeLocation.Y,   Row.LeftKneeLocation.Z,
 		Row.RightKneeLocation.X,  Row.RightKneeLocation.Y,  Row.RightKneeLocation.Z,
-		Row.LeftFootLocation.X,   Row.LeftFootLocation.Y,   Row.LeftFootLocation.Z,
-		Row.RightFootLocation.X,  Row.RightFootLocation.Y,  Row.RightFootLocation.Z
+		Row.LeftAnkleLocation.X,   Row.LeftAnkleLocation.Y,   Row.LeftAnkleLocation.Z,
+		Row.RightAnkleLocation.X,  Row.RightAnkleLocation.Y,  Row.RightAnkleLocation.Z
 	);
 
 	// 기준점별 거리 컬럼 (모두 출력)

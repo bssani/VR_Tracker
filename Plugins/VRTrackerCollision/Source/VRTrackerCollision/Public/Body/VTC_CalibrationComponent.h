@@ -93,7 +93,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "VTC|Calibration")
 	void SetManualMeasurements(float HipToLKnee, float HipToRKnee,
-		float LKneeToLFoot, float RKneeToRFoot, float SubjectHeight);
+		float LKneeToLAnkle, float RKneeToRAnkle, float SubjectHeight);
 
 	// ─── Delegates ──────────────────────────────────────────────────────────
 
